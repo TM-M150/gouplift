@@ -187,7 +187,7 @@ function ActionButtons({
   return (
     <div className={`flex items-center gap-3 ${className}`}>
       <Link
-        href="/sign-in"
+        href="#"
         onClick={onNavigate}
         className={cn(
           buttonVariants({ variant: "ghost" }),
@@ -198,7 +198,7 @@ function ActionButtons({
       </Link>
 
       <Link
-        href="/start-fundraiser"
+        href="#"
         onClick={onNavigate}
         className={cn(
           buttonVariants({ variant: "default" }),
