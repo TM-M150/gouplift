@@ -50,15 +50,15 @@
 
 :root {
   --background: oklch(1 0 0);
-  --foreground: oklch(0.147 0.004 49.25);
+  --foreground: oklch(0 0 0);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.147 0.004 49.25);
+  --card-foreground: oklch(0 0 0);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.147 0.004 49.25);
-  --primary: oklch(0.555 0.163 48.998);
-  --primary-foreground: oklch(0.987 0.022 95.277);
-  --secondary: oklch(0.967 0.001 286.375);
-  --secondary-foreground: oklch(0.21 0.006 285.885);
+  --popover-foreground: oklch(0 0 0);
+  --primary: oklch(0.2579 0.0531 157.32);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.7393 0.2018 150.07);
+  --secondary-foreground: oklch(0 0 0);
   --muted: oklch(0.97 0.001 106.424);
   --muted-foreground: oklch(0.553 0.013 58.071);
   --accent: oklch(0.555 0.163 48.998);

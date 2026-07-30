@@ -3,11 +3,13 @@ import React from 'react';
 interface LogoProps extends React.SVGProps<SVGSVGElement> {
   size?: number | string;
   className?: string;
+  rx?: number | string; // Optional rounded corner radius
 }
 
 export const Logo: React.FC<LogoProps> = ({
   size = 500,
   className = '',
+  rx = 60, // Default corner rounding (adjust between 40 to 120 as preferred)
   ...props
 }) => {
   return (
@@ -19,14 +21,19 @@ export const Logo: React.FC<LogoProps> = ({
       className={className}
       {...props}
     >
-      <path
-        d="M 0 250.002 L 0 500 L 249.764 499.787 L 499.527 499.574 L 499.764 249.789 L 500 0 L 250 0 L 0 0 L 0 250.002"
-        stroke="none"
-        fillRule="evenodd"
-        style={{ strokeWidth: 1, fill: 'rgb(7, 43, 25)' }}
+      {/* Rounded Background Box */}
+      <rect
+        x="0"
+        y="0"
+        width="500"
+        height="500"
+        rx={rx}
+        ry={rx}
+        style={{ fill: 'rgb(7, 43, 25)' }}
       >
         <title>Background</title>
-      </path>
+      </rect>
+
       <g>
         <title>P</title>
         <path
