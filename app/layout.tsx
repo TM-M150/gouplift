@@ -4,10 +4,10 @@ import "./globals.css";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { cn } from "@/lib/utils";
-import { Navbar } from "@/components/web/navbar";
-import { Footer } from "@/components/web/footer";
+import { ConvexClientProvider } from "@/components/providers/convex-provider";
+import { Toaster } from "@/components/ui/sonner";
 
-const inter = Inter({subsets:['latin'],variable:'--font-sans'});
+const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -32,14 +32,22 @@ export default function RootLayout({
   return (
     <html
       lang="en-GB"
-      className={cn("h-full", "antialiased", geistSans.variable, geistMono.variable, "font-sans", inter.variable)}
+      className={cn(
+        "h-full",
+        "antialiased",
+        geistSans.variable,
+        geistMono.variable,
+        "font-sans",
+        inter.variable,
+      )}
     >
       <body className="min-h-full flex flex-col">
-        <Navbar />
-        {children}
-        <Analytics />
-        <SpeedInsights />
-        <Footer />
+        <ConvexClientProvider>
+          {children}
+          <Toaster position="top-right" richColors />
+          <Analytics />
+          <SpeedInsights />
+        </ConvexClientProvider>
       </body>
     </html>
   );

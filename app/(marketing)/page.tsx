@@ -149,7 +149,7 @@ export default function Home() {
                   </Link>
 
                   <Link
-                    href="#"
+                    href="/sign-up"
                     className={cn(
                       buttonVariants({ variant: "ghost" }),
                       "text-nowrap",
