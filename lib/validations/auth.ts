@@ -41,3 +41,15 @@ export const signUpSchema = z
   });
 
 export type SignUpValues = z.infer<typeof signUpSchema>;
+
+
+export const signInSchema = z.object({
+  identifier: z
+    .string()
+    .min(1, "Email or phone number is required"),
+  password: z
+    .string()
+    .min(1, "Password is required"),
+});
+
+export type SignInValues = z.infer<typeof signInSchema>;

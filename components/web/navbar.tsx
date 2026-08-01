@@ -1,10 +1,39 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Logo from "../icons/logo";
 import React, { useEffect } from "react";
-import { Heart, Info, Lightbulb, LucideIcon, Menu, X } from "lucide-react";
+import {
+  Heart,
+  Info,
+  Lightbulb,
+  LogOut,
+  LucideIcon,
+  Menu,
+  X,
+  ChevronDown,
+  User,
+  Megaphone,
+  TrendingUp,
+  MessageSquare,
+  Settings,
+} from "lucide-react";
+import { toast } from "sonner";
+
+import { authClient } from "@/lib/auth-client";
 import { Button, buttonVariants } from "../ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  DropdownMenuGroup,
+} from "@/components/ui/dropdown-menu";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   NavigationMenu,
   NavigationMenuContent,
@@ -29,7 +58,7 @@ import {
 } from "../ui/sheet";
 import { cn } from "@/lib/utils";
 
-export interface navigationItems {
+interface navigationItems {
   title: string;
   description: string;
   href: string;
@@ -37,7 +66,7 @@ export interface navigationItems {
 
 const fundraise: navigationItems[] = [
   {
-    title: "How to start a GoFundMe",
+    title: "How to start a fundraiser",
     description: "Step-by-step help, examples and more",
     href: "#",
   },
@@ -177,36 +206,133 @@ function MobileNavigationSection({
   );
 }
 
-function ActionButtons({
-  onNavigate,
-  className = "",
-}: {
+interface ActionButtonsProps {
   onNavigate?: () => void;
   className?: string;
-}) {
-  return (
-    <div className={`flex items-center gap-3 ${className}`}>
-      <Link
-        href="#"
-        onClick={onNavigate}
-        className={cn(
-          buttonVariants({ variant: "ghost" }),
-          "w-full sm:w-auto font-medium",
-        )}
-      >
-        Sign in
-      </Link>
+}
 
-      <Link
-        href="#"
-        onClick={onNavigate}
-        className={cn(
-          buttonVariants({ variant: "default" }),
-          "w-full sm:w-auto font-medium",
-        )}
-      >
-        Start a Fundraiser
-      </Link>
+function ActionButtons({ onNavigate, className = "" }: ActionButtonsProps) {
+  const router = useRouter();
+  const { data: session, isPending } = authClient.useSession();
+
+  const handleSignOut = async () => {
+    await authClient.signOut({
+      fetchOptions: {
+        onSuccess: () => {
+          toast.success("Logged out successfully");
+          if (onNavigate) onNavigate();
+          router.push("/");
+        },
+        onError: (ctx) => {
+          toast.error(ctx.error.message || "Failed to log out");
+        },
+      },
+    });
+  };
+
+  const handleNavigate = (href: string) => {
+    if (onNavigate) onNavigate();
+    router.push(href);
+  };
+
+  // Helper to extract initials for Avatar fallback
+  const getInitials = (name?: string) => {
+    if (!name) return "U";
+    return name
+      .split(" ")
+      .map((part) => part[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
+  const firstName = session?.user.name?.split(" ")[0] || "Account";
+
+  return (
+    <div className={cn("flex items-center gap-3", className)}>
+      {/* 1. Loading State */}
+      {isPending ? (
+        <Skeleton className="h-9 w-24 rounded-md" />
+      ) : session ? (
+        /* 2. Logged In State: Avatar + first name + chevron opens the account menu */
+        <DropdownMenu>
+          <DropdownMenuTrigger className="flex items-center gap-2 rounded-full py-1 pl-1 pr-2">
+            <Avatar className="h-8 w-8 border">
+              <AvatarImage src={session.user.image || ""} alt={session.user.name || "User"} />
+              <AvatarFallback className="bg-primary/10 text-primary font-semibold text-xs">
+                {getInitials(session.user.name)}
+              </AvatarFallback>
+            </Avatar>
+            <span className="text-sm font-medium max-w-[100px] truncate">
+              {firstName}
+            </span>
+            <ChevronDown className="size-4 text-muted-foreground" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuItem
+              onClick={() => handleNavigate("/profile")}
+              className="cursor-pointer"
+            >
+              <User className="mr-2 size-4" />
+              <span>Profile</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => handleNavigate("#")}
+              className="cursor-pointer"
+            >
+              <Megaphone className="mr-2 size-4" />
+              <span>Your fundraisers</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => handleNavigate("/your-impact")}
+              className="cursor-pointer"
+            >
+              <TrendingUp className="mr-2 size-4" />
+              <span>Your impact</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => handleNavigate("#")}
+              className="cursor-pointer"
+            >
+              <Settings className="mr-2 size-4" />
+              <span>Account settings</span>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={handleSignOut}
+              className="cursor-pointer text-destructive focus:text-destructive"
+            >
+              <LogOut className="mr-2 size-4" />
+              <span>Sign out</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : (
+        /* 3. Logged Out State: Show "Sign in" & "Start a Fundraiser" */
+        <>
+          <Link
+            href="/sign-in"
+            onClick={onNavigate}
+            className={cn(
+              buttonVariants({ variant: "ghost" }),
+              "w-full sm:w-auto font-medium"
+            )}
+          >
+            Sign in
+          </Link>
+
+          <Link
+            href="/sign-up"
+            onClick={onNavigate}
+            className={cn(
+              buttonVariants({ variant: "default" }),
+              "w-full sm:w-auto font-medium"
+            )}
+          >
+            Start a Fundraiser
+          </Link>
+        </>
+      )}
     </div>
   );
 }
