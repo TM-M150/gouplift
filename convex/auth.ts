@@ -23,6 +23,23 @@ export const createAuth = (ctx: GenericCtx) => {
       "https://www.gouplift.co.ke",
       "https://gouplift.co.ke",
     ],
+    // Extend user schema with custom fields
+    user: {
+      additionalFields: {
+        bio: {
+          type: "string",
+          required: false,
+          defaultValue: "",
+          input: true, // Enables updating via client auth update calls
+        },
+        isPrivate: {
+          type: "boolean",
+          required: false,
+          defaultValue: true,
+          input: true,
+        },
+      },
+    },
     database: authComponent.adapter(ctx),
     emailAndPassword: {
       enabled: true,

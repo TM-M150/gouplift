@@ -148,9 +148,9 @@ export default function SignInForm() {
       toast.error("Sign in failed", { description: errorMsg });
     } else {
       toast.success("Welcome back!", {
-        description: "Redirecting you to home page...",
+        description: "Redirecting your profile...",
       });
-      router.push("/");
+      router.push("/profile");
     }
   };
 

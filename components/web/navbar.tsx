@@ -277,7 +277,7 @@ function ActionButtons({ onNavigate, className = "" }: ActionButtonsProps) {
               <span>Profile</span>
             </DropdownMenuItem>
             <DropdownMenuItem
-              onClick={() => handleNavigate("#")}
+              onClick={() => handleNavigate("/profile")}
               className="cursor-pointer"
             >
               <Megaphone className="mr-2 size-4" />
