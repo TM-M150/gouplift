@@ -154,7 +154,7 @@ export default function SignupForm() {
       toast.success("Account created successfully!", {
         description: "Redirecting you to the home page...",
       });
-      router.push("/");
+      router.push("/profile");
     }
   };
 
