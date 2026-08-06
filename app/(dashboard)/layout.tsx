@@ -1,4 +1,4 @@
-import { Navbar } from "@/components/web/navbar";
+import { Navbar } from "@/components/web/navbar/navbar";
 import { Footer } from "@/components/web/footer";
 
 export default function MarketingLayout({

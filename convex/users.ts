@@ -1,7 +1,9 @@
 // convex/users.ts
 import { ConvexError, v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { action, internalMutation, mutation, query } from "./_generated/server";
 import { authComponent } from "./auth";
+import { profileSchema } from "@/lib/validations/profile";
+import { internal } from "./_generated/api";
 
 // Follower
 export const getProfileStats = query({
@@ -83,16 +85,48 @@ export const updateProfile = mutation({
     bio: v.optional(v.string()),
     location: v.optional(v.string()),
     website: v.optional(v.string()),
+    isPrivate: v.optional(v.boolean()),
+    courses: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
-    const authUser = await authComponent.getAuthUser(ctx); // throws if not signed in
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+    if (!authUser) {
+      throw new ConvexError("You must be signed in to update your profile");
+    }
+
     const user = await ctx.db
       .query("users")
       .withIndex("by_authUserId", (q) => q.eq("authUserId", authUser._id))
       .unique();
     if (!user) throw new ConvexError("Profile not found");
 
-    await ctx.db.patch(user._id, { ...args, updatedAt: Date.now() });
+    const parsed = profileSchema.safeParse(args);
+    if (!parsed.success) {
+      throw new ConvexError(parsed.error.issues[0]?.message ?? "Invalid profile data");
+    }
+
+    await ctx.db.patch(user._id, { ...parsed.data, updatedAt: Date.now() });
+  },
+});
+
+export const getCurrentUserProfile = query({
+  args: {},
+  handler: async (ctx) => {
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+    if (!authUser) return null;
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authUserId", (q) => q.eq("authUserId", authUser._id))
+      .unique();
+    if (!user) return null;
+
+    return {
+      bio: user.bio ?? "",
+      courses: user.courses ?? [],
+      isPrivate: user.isPrivate ?? false,
+      image: user.image,
+    };
   },
 });
 
@@ -107,5 +141,62 @@ export const getUserById = query({
         q.eq("authUserId", args.authUserId)
       )
       .unique();
+  },
+});
+
+export const generateUploadUrl = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+    if (!authUser) {
+      throw new ConvexError("You must be signed in to upload a photo");
+    }
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+export const saveProfileImage = internalMutation({
+  args: {
+    authUserId: v.string(),
+    storageId: v.id("_storage"),
+    url: v.string(),
+  },
+  handler: async (ctx, { authUserId, storageId, url }) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authUserId", (q) => q.eq("authUserId", authUserId))
+      .unique();
+    if (!user) throw new ConvexError("Profile not found");
+
+    if (user.imageStorageId) {
+      await ctx.storage.delete(user.imageStorageId);
+    }
+
+    await ctx.db.patch(user._id, {
+      image: url,
+      imageStorageId: storageId,
+      updatedAt: Date.now(),
+    });
+  },
+});
+
+export const processProfileImageAction = action({
+  args: { storageId: v.id("_storage") },
+  handler: async (ctx, { storageId }) => {
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+    if (!authUser) {
+      throw new ConvexError("You must be signed in to upload a photo");
+    }
+
+    const url = await ctx.storage.getUrl(storageId);
+    if (!url) throw new ConvexError("Upload failed, please try again");
+
+    await ctx.runMutation(internal.users.saveProfileImage, {
+      authUserId: authUser._id,
+      storageId,
+      url,
+    });
+
+    return url;
   },
 });

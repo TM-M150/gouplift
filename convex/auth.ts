@@ -26,6 +26,7 @@ export const authComponent = createClient<DataModel>(components.betterAuth, {
           username: undefined,
           bio: "",
           coverImage: undefined,
+          courses: undefined,
           location: undefined,
           website: undefined,
           dateOfBirth: undefined,
