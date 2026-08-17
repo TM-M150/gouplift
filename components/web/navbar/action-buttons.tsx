@@ -86,6 +86,13 @@ export function ActionButtons({ onNavigate, className = "" }: ActionButtonsProps
               <User className="mr-2 size-4" />
               <span>Profile</span>
             </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => handleNavigate("/fundraiser-form")}
+              className="cursor-pointer h-4"
+            >
+              <User className="mr-2 size-4" />
+              <span>Create Fundraiser</span>
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={handleSignOut}
