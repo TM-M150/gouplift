@@ -81,7 +81,7 @@ export function FundraisersTab() {
 
         return (
           // Adjust to your actual fundraiser detail route
-          <Link key={fundraiser._id} href={`/fundraisers/${fundraiser._id}`}>
+          <Link key={fundraiser._id} href={`/fundraiser/${fundraiser._id}`}>
             <Card className="h-full overflow-hidden p-0 transition-shadow hover:shadow-md">
               <div className="relative aspect-video bg-muted">
                 {fundraiser.coverImageUrl ? (

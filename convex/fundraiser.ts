@@ -135,3 +135,47 @@ export const listMyFundraisers = query({
     );
   },
 });
+
+const RESTRICTED_STATUSES = new Set(["DRAFT", "PENDING_REVIEW", "REJECTED"]);
+ 
+export const getFundraiserById = query({
+  args: { fundraiserId: v.id("fundraisers") },
+  handler: async (ctx, args) => {
+    const fundraiser = await ctx.db.get(args.fundraiserId);
+    if (!fundraiser) {
+      return null;
+    }
+ 
+    // Restricted fundraisers are only visible to their owner or staff —
+    // everyone else gets treated as "not found" rather than "forbidden"
+    // so the detail page doesn't leak that a restricted fundraiser exists.
+    const needsAuth =
+      fundraiser.isPrivate || RESTRICTED_STATUSES.has(fundraiser.status);
+ 
+    if (needsAuth) {
+      const authUser = await authComponent.safeGetAuthUser(ctx);
+      const user = authUser
+        ? await ctx.db
+            .query("users")
+            .withIndex("by_authUserId", (q) =>
+              q.eq("authUserId", authUser._id),
+            )
+            .unique()
+        : null;
+ 
+      const isOwner = user?._id === fundraiser.creatorId;
+      const isStaff = user?.role === "ADMIN" || user?.role === "MODERATOR";
+ 
+      if (!isOwner && !isStaff) {
+        return null;
+      }
+    }
+ 
+    return {
+      ...fundraiser,
+      coverImageUrl: fundraiser.coverImageStorageId
+        ? await ctx.storage.getUrl(fundraiser.coverImageStorageId)
+        : (fundraiser.coverImage ?? null),
+    };
+  },
+});
