@@ -8,9 +8,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import type { Metadata } from "next";
+import { DonationStatusBanner } from "@/components/web/donate/donation-status-banner";
+import { DonateButton } from "@/components/web/donate/donate-button";
 
 interface PageProps {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ donation?: string }>;
 }
 
 const currencyFormatter = new Intl.NumberFormat("en-KE", {
@@ -57,9 +60,6 @@ function beneficiaryLine(fundraiser: {
   }
 }
 
-// A malformed/garbage id in the URL makes Convex's argument validator throw
-// rather than just returning null, so this normalizes that into "not found"
-// too. cache() means generateMetadata and the page body share one fetch.
 const loadFundraiser = cache(async (id: string) => {
   try {
     return await fetchQuery(api.fundraiser.getFundraiserById, {
@@ -86,8 +86,12 @@ export async function generateMetadata({
   };
 }
 
-export default async function FundraiserPage({ params }: PageProps) {
+export default async function FundraiserPage({
+  params,
+  searchParams,
+}: PageProps) {
   const { id } = await params;
+  const { donation: donationId } = await searchParams;
   const fundraiser = await loadFundraiser(id);
 
   if (!fundraiser) {
@@ -105,9 +109,10 @@ export default async function FundraiserPage({ params }: PageProps) {
   const showStatusBadge = fundraiser.status !== "ACTIVE";
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-10">
+    <main className="min-h-screen max-w-5xl mx-auto w-full pt-24 px-4 pb-16">
+      {donationId && <DonationStatusBanner donationId={donationId} />}
       <div className="grid gap-8 lg:grid-cols-3">
-        <div className="space-y-6 lg:col-span-2">
+        <section className="space-y-6 lg:col-span-2">
           <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-muted">
             {fundraiser.coverImageUrl ? (
               <Image
@@ -154,10 +159,10 @@ export default async function FundraiserPage({ params }: PageProps) {
           <p className="whitespace-pre-wrap text-base leading-relaxed">
             {fundraiser.story}
           </p>
-        </div>
+        </section>
 
-        <div className="lg:col-span-1">
-          <Card className="sticky top-6">
+        <section className="lg:col-span-1">
+          <Card className="sticky top-20 py-6">
             <CardContent className="space-y-4">
               <div className="space-y-1.5">
                 <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
@@ -181,20 +186,14 @@ export default async function FundraiserPage({ params }: PageProps) {
                 </p>
               </div>
 
-              {/* TODO: wire this up once a donation/checkout flow exists */}
-              <Button
-                className="w-full"
-                size="lg"
+              <DonateButton
+                fundraiserId={fundraiser._id}
                 disabled={fundraiser.status !== "ACTIVE"}
-              >
-                {fundraiser.status === "ACTIVE"
-                  ? "Donate now"
-                  : "Donations closed"}
-              </Button>
+              />
             </CardContent>
           </Card>
-        </div>
+        </section>
       </div>
-    </div>
+    </main>
   );
 }

@@ -46,7 +46,7 @@ export default defineSchema({
       v.literal("ORGANIZATION"),
     ),
     beneficiaryUserId: v.optional(v.id("users")),
-    beneficiaryName: v.optional(v.string()), 
+    beneficiaryName: v.optional(v.string()),
     beneficiaryRelationship: v.optional(v.string()),
     organizationName: v.optional(v.string()),
     title: v.string(),
@@ -73,7 +73,7 @@ export default defineSchema({
     goalAmount: v.number(),
     currency: v.union(v.literal("KES")),
     amountRaised: v.number(),
-    donorCount: v.number(), 
+    donorCount: v.number(),
     status: v.union(
       v.literal("DRAFT"),
       v.literal("PENDING_REVIEW"),
@@ -109,4 +109,62 @@ export default defineSchema({
     .index("by_type", ["type"])
     .index("by_beneficiaryUserId", ["beneficiaryUserId"])
     .index("by_endDate", ["endDate"]),
+  donations: defineTable({
+    fundraiserId: v.id("fundraisers"),
+    donorUserId: v.optional(v.id("users")),
+    donorName: v.optional(v.string()),
+    donorEmail: v.optional(v.string()),
+    donorPhone: v.optional(v.string()),
+    isAnonymous: v.boolean(),
+    grossAmount: v.number(),
+    currency: v.union(v.literal("KES")),
+    message: v.optional(v.string()),
+    platformFeeRate: v.number(), // e.g. 0.0425
+    platformFeeAmount: v.number(), // round(grossAmount * platformFeeRate, 2)
+    netAmount: v.number(), // grossAmount - platformFeeAmount — owed to the fundraiser's beneficiary.
+    gatewayFeeAmount: v.optional(v.number()),
+
+    status: v.union(
+      v.literal("PENDING"),
+      v.literal("COMPLETED"),
+      v.literal("FAILED"),
+      v.literal("CANCELLED"),
+      v.literal("REFUNDED"),
+    ),
+    payoutStatus: v.union(
+      v.literal("NOT_YET_PAYABLE"),
+      v.literal("PENDING_PAYOUT"),
+      v.literal("PAID_OUT"),
+    ),
+
+    paymentMethod: v.optional(v.union(
+      v.literal("SASAPAY_WALLET"),
+      v.literal("MPESA"),
+      v.literal("AIRTEL_MONEY"),
+      v.literal("CARD"),
+      v.literal("BANK")),
+    ),
+    merchantRequestId: v.optional(v.string()), // SasaPay's MerchantRequestID
+    checkoutRequestId: v.optional(v.string()), // SasaPay's CheckoutRequestID — what the async callback correlates back to this row with
+    providerTransactionCode: v.optional(v.string()), // SasaPay's settlement-time transaction code from the callback, for reconciling against their statement API later
+    providerPayload: v.optional(v.string()), // raw callback JSON, stringified — worth keeping for debugging/reconciliation
+
+    failureReason: v.optional(v.string()),
+    refundedAt: v.optional(v.number()),
+    refundReason: v.optional(v.string()),
+
+    completedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_fundraiserId", ["fundraiserId"])
+    .index("by_fundraiserId_and_status", ["fundraiserId", "status"])
+    .index("by_donorUserId", ["donorUserId"])
+    .index("by_status", ["status"])
+    .index("by_checkoutRequestId", ["checkoutRequestId"])
+    .index("by_payoutStatus", ["payoutStatus"]),
+  sasapayTokens: defineTable({
+    accessToken: v.string(),
+    expiresAt: v.number(),
+  }),
 });
