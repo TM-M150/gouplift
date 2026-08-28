@@ -17,6 +17,11 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 
+// Kept deliberately minimal for a first pass — amount and an optional
+// message. donorName/donorEmail/donorPhone/isAnonymous all exist on
+// startDonationCheckout already and are easy to add as fields here later
+// (email in particular, for receipts) without touching the backend.
+
 const AMOUNT_PRESETS = [500, 1000, 2500, 5000];
 
 interface DonateButtonProps {
@@ -25,10 +30,13 @@ interface DonateButtonProps {
 }
 
 export function DonateButton({ fundraiserId, disabled }: DonateButtonProps) {
-  const startDonationCheckout = useAction(api.donations.startDonationCheckout);
+  const startDonationCheckout = useAction(
+    api.donations.startDonationCheckout,
+  );
 
   const [open, setOpen] = React.useState(false);
   const [amount, setAmount] = React.useState<number | "">("");
+  const [email, setEmail] = React.useState("");
   const [message, setMessage] = React.useState("");
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -42,12 +50,17 @@ export function DonateButton({ fundraiserId, disabled }: DonateButtonProps) {
       setError("Enter an amount greater than 0.");
       return;
     }
+    if (!email.trim()) {
+      setError("Enter an email address for your receipt.");
+      return;
+    }
 
     setSubmitting(true);
     try {
       const { checkoutUrl } = await startDonationCheckout({
         fundraiserId,
         grossAmount,
+        donorEmail: email.trim(),
         message: message.trim() || undefined,
         isAnonymous: false,
         origin: window.location.origin,
@@ -67,8 +80,7 @@ export function DonateButton({ fundraiserId, disabled }: DonateButtonProps) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger
-        render={<Button className="w-full" size="lg" disabled={disabled} />}
+      <DialogTrigger render={<Button className="w-full" size="lg" disabled={disabled} />}
       >
         {disabled ? "Donations closed" : "Donate now"}
       </DialogTrigger>
@@ -103,8 +115,22 @@ export function DonateButton({ fundraiserId, disabled }: DonateButtonProps) {
               placeholder="Custom amount"
               value={amount}
               onChange={(event) =>
-                setAmount(event.target.value ? Number(event.target.value) : "")
+                setAmount(
+                  event.target.value ? Number(event.target.value) : "",
+                )
               }
+              required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="donate-email">Email (for your receipt)</Label>
+            <Input
+              id="donate-email"
+              type="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
               required
             />
           </div>
