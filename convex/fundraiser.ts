@@ -179,3 +179,60 @@ export const getFundraiserById = query({
     };
   },
 });
+
+const FUNDRAISER_TYPE_ORDER = [
+  "MEDICAL",
+  "EDUCATION",
+  "EMERGENCY",
+  "MEMORIAL_FUNERAL",
+  "COMMUNITY_HARAMBEE",
+  "BUSINESS_STARTUP",
+  "SPORTS",
+  "CREATIVE_ARTS",
+  "ANIMAL_WELFARE",
+  "ENVIRONMENT",
+  "DISASTER_RELIEF",
+  "NONPROFIT",
+  "OTHER",
+] as const;
+
+const SCAN_LIMIT = 200;
+
+const PER_GROUP_LIMIT = 6;
+
+export const listFundraisersByType = query({
+  args: {},
+  handler: async (ctx) => {
+    const fundraisers = await ctx.db
+      .query("fundraisers")
+      .withIndex("by_status", (q) => q.eq("status", "ACTIVE"))
+      .filter((q) => q.eq(q.field("isPrivate"), false))
+      .order("desc")
+      .take(SCAN_LIMIT);
+ 
+    const groups = FUNDRAISER_TYPE_ORDER.map((type) => ({
+      type,
+      fundraisers: fundraisers.filter((f) => f.type === type).slice(0, PER_GROUP_LIMIT),
+    })).filter((group) => group.fundraisers.length > 0);
+ 
+    return Promise.all(
+      groups.map(async (group) => ({
+        type: group.type,
+        fundraisers: await Promise.all(
+          group.fundraisers.map(async (fundraiser) => ({
+            _id: fundraiser._id,
+            title: fundraiser.title,
+            goalAmount: fundraiser.goalAmount,
+            amountRaised: fundraiser.amountRaised,
+            currency: fundraiser.currency,
+            donorCount: fundraiser.donorCount,
+            location: fundraiser.location,
+            coverImageUrl: fundraiser.coverImageStorageId
+              ? await ctx.storage.getUrl(fundraiser.coverImageStorageId)
+              : (fundraiser.coverImage ?? null),
+          })),
+        ),
+      })),
+    );
+  },
+});

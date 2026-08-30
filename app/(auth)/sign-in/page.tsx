@@ -242,8 +242,8 @@ export default function SignInForm() {
           </Card>
           <FieldDescription className="px-6 text-center text-xs">
             By continuing, you agree to our{" "}
-            <Link href="#" className="underline">
-              Terms of Service
+            <Link href="/terms" className="underline">
+              Terms of Use
             </Link>{" "}
             and{" "}
             <Link href="#" className="underline">

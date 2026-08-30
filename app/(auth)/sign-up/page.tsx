@@ -26,7 +26,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { signUpSchema, SignUpValues } from "@/lib/validations/auth";
 import { authClient } from "@/lib/auth-client";
 
-// Local Input Helper 
+// Local Input Helper
 interface BaseFieldProps {
   id: string;
   label: string;
@@ -137,7 +137,9 @@ export default function SignupForm() {
     const firstName = toProperCase(data.firstName);
     const middleName = data.middleName ? toProperCase(data.middleName) : "";
     const lastName = toProperCase(data.lastName);
-    const fullName = [firstName, middleName, lastName].filter(Boolean).join(" ");
+    const fullName = [firstName, middleName, lastName]
+      .filter(Boolean)
+      .join(" ");
 
     const { error } = await authClient.signUp.email({
       email: data.email,
@@ -169,7 +171,9 @@ export default function SignupForm() {
                   <FieldSet>
                     <div className="flex flex-col items-center gap-2 text-center">
                       <FieldLegend>
-                        <h1 className="text-2xl font-bold">Create your Account</h1>
+                        <h1 className="text-2xl font-bold">
+                          Create your Account
+                        </h1>
                       </FieldLegend>
                       <FieldDescription>
                         <span className="text-balance text-muted-foreground">
@@ -249,7 +253,11 @@ export default function SignupForm() {
                   </FieldSet>
 
                   <Field>
-                    <Button type="submit" className="w-full" disabled={isSubmitting}>
+                    <Button
+                      type="submit"
+                      className="w-full"
+                      disabled={isSubmitting}
+                    >
                       {isSubmitting ? (
                         <>
                           <Spinner className="mr-2" />
@@ -278,7 +286,8 @@ export default function SignupForm() {
                   </Field>
 
                   <FieldDescription className="text-center">
-                    Already have an account? <Link href="/sign-in">Sign in</Link>
+                    Already have an account?{" "}
+                    <Link href="/sign-in">Sign in</Link>
                   </FieldDescription>
                 </FieldGroup>
               </form>
@@ -296,7 +305,7 @@ export default function SignupForm() {
           </Card>
           <FieldDescription className="px-6 text-center">
             By clicking continue, you agree to our{" "}
-            <Link href="/terms">Terms of Service</Link> and{" "}
+            <Link href="/terms">Terms of Use</Link> and{" "}
             <Link href="/privacy">Privacy Policy</Link>.
           </FieldDescription>
         </div>
