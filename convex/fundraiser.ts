@@ -2,9 +2,7 @@ import { v, ConvexError } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 import { authComponent } from "./auth";
-import {
-  fundraiserSchema,
-} from "../lib/validations/fundraiser";
+import { fundraiserSchema } from "../lib/validations/fundraiser";
 
 function requireModerator(user: Doc<"users">) {
   if (user.role !== "ADMIN" && user.role !== "MODERATOR") {
@@ -14,7 +12,9 @@ function requireModerator(user: Doc<"users">) {
 
 function requireOwner(user: Doc<"users">, fundraiser: Doc<"fundraisers">) {
   if (fundraiser.creatorId !== user.authUserId && user.role !== "ADMIN") {
-    throw new ConvexError("You don't have permission to modify this fundraiser.");
+    throw new ConvexError(
+      "You don't have permission to modify this fundraiser.",
+    );
   }
 }
 
@@ -56,7 +56,9 @@ export const createFundraiser = mutation({
 
     const parsed = fundraiserSchema.safeParse(args);
     if (!parsed.success) {
-      throw new ConvexError(parsed.error.issues[0]?.message ?? "Invalid profile data");
+      throw new ConvexError(
+        parsed.error.issues[0]?.message ?? "Invalid profile data",
+      );
     }
 
     const now = Date.now();
@@ -100,22 +102,22 @@ export const listMyFundraisers = query({
     if (!authUser) {
       return [];
     }
- 
+
     const user = await ctx.db
       .query("users")
       .withIndex("by_authUserId", (q) => q.eq("authUserId", authUser._id))
       .unique();
- 
+
     if (!user) {
       return [];
     }
- 
+
     const fundraisers = await ctx.db
       .query("fundraisers")
       .withIndex("by_creatorId", (q) => q.eq("creatorId", user._id))
       .order("desc")
       .collect();
- 
+
     return Promise.all(
       fundraisers.map(async (fundraiser) => ({
         _id: fundraiser._id,
@@ -137,7 +139,7 @@ export const listMyFundraisers = query({
 });
 
 const RESTRICTED_STATUSES = new Set(["DRAFT", "PENDING_REVIEW", "REJECTED"]);
- 
+
 export const getFundraiserById = query({
   args: { fundraiserId: v.id("fundraisers") },
   handler: async (ctx, args) => {
@@ -145,32 +147,30 @@ export const getFundraiserById = query({
     if (!fundraiser) {
       return null;
     }
- 
+
     // Restricted fundraisers are only visible to their owner or staff —
     // everyone else gets treated as "not found" rather than "forbidden"
     // so the detail page doesn't leak that a restricted fundraiser exists.
     const needsAuth =
       fundraiser.isPrivate || RESTRICTED_STATUSES.has(fundraiser.status);
- 
+
     if (needsAuth) {
       const authUser = await authComponent.safeGetAuthUser(ctx);
       const user = authUser
         ? await ctx.db
             .query("users")
-            .withIndex("by_authUserId", (q) =>
-              q.eq("authUserId", authUser._id),
-            )
+            .withIndex("by_authUserId", (q) => q.eq("authUserId", authUser._id))
             .unique()
         : null;
- 
+
       const isOwner = user?._id === fundraiser.creatorId;
       const isStaff = user?.role === "ADMIN" || user?.role === "MODERATOR";
- 
+
       if (!isOwner && !isStaff) {
         return null;
       }
     }
- 
+
     return {
       ...fundraiser,
       coverImageUrl: fundraiser.coverImageStorageId
@@ -209,12 +209,14 @@ export const listFundraisersByType = query({
       .filter((q) => q.eq(q.field("isPrivate"), false))
       .order("desc")
       .take(SCAN_LIMIT);
- 
+
     const groups = FUNDRAISER_TYPE_ORDER.map((type) => ({
       type,
-      fundraisers: fundraisers.filter((f) => f.type === type).slice(0, PER_GROUP_LIMIT),
+      fundraisers: fundraisers
+        .filter((f) => f.type === type)
+        .slice(0, PER_GROUP_LIMIT),
     })).filter((group) => group.fundraisers.length > 0);
- 
+
     return Promise.all(
       groups.map(async (group) => ({
         type: group.type,
@@ -232,6 +234,40 @@ export const listFundraisersByType = query({
               : (fundraiser.coverImage ?? null),
           })),
         ),
+      })),
+    );
+  },
+});
+
+export const searchFundraisers = query({
+  args: { searchTerm: v.string() },
+  handler: async (ctx, args) => {
+    const trimmed = args.searchTerm.trim();
+    if (!trimmed) {
+      return [];
+    }
+
+    const fundraisers = await ctx.db
+      .query("fundraisers")
+      .withSearchIndex("search_title", (q) =>
+        q
+          .search("title", trimmed)
+          .eq("status", "ACTIVE")
+          .eq("isPrivate", false),
+      )
+      .take(20);
+
+    return Promise.all(
+      fundraisers.map(async (fundraiser) => ({
+        _id: fundraiser._id,
+        title: fundraiser.title,
+        goalAmount: fundraiser.goalAmount,
+        amountRaised: fundraiser.amountRaised,
+        donorCount: fundraiser.donorCount,
+        location: fundraiser.location,
+        coverImageUrl: fundraiser.coverImageStorageId
+          ? await ctx.storage.getUrl(fundraiser.coverImageStorageId)
+          : (fundraiser.coverImage ?? null),
       })),
     );
   },

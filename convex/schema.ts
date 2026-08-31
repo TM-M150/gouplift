@@ -108,7 +108,11 @@ export default defineSchema({
     .index("by_status", ["status"])
     .index("by_type", ["type"])
     .index("by_beneficiaryUserId", ["beneficiaryUserId"])
-    .index("by_endDate", ["endDate"]),
+    .index("by_endDate", ["endDate"])
+    .searchIndex("search_title", {
+      searchField: "title",
+      filterFields: ["status", "isPrivate"],
+    }),
   donations: defineTable({
     fundraiserId: v.id("fundraisers"),
     donorUserId: v.optional(v.id("users")),
@@ -137,12 +141,14 @@ export default defineSchema({
       v.literal("PAID_OUT"),
     ),
 
-    paymentMethod: v.optional(v.union(
-      v.literal("SASAPAY_WALLET"),
-      v.literal("MPESA"),
-      v.literal("AIRTEL_MONEY"),
-      v.literal("CARD"),
-      v.literal("BANK")),
+    paymentMethod: v.optional(
+      v.union(
+        v.literal("SASAPAY_WALLET"),
+        v.literal("MPESA"),
+        v.literal("AIRTEL_MONEY"),
+        v.literal("CARD"),
+        v.literal("BANK"),
+      ),
     ),
     merchantRequestId: v.optional(v.string()), // SasaPay's MerchantRequestID
     checkoutRequestId: v.optional(v.string()), // SasaPay's CheckoutRequestID — what the async callback correlates back to this row with
