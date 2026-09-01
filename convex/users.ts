@@ -5,6 +5,30 @@ import { authComponent } from "./auth";
 import { profileSchema } from "@/lib/validations/profile";
 import { internal } from "./_generated/api";
 
+export const getCurrentUser = query({
+  args: {},
+  handler: async (ctx) => {
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+    if (!authUser) return null;
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authUserId", (q) => q.eq("authUserId", authUser._id))
+      .unique();
+
+    if (!user) return null;
+
+    return {
+      _id: user._id,
+      authUserId: user.authUserId,
+      role: user.role ?? "USER",
+      name: user.displayName,
+      image: user.image,
+      // add any other fields you commonly need
+    };
+  },
+});
+
 // Follower
 export const getProfileStats = query({
   args: { userId: v.string() },
@@ -36,8 +60,7 @@ export const isFollowing = query({
     const follow = await ctx.db
       .query("follows")
       .withIndex("by_both", (q) =>
-        q.eq("followerId", args.followerId)
-          .eq("followingId", args.followingId)
+        q.eq("followerId", args.followerId).eq("followingId", args.followingId),
       )
       .first();
 
@@ -60,8 +83,7 @@ export const toggleFollow = mutation({
     const existing = await ctx.db
       .query("follows")
       .withIndex("by_both", (q) =>
-        q.eq("followerId", args.followerId)
-         .eq("followingId", args.followingId)
+        q.eq("followerId", args.followerId).eq("followingId", args.followingId),
       )
       .first();
 
@@ -102,7 +124,9 @@ export const updateProfile = mutation({
 
     const parsed = profileSchema.safeParse(args);
     if (!parsed.success) {
-      throw new ConvexError(parsed.error.issues[0]?.message ?? "Invalid profile data");
+      throw new ConvexError(
+        parsed.error.issues[0]?.message ?? "Invalid profile data",
+      );
     }
 
     await ctx.db.patch(user._id, { ...parsed.data, updatedAt: Date.now() });
@@ -137,9 +161,7 @@ export const getUserById = query({
   handler: async (ctx, args) => {
     return await ctx.db
       .query("users")
-      .withIndex("by_authUserId", (q) =>
-        q.eq("authUserId", args.authUserId)
-      )
+      .withIndex("by_authUserId", (q) => q.eq("authUserId", args.authUserId))
       .unique();
   },
 });

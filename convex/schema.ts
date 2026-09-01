@@ -40,6 +40,7 @@ export default defineSchema({
     .index("by_both", ["followerId", "followingId"]),
   fundraisers: defineTable({
     creatorId: v.id("users"),
+    organizationId: v.optional(v.id("organizations")),
     beneficiaryType: v.union(
       v.literal("SELF"),
       v.literal("SOMEONE_ELSE"),
@@ -173,4 +174,54 @@ export default defineSchema({
     accessToken: v.string(),
     expiresAt: v.number(),
   }),
+  organizations: defineTable({
+    name: v.string(),
+    description: v.optional(v.string()),
+    logoUrl: v.optional(v.string()),
+    logoStorageId: v.optional(v.id("_storage")),
+    website: v.optional(v.string()),
+    contactEmail: v.optional(v.string()),
+    contactPhone: v.optional(v.string()),
+    registrationNumber: v.optional(v.string()),
+    verificationStatus: v.union(
+      v.literal("UNVERIFIED"),
+      v.literal("PENDING_REVIEW"),
+      v.literal("VERIFIED"),
+      v.literal("REJECTED"),
+    ),
+    verifiedAt: v.optional(v.number()),
+    verifiedBy: v.optional(v.string()),
+    createdBy: v.id("users"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_verificationStatus", ["verificationStatus"]),
+  organizationMembers: defineTable({
+    organizationId: v.id("organizations"),
+    userId: v.id("users"),
+    role: v.union(v.literal("OWNER"), v.literal("ADMIN"), v.literal("MEMBER")),
+    joinedAt: v.number(),
+  })
+    .index("by_organizationId", ["organizationId"])
+    .index("by_userId", ["userId"])
+    .index("by_organizationId_and_userId", ["organizationId", "userId"]),
+  organizationInvites: defineTable({
+    organizationId: v.id("organizations"),
+    email: v.string(),
+    role: v.union(v.literal("ADMIN"), v.literal("MEMBER")),
+    invitedBy: v.id("users"),
+    token: v.string(),
+    status: v.union(
+      v.literal("PENDING"),
+      v.literal("ACCEPTED"),
+      v.literal("DECLINED"),
+      v.literal("EXPIRED"),
+      v.literal("REVOKED"),
+    ),
+    expiresAt: v.number(),
+    acceptedAt: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index("by_organizationId", ["organizationId"])
+    .index("by_email", ["email"])
+    .index("by_token", ["token"]),
 });

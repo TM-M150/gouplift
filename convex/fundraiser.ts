@@ -138,6 +138,74 @@ export const listMyFundraisers = query({
   },
 });
 
+export const updateFundraiser = mutation({
+  args: {
+    fundraiserId: v.id("fundraisers"),
+    title: v.string(),
+    tagline: v.optional(v.string()),
+    type: v.string(),
+    story: v.string(),
+    beneficiaryType: v.string(),
+    beneficiaryName: v.optional(v.string()),
+    beneficiaryRelationship: v.optional(v.string()),
+    organizationName: v.optional(v.string()),
+    coverImage: v.optional(v.string()),
+    coverImageStorageId: v.optional(v.id("_storage")),
+    goalAmount: v.number(),
+    currency: v.string(),
+    isPrivate: v.optional(v.boolean()),
+    startDate: v.optional(v.number()),
+    endDate: v.optional(v.number()),
+    country: v.optional(v.string()),
+    location: v.optional(v.string()),
+    commentsEnabled: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+    if (!authUser) {
+      throw new ConvexError("You must be signed in to edit a fundraiser");
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authUserId", (q) => q.eq("authUserId", authUser._id))
+      .unique();
+
+    if (!user) {
+      throw new ConvexError("User profile not found");
+    }
+
+    const fundraiser = await ctx.db.get(args.fundraiserId);
+    if (!fundraiser) {
+      throw new ConvexError("Fundraiser not found");
+    }
+
+    // Ownership check (fixed)
+    if (fundraiser.creatorId !== user._id && user.role !== "ADMIN") {
+      throw new ConvexError(
+        "You don't have permission to modify this fundraiser.",
+      );
+    }
+
+    const parsed = fundraiserSchema.safeParse(args);
+    if (!parsed.success) {
+      throw new ConvexError(
+        parsed.error.issues[0]?.message ?? "Invalid fundraiser data",
+      );
+    }
+
+    const { fundraiserId, ...updateData } = args;
+
+    await ctx.db.patch(fundraiserId, {
+      ...parsed.data,
+      coverImageStorageId: args.coverImageStorageId,
+      updatedAt: Date.now(),
+    });
+
+    return fundraiserId;
+  },
+});
+
 const RESTRICTED_STATUSES = new Set(["DRAFT", "PENDING_REVIEW", "REJECTED"]);
 
 export const getFundraiserById = query({

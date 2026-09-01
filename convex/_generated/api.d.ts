@@ -12,6 +12,7 @@ import type * as auth from "../auth.js";
 import type * as donations from "../donations.js";
 import type * as fundraiser from "../fundraiser.js";
 import type * as http from "../http.js";
+import type * as organizations from "../organizations.js";
 import type * as sasapay from "../sasapay.js";
 import type * as users from "../users.js";
 
@@ -26,6 +27,7 @@ declare const fullApi: ApiFromModules<{
   donations: typeof donations;
   fundraiser: typeof fundraiser;
   http: typeof http;
+  organizations: typeof organizations;
   sasapay: typeof sasapay;
   users: typeof users;
 }>;
