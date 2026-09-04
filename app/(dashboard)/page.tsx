@@ -118,7 +118,7 @@ export default function Home() {
             <div className="mx-auto max-w-7xl">
               <div className="px-6 text-center sm:mx-auto lg:mr-auto lg:mt-0">
                 <Link
-                  href="#"
+                  href="organizations/new"
                   className="group/arrow inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm font-medium transition-colors"
                 >
                   <Badge variant="secondary" className="rounded-full text-xs">

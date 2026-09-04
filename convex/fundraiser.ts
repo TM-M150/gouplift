@@ -28,6 +28,7 @@ export const createFundraiser = mutation({
     beneficiaryName: v.optional(v.string()),
     beneficiaryRelationship: v.optional(v.string()),
     organizationName: v.optional(v.string()),
+    organizationId: v.optional(v.id("organizations")),
     coverImage: v.optional(v.string()),
     coverImageStorageId: v.optional(v.id("_storage")),
     goalAmount: v.number(),
@@ -54,6 +55,38 @@ export const createFundraiser = mutation({
       throw new ConvexError("User profile not found");
     }
 
+    // If this fundraiser is being created on behalf of an organization,
+    // the creator needs to actually belong to it — any role (OWNER,
+    // ADMIN, or MEMBER) is enough, since letting more than just the org's
+    // creator run campaigns is the whole point of having a team.
+    let organizationName: string | undefined = args.organizationName;
+
+    if (args.organizationId) {
+      const organizationId = args.organizationId;
+
+      const membership = await ctx.db
+        .query("organizationMembers")
+        .withIndex("by_organizationId_and_userId", (q) =>
+          q.eq("organizationId", organizationId).eq("userId", user._id),
+        )
+        .unique();
+
+      if (!membership) {
+        throw new ConvexError(
+          "You don't have permission to create a fundraiser for this organization.",
+        );
+      }
+
+      const organization = await ctx.db.get(organizationId);
+      if (!organization) {
+        throw new ConvexError("Organization not found.");
+      }
+
+      // Denormalized cache for display without a join — the real linked
+      // org's actual name wins over whatever free-text name was passed.
+      organizationName = organization.name;
+    }
+
     const parsed = fundraiserSchema.safeParse(args);
     if (!parsed.success) {
       throw new ConvexError(
@@ -71,7 +104,8 @@ export const createFundraiser = mutation({
       beneficiaryType: parsed.data.beneficiaryType,
       beneficiaryName: parsed.data.beneficiaryName,
       beneficiaryRelationship: parsed.data.beneficiaryRelationship,
-      organizationName: parsed.data.organizationName,
+      organizationName,
+      organizationId: args.organizationId,
       tags: parsed.data.tags,
       coverImage: parsed.data.coverImage,
       coverImageStorageId: args.coverImageStorageId,
@@ -135,74 +169,6 @@ export const listMyFundraisers = query({
           : (fundraiser.coverImage ?? null),
       })),
     );
-  },
-});
-
-export const updateFundraiser = mutation({
-  args: {
-    fundraiserId: v.id("fundraisers"),
-    title: v.string(),
-    tagline: v.optional(v.string()),
-    type: v.string(),
-    story: v.string(),
-    beneficiaryType: v.string(),
-    beneficiaryName: v.optional(v.string()),
-    beneficiaryRelationship: v.optional(v.string()),
-    organizationName: v.optional(v.string()),
-    coverImage: v.optional(v.string()),
-    coverImageStorageId: v.optional(v.id("_storage")),
-    goalAmount: v.number(),
-    currency: v.string(),
-    isPrivate: v.optional(v.boolean()),
-    startDate: v.optional(v.number()),
-    endDate: v.optional(v.number()),
-    country: v.optional(v.string()),
-    location: v.optional(v.string()),
-    commentsEnabled: v.optional(v.boolean()),
-  },
-  handler: async (ctx, args) => {
-    const authUser = await authComponent.safeGetAuthUser(ctx);
-    if (!authUser) {
-      throw new ConvexError("You must be signed in to edit a fundraiser");
-    }
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_authUserId", (q) => q.eq("authUserId", authUser._id))
-      .unique();
-
-    if (!user) {
-      throw new ConvexError("User profile not found");
-    }
-
-    const fundraiser = await ctx.db.get(args.fundraiserId);
-    if (!fundraiser) {
-      throw new ConvexError("Fundraiser not found");
-    }
-
-    // Ownership check (fixed)
-    if (fundraiser.creatorId !== user._id && user.role !== "ADMIN") {
-      throw new ConvexError(
-        "You don't have permission to modify this fundraiser.",
-      );
-    }
-
-    const parsed = fundraiserSchema.safeParse(args);
-    if (!parsed.success) {
-      throw new ConvexError(
-        parsed.error.issues[0]?.message ?? "Invalid fundraiser data",
-      );
-    }
-
-    const { fundraiserId, ...updateData } = args;
-
-    await ctx.db.patch(fundraiserId, {
-      ...parsed.data,
-      coverImageStorageId: args.coverImageStorageId,
-      updatedAt: Date.now(),
-    });
-
-    return fundraiserId;
   },
 });
 
