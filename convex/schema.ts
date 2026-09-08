@@ -110,6 +110,7 @@ export default defineSchema({
     .index("by_type", ["type"])
     .index("by_beneficiaryUserId", ["beneficiaryUserId"])
     .index("by_endDate", ["endDate"])
+    .index("by_organizationId", ["organizationId"])
     .searchIndex("search_title", {
       searchField: "title",
       filterFields: ["status", "isPrivate"],
