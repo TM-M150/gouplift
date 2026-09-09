@@ -177,6 +177,7 @@ export default defineSchema({
   }),
   organizations: defineTable({
     name: v.string(),
+    slug: v.string(),
     description: v.optional(v.string()),
     logoUrl: v.optional(v.string()),
     logoStorageId: v.optional(v.id("_storage")),
@@ -195,7 +196,9 @@ export default defineSchema({
     createdBy: v.id("users"),
     createdAt: v.number(),
     updatedAt: v.number(),
-  }).index("by_verificationStatus", ["verificationStatus"]),
+  })
+    .index("by_verificationStatus", ["verificationStatus"])
+    .index("by_slug", ["slug"]),
   organizationMembers: defineTable({
     organizationId: v.id("organizations"),
     userId: v.id("users"),

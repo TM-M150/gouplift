@@ -1,9 +1,9 @@
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
-import { AppSidebar } from "@/components/web/organization/app-sidebar";
-import { ChartAreaInteractive } from "@/components/web/organization/chart-area-interactive";
-import { DataTable } from "@/components/web/organization/data-table";
-import { SectionCards } from "@/components/web/organization/section-cards";
-import { SiteHeader } from "@/components/web/organization/site-header";
+import { AppSidebar } from "@/components/web/organization/dashboard/app-sidebar";
+import { ChartAreaInteractive } from "@/components/web/organization/dashboard/chart-area-interactive";
+import { DataTable } from "@/components/web/organization/dashboard/data-table";
+import { SectionCards } from "@/components/web/organization/dashboard/section-cards";
+import { SiteHeader } from "@/components/web/organization/dashboard/site-header";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { fetchAuthQuery } from "@/lib/auth-server";

@@ -25,6 +25,15 @@ function resolveReturnOrigin(requestedOrigin: string): string {
   return allowed[0] ?? requestedOrigin;
 }
 
+function slugify(text: string) {
+  return text
+    .toLowerCase()
+    .trim()
+    .replace(/[^\w\s-]/g, "")
+    .replace(/[\s_-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 async function getMembership(
   ctx: QueryCtx | MutationCtx,
   organizationId: Id<"organizations">,
@@ -37,6 +46,23 @@ async function getMembership(
     )
     .unique();
 }
+
+export const getPublicOrganizationBySlug = query({
+  args: { slug: v.string() },
+  handler: async (ctx, args) => {
+    const organization = await ctx.db
+      .query("organizations")
+      .withIndex("by_slug", (q) => q.eq("slug", args.slug))
+      .unique();
+
+    if (!organization) return null;
+
+    return {
+      name: organization.name,
+      description: organization.description,
+    };
+  },
+});
 
 export const getUserByAuthUserId = internalQuery({
   args: { authUserId: v.string() },
@@ -99,9 +125,22 @@ export const createOrganization = mutation({
       throw new ConvexError("Organization name is required.");
     }
 
+    // Generate unique slug base
+    let slug = slugify(name);
+    const existing = await ctx.db
+      .query("organizations")
+      .withIndex("by_slug", (q) => q.eq("slug", slug))
+      .unique();
+
+    // Append a short random suffix if a duplicate slug exists
+    if (existing) {
+      slug = `${slug}-${Math.random().toString(36).substring(2, 7)}`;
+    }
+
     const now = Date.now();
     const organizationId = await ctx.db.insert("organizations", {
       name,
+      slug,
       description: args.description,
       website: args.website,
       contactEmail: args.contactEmail,
@@ -119,7 +158,7 @@ export const createOrganization = mutation({
       joinedAt: now,
     });
 
-    return organizationId;
+    return { organizationId, slug };
   },
 });
 
