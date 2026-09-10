@@ -5,22 +5,20 @@ import { DataTable } from "@/components/web/organization/dashboard/data-table";
 import { SectionCards } from "@/components/web/organization/dashboard/section-cards";
 import { SiteHeader } from "@/components/web/organization/dashboard/site-header";
 import { api } from "@/convex/_generated/api";
-import { Id } from "@/convex/_generated/dataModel";
 import { fetchAuthQuery } from "@/lib/auth-server";
 import { notFound } from "next/navigation";
 
 interface PageProps {
-  params: Promise<{ id: string }>;
+  params: Promise<{ slug: string }>;
 }
 
 export default async function Page({ params }: PageProps) {
-  const { id } = await params;
+  const { slug } = await params;
 
+  // Query using slug instead of id
   const organization = await fetchAuthQuery(
-    api.organizations.getOrganizationById,
-    {
-      organizationId: id as Id<"organizations">,
-    },
+    api.organizations.getOrganizationBySlug,
+    { slug },
   );
 
   if (!organization) {
@@ -38,6 +36,7 @@ export default async function Page({ params }: PageProps) {
     >
       <AppSidebar
         variant="inset"
+        slug={organization.slug}
         organizationId={organization._id}
         organizationName={organization.name}
       />

@@ -58,8 +58,12 @@ export const getPublicOrganizationBySlug = query({
     if (!organization) return null;
 
     return {
+      _id: organization._id,
       name: organization.name,
       description: organization.description,
+      logoUrl: organization.logoUrl,
+      heroVideoUrl: organization.heroVideoUrl,
+      heroImageUrl: organization.heroImageUrl,
     };
   },
 });
@@ -71,6 +75,43 @@ export const getUserByAuthUserId = internalQuery({
       .query("users")
       .withIndex("by_authUserId", (q) => q.eq("authUserId", args.authUserId))
       .unique();
+  },
+});
+
+export const getPublicFundraisersByOrganization = query({
+  args: {
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args) => {
+    const allFundraisers = await ctx.db
+      .query("fundraisers")
+      .withIndex("by_organizationId", (q) =>
+        q.eq("organizationId", args.organizationId),
+      )
+      .collect();
+
+    const active = allFundraisers.filter(
+      (f) => f.status === "ACTIVE" && !f.isPrivate,
+    );
+
+    return await Promise.all(
+      active.map(async (f) => ({
+        _id: f._id,
+        title: f.title,
+        tagline: f.tagline,
+        story: f.story,
+        coverImage:
+          f.coverImage ??
+          (f.coverImageStorageId
+            ? await ctx.storage.getUrl(f.coverImageStorageId)
+            : undefined),
+        goalAmount: f.goalAmount,
+        amountRaised: f.amountRaised,
+        donorCount: f.donorCount,
+        currency: f.currency,
+        type: f.type,
+      })),
+    );
   },
 });
 
@@ -311,14 +352,18 @@ export const acceptInvite = mutation({
   },
 });
 
-export const getOrganizationById = query({
-  args: { organizationId: v.id("organizations") },
+export const getOrganizationBySlug = query({
+  args: { slug: v.string() },
   handler: async (ctx, args) => {
-    const organization = await ctx.db.get(args.organizationId);
+    // 1. Fetch organization using the slug index
+    const organization = await ctx.db
+      .query("organizations")
+      .withIndex("by_slug", (q) => q.eq("slug", args.slug))
+      .unique();
+
     if (!organization) return null;
 
-    // Gate the dashboard to members only — drop this block if the
-    // organization's basic info should be publicly readable.
+    // 2. Gate access to members only
     const authUser = await authComponent.safeGetAuthUser(ctx);
     const user = authUser
       ? await ctx.db
@@ -328,7 +373,7 @@ export const getOrganizationById = query({
       : null;
 
     const membership = user
-      ? await getMembership(ctx, args.organizationId, user._id)
+      ? await getMembership(ctx, organization._id, user._id)
       : null;
 
     if (!membership) return null;

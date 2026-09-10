@@ -27,11 +27,13 @@ import { NavSecondary } from "./nav-secondary";
 import { NavUser } from "./nav-user";
 
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
+  slug: string;
   organizationId: string;
   organizationName?: string;
 }
 
 export function AppSidebar({
+  slug,
   organizationId,
   organizationName,
   ...props
@@ -44,7 +46,7 @@ export function AppSidebar({
   const navMain = [
     {
       title: "Dashboard",
-      url: `/organizations/${organizationId}/dashboard`,
+      url: `/organizations/${slug}/dashboard`,
       icon: IconDashboard,
     },
     {
@@ -67,7 +69,7 @@ export function AppSidebar({
     },
     {
       title: "View public page",
-      url: `/organizations/${organizationId}`,
+      url: `/organizations/${slug}`,
       icon: IconExternalLink,
     },
   ];
@@ -87,9 +89,7 @@ export function AppSidebar({
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
-              render={
-                <Link href={`/organizations/${organizationId}/dashboard`} />
-              }
+              render={<Link href={`/organizations/${slug}/dashboard`} />}
               className="data-[slot=sidebar-menu-button]:p-1.5!"
             >
               <IconBuilding className="size-5!" />

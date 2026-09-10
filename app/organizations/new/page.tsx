@@ -24,7 +24,7 @@ export default function NewOrganizationPage() {
   const router = useRouter();
   const createOrganization = useMutation(api.organizations.createOrganization);
 
-  // Fetch existing organizations for the signed-in user
+  // Fetch existing organizations for the signed-in user (ensuring `slug` is included)
   const myOrganizations = useQuery(api.organizations.getMyOrganizations);
 
   const [name, setName] = React.useState("");
@@ -46,7 +46,8 @@ export default function NewOrganizationPage() {
 
     setSubmitting(true);
     try {
-      const organizationId = await createOrganization({
+      // Assuming createOrganization returns either { slug: string } or the slug directly
+      const result = await createOrganization({
         name: name.trim(),
         description: description.trim() || undefined,
         website: website.trim() || undefined,
@@ -54,11 +55,13 @@ export default function NewOrganizationPage() {
         contactPhone: contactPhone.trim() || undefined,
       });
 
+      const slug = typeof result === "string" ? result : result?.slug;
+
       toast.success("Organization created!", {
         description: `${name.trim()} is ready — you're its owner.`,
       });
 
-      router.push(`/organizations/${organizationId}/dashboard`);
+      router.push(`/organizations/${slug}/dashboard`);
     } catch (err) {
       const message =
         err instanceof ConvexError
@@ -89,7 +92,7 @@ export default function NewOrganizationPage() {
             {myOrganizations.map((org) => (
               <Link
                 key={org._id}
-                href={`/organizations/${org._id}/dashboard`}
+                href={`/organizations/${org.slug}/dashboard`}
                 className="flex items-center justify-between rounded-lg border p-3 transition-colors hover:bg-accent"
               >
                 <div className="flex items-center space-x-3">

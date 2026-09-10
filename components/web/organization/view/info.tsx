@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -7,27 +8,47 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { useState } from "react";
 import { LogoCloud } from "./logo-cloud";
 
-export function Info() {
+interface InfoProps {
+  organization: {
+    name: string;
+    description?: string;
+  };
+}
+
+export function Info({ organization }: InfoProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+
+  const name = organization.name;
+  const description =
+    organization.description ||
+    "Empowering communities and creating lasting impact through transparent fundraising.";
+
+  const previewLimit = 200;
+  const isLongDescription = description.length > previewLimit;
+  const previewText = isLongDescription
+    ? `${description.slice(0, previewLimit)}...`
+    : description;
 
   return (
     <section className="py-16 md:py-20">
       <div className="mx-auto max-w-7xl px-6">
+        {/* Header Block */}
         <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
           <h2 className="text-muted-foreground max-w-3xl text-balance text-4xl font-medium tracking-tight lg:text-5xl">
-            <span className="text-foreground">Revenue, aligned.</span> <br />
-            One timeline per customer.
+            <span className="text-foreground">{name}</span> <br />
+            <span className="text-2xl font-normal lg:text-3xl">
+              Driving meaningful change together.
+            </span>
           </h2>
 
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex shrink-0 items-center gap-3">
             <Button variant="default" size="lg" className="rounded-full px-6">
               Follow
             </Button>
             <Link
-              href="/message"
+              href={`/message`}
               className={buttonVariants({
                 variant: "secondary",
                 size: "lg",
@@ -39,47 +60,30 @@ export function Info() {
           </div>
         </div>
 
-        {/* Content Card Section */}
-        <div className="bg-card text-card-foreground mt-8 rounded-xl border p-6 md:p-8 shadow-sm">
-          <h3 className="text-xl font-semibold mb-3">
-            The Joke Tax Chronicles
-          </h3>
-          <p className="text-muted-foreground leading-relaxed mb-4">
-            Once upon a time, in a far-off land, there was a very lazy king who
-            spent all day lounging on his throne. One day, his advisors came to
-            him with a problem: the kingdom was running out of money.
-          </p>
+        {/* About Card Section */}
+        <div className="bg-card text-card-foreground mt-8 rounded-xl border p-6 shadow-sm md:p-8">
+          <h3 className="mb-3 text-xl font-semibold">About Us</h3>
 
-          {!isExpanded && (
-            <Button
-              onClick={() => setIsExpanded(true)}
-              variant="link"
-              className="text-primary p-0 h-auto font-medium"
-            >
-              Read More
-            </Button>
-          )}
-
-          {isExpanded && (
-            <Collapsible open onOpenChange={setIsExpanded}>
-              <CollapsibleContent className="space-y-4">
-                <div className="prose prose-gray dark:prose-invert text-muted-foreground leading-relaxed space-y-4">
-                  <p>
-                    The king thought long and hard, and finally came up with a
-                    brilliant plan: he would tax the jokes in the kingdom.
-                  </p>
-                  <p>
-                    Jokester began sneaking into the castle in the middle of the
-                    night and leaving jokes all over the place: under the king's
-                    pillow, in his soup, even in the royal toilet. The king was
-                    furious, but he couldn't seem to stop Jokester.
-                  </p>
-                  <p>
-                    And then, one day, the people of the kingdom discovered that
-                    the jokes left by Jokester were so funny that they couldn't
-                    help but laugh. And once they started laughing, they
-                    couldn't stop.
-                  </p>
+          {!isExpanded ? (
+            <div>
+              <p className="text-muted-foreground leading-relaxed">
+                {previewText}
+              </p>
+              {isLongDescription && (
+                <Button
+                  onClick={() => setIsExpanded(true)}
+                  variant="link"
+                  className="text-primary mt-2 h-auto p-0 font-medium"
+                >
+                  Read More
+                </Button>
+              )}
+            </div>
+          ) : (
+            <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
+              <CollapsibleContent>
+                <div className="prose prose-gray dark:prose-invert text-muted-foreground leading-relaxed whitespace-pre-line">
+                  <p>{description}</p>
                 </div>
               </CollapsibleContent>
 
@@ -87,12 +91,12 @@ export function Info() {
                 render={
                   <Button
                     variant="link"
-                    className="text-primary p-0 h-auto font-medium mt-4"
-                  />
+                    className="text-primary mt-4 h-auto p-0 font-medium"
+                  >
+                    Read Less
+                  </Button>
                 }
-              >
-                Read Less
-              </CollapsibleTrigger>
+              />
             </Collapsible>
           )}
         </div>

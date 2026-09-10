@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import { fetchQuery } from "convex/nextjs";
 import { api } from "@/convex/_generated/api";
 
@@ -14,7 +15,6 @@ type Props = {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
 
-  // Use the public query here
   const organization = await fetchQuery(
     api.organizations.getPublicOrganizationBySlug,
     { slug },
@@ -35,12 +35,23 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default function OrganizationPage() {
+export default async function OrganizationPage({ params }: Props) {
+  const { slug } = await params;
+
+  const organization = await fetchQuery(
+    api.organizations.getPublicOrganizationBySlug,
+    { slug },
+  );
+
+  if (!organization) {
+    notFound();
+  }
+
   return (
     <div className="pt-12">
-      <HeroSection />
-      <Info />
-      <OrganizationFundraisers />
+      <HeroSection organization={organization} />
+      <Info organization={organization} />
+      <OrganizationFundraisers organizationId={organization._id} />
       <Testimonials />
     </div>
   );
