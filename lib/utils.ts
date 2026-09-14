@@ -1,8 +1,8 @@
-import { clsx, type ClassValue } from "clsx"
-import { twMerge } from "tailwind-merge"
+import { clsx, type ClassValue } from "clsx";
+import { twMerge } from "tailwind-merge";
 
 export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs))
+  return twMerge(clsx(inputs));
 }
 
 export function getInitials(name?: string | null): string {
@@ -16,7 +16,6 @@ export function getInitials(name?: string | null): string {
     .toUpperCase()
     .slice(0, 2); // Limit to max 2 letters (e.g. "John Doe" -> "JD")
 }
-
 
 export const MAX_BIO_WORDS = 500;
 

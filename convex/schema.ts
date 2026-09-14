@@ -38,6 +38,7 @@ export default defineSchema({
     .index("by_followerId", ["followerId"])
     .index("by_followingId", ["followingId"])
     .index("by_both", ["followerId", "followingId"]),
+
   fundraisers: defineTable({
     creatorId: v.id("users"),
     organizationId: v.optional(v.id("organizations")),
@@ -72,7 +73,7 @@ export default defineSchema({
     coverImage: v.optional(v.string()),
     coverImageStorageId: v.optional(v.id("_storage")),
     goalAmount: v.number(),
-    currency: v.union(v.literal("KES")),
+    currency: v.union(v.literal("KES"), v.literal("USD")),
     amountRaised: v.number(),
     donorCount: v.number(),
     status: v.union(
@@ -115,6 +116,7 @@ export default defineSchema({
       searchField: "title",
       filterFields: ["status", "isPrivate"],
     }),
+
   donations: defineTable({
     fundraiserId: v.id("fundraisers"),
     donorUserId: v.optional(v.id("users")),
@@ -123,7 +125,8 @@ export default defineSchema({
     donorPhone: v.optional(v.string()),
     isAnonymous: v.boolean(),
     grossAmount: v.number(),
-    currency: v.union(v.literal("KES")),
+    currency: v.union(v.literal("KES"), v.literal("USD")),
+    provider: v.optional(v.union(v.literal("SASAPAY"), v.literal("PAYPAL"))),
     message: v.optional(v.string()),
     platformFeeRate: v.number(), // e.g. 0.0425
     platformFeeAmount: v.number(), // round(grossAmount * platformFeeRate, 2)
@@ -150,12 +153,13 @@ export default defineSchema({
         v.literal("AIRTEL_MONEY"),
         v.literal("CARD"),
         v.literal("BANK"),
+        v.literal("PAYPAL"),
       ),
     ),
-    merchantRequestId: v.optional(v.string()), // SasaPay's MerchantRequestID
-    checkoutRequestId: v.optional(v.string()), // SasaPay's CheckoutRequestID — what the async callback correlates back to this row with
-    providerTransactionCode: v.optional(v.string()), // SasaPay's settlement-time transaction code from the callback, for reconciling against their statement API later
-    providerPayload: v.optional(v.string()), // raw callback JSON, stringified — worth keeping for debugging/reconciliation
+    merchantRequestId: v.optional(v.string()), // SasaPay's MerchantRequestID or PayPal Order/Capture ID
+    checkoutRequestId: v.optional(v.string()), // SasaPay's CheckoutRequestID
+    providerTransactionCode: v.optional(v.string()), // Provider settlement-time transaction code
+    providerPayload: v.optional(v.string()), // raw callback/webhook JSON stringified
 
     failureReason: v.optional(v.string()),
     refundedAt: v.optional(v.number()),
@@ -171,10 +175,40 @@ export default defineSchema({
     .index("by_status", ["status"])
     .index("by_checkoutRequestId", ["checkoutRequestId"])
     .index("by_payoutStatus", ["payoutStatus"]),
+
+  donationSubscriptions: defineTable({
+    subscriptionId: v.string(), // PayPal Subscription ID
+    planId: v.string(), // PayPal Plan ID
+    status: v.union(
+      v.literal("APPROVAL_PENDING"),
+      v.literal("APPROVED"),
+      v.literal("ACTIVE"),
+      v.literal("SUSPENDED"),
+      v.literal("CANCELLED"),
+      v.literal("EXPIRED"),
+    ),
+    cadence: v.union(
+      v.literal("MONTHLY"),
+      v.literal("YEARLY"),
+      v.literal("WEEKLY"),
+    ),
+    fundraiserId: v.id("fundraisers"),
+    donorUserId: v.optional(v.id("users")),
+    amount: v.number(),
+    currency: v.union(v.literal("KES"), v.literal("USD")),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_subscriptionId", ["subscriptionId"])
+    .index("by_fundraiserId", ["fundraiserId"])
+    .index("by_donorUserId", ["donorUserId"])
+    .index("by_status", ["status"]),
+
   sasapayTokens: defineTable({
     accessToken: v.string(),
     expiresAt: v.number(),
   }),
+
   organizations: defineTable({
     name: v.string(),
     slug: v.string(),
@@ -202,6 +236,7 @@ export default defineSchema({
   })
     .index("by_verificationStatus", ["verificationStatus"])
     .index("by_slug", ["slug"]),
+
   organizationMembers: defineTable({
     organizationId: v.id("organizations"),
     userId: v.id("users"),
@@ -211,6 +246,7 @@ export default defineSchema({
     .index("by_organizationId", ["organizationId"])
     .index("by_userId", ["userId"])
     .index("by_organizationId_and_userId", ["organizationId", "userId"]),
+
   organizationInvites: defineTable({
     organizationId: v.id("organizations"),
     email: v.string(),
@@ -231,4 +267,10 @@ export default defineSchema({
     .index("by_organizationId", ["organizationId"])
     .index("by_email", ["email"])
     .index("by_token", ["token"]),
+
+  fxRates: defineTable({
+    pair: v.string(), // e.g. "USD_KES" — lets you add more pairs later without a migration
+    rate: v.number(),
+    fetchedAt: v.number(),
+  }).index("by_pair", ["pair"]),
 });

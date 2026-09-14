@@ -1,5 +1,11 @@
 import { v } from "convex/values";
-import { action, httpAction, internalMutation, internalQuery, query } from "./_generated/server";
+import {
+  action,
+  httpAction,
+  internalMutation,
+  internalQuery,
+  query,
+} from "./_generated/server";
 import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { authComponent } from "./auth";
@@ -34,13 +40,7 @@ export const getUserByAuthUserId = internalQuery({
 
 function mapSourceChannel(
   sourceChannel?: string,
-):
-  | "SASAPAY_WALLET"
-  | "MPESA"
-  | "AIRTEL_MONEY"
-  | "CARD"
-  | "BANK"
-  | undefined {
+): "SASAPAY_WALLET" | "MPESA" | "AIRTEL_MONEY" | "CARD" | "BANK" | undefined {
   switch (sourceChannel?.toUpperCase()) {
     case "M-PESA":
     case "MPESA":
@@ -58,40 +58,36 @@ function mapSourceChannel(
 }
 
 export const donationCallback = httpAction(async (ctx, request) => {
-  // SasaPay's callbacks aren't documented as signed, so this shared
-  // secret (appended as a query param on the CallbackUrl you send SasaPay)
-  // is the practical guard against someone posting a fake success payload
-  // straight to a guessed endpoint.
   const url = new URL(request.url);
   const token = url.searchParams.get("token");
   if (!token || token !== process.env.SASAPAY_CALLBACK_SECRET) {
     return new Response("Unauthorized", { status: 401 });
   }
- 
+
   const payload = await request.json();
- 
+
   const checkoutRequestId: string | undefined = payload.CheckoutRequestID;
   const resultCode: string | undefined = payload.ResultCode?.toString();
   const resultDesc: string | undefined = payload.ResultDesc;
   const transactionCode: string | undefined = payload.TransactionCode;
   const sourceChannel: string | undefined = payload.SourceChannel;
- 
+
   if (!checkoutRequestId) {
     return new Response("Missing CheckoutRequestID", { status: 400 });
   }
- 
+
   const donation = await ctx.runQuery(
     internal.donations.getDonationByCheckoutRequestId,
     { checkoutRequestId },
   );
- 
+
   if (!donation) {
     // Nothing on our side matches this — most likely a stale/replayed
     // callback. Acknowledge with 200 so SasaPay stops retrying, but don't
     // touch anything since there's no donation to update.
     return new Response("OK", { status: 200 });
   }
- 
+
   if (resultCode === "0") {
     // markDonationCompleted no-ops if this donation is already COMPLETED,
     // so a retried callback for the same transaction is safe to process
@@ -109,7 +105,7 @@ export const donationCallback = httpAction(async (ctx, request) => {
       failureReason: resultDesc ?? `SasaPay ResultCode ${resultCode}`,
     });
   }
- 
+
   // SasaPay's docs don't specify a required acknowledgment body — plain
   // 200 is the safe default so it doesn't keep retrying a callback
   // you've already handled.
@@ -143,10 +139,9 @@ export const startDonationCheckout = action({
     const authUser = await authComponent.safeGetAuthUser(ctx);
     let donorUserId: Id<"users"> | undefined;
     if (authUser) {
-      const user = await ctx.runQuery(
-        internal.donations.getUserByAuthUserId,
-        { authUserId: authUser._id },
-      );
+      const user = await ctx.runQuery(internal.donations.getUserByAuthUserId, {
+        authUserId: authUser._id,
+      });
       donorUserId = user?._id;
     }
 
@@ -196,31 +191,28 @@ export const startDonationCheckout = action({
     // CardEnabled/AirtelEnabled control which options the donor sees there,
     // not which one gets used. Reference carries our donationId through so
     // it's traceable on SasaPay's side too.
-    const response = await fetch(
-      `${baseUrl}/api/v1/payments/card-payments/`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          MerchantCode: merchantCode,
-          Amount: args.grossAmount.toFixed(2),
-          Reference: donationId,
-          Description: "Donation",
-          Currency: "KES",
-          PayerEmail: args.donorEmail,
-          CallbackUrl: callbackUrl,
-          SuccessUrl: returnUrl,
-          FailureUrl: returnUrl,
-          SasaPayWalletEnabled: true,
-          MpesaEnabled: true,
-          CardEnabled: true,
-          AirtelEnabled: true,
-        }),
+    const response = await fetch(`${baseUrl}/api/v1/payments/card-payments/`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
       },
-    );
+      body: JSON.stringify({
+        MerchantCode: merchantCode,
+        Amount: args.grossAmount.toFixed(2),
+        Reference: donationId,
+        Description: "Donation",
+        Currency: "KES",
+        PayerEmail: args.donorEmail,
+        CallbackUrl: callbackUrl,
+        SuccessUrl: returnUrl,
+        FailureUrl: returnUrl,
+        SasaPayWalletEnabled: true,
+        MpesaEnabled: true,
+        CardEnabled: true,
+        AirtelEnabled: true,
+      }),
+    });
 
     if (!response.ok) {
       const body = await response.text();
@@ -434,7 +426,7 @@ export const getDonationStatus = query({
     if (!donation) {
       return null;
     }
-    
+
     return {
       status: donation.status,
       grossAmount: donation.grossAmount,
