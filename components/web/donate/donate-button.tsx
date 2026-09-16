@@ -12,17 +12,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 
-// Kept deliberately minimal for a first pass — amount and an optional
-// message. donorName/donorEmail/donorPhone/isAnonymous all exist on
-// startDonationCheckout already and are easy to add as fields here later
-// (email in particular, for receipts) without touching the backend.
+const AMOUNT_PRESETS_KES = [500, 1000, 2500, 5000];
+const AMOUNT_PRESETS_USD = [5, 10, 25, 50];
 
-const AMOUNT_PRESETS = [500, 1000, 2500, 5000];
+type Provider = "SASAPAY" | "PAYPAL";
 
 interface DonateButtonProps {
   fundraiserId: Id<"fundraisers">;
@@ -30,18 +29,28 @@ interface DonateButtonProps {
 }
 
 export function DonateButton({ fundraiserId, disabled }: DonateButtonProps) {
-  const startDonationCheckout = useAction(
-    api.donations.startDonationCheckout,
-  );
+  const startDonationCheckout = useAction(api.donations.startDonationCheckout);
+  const startPayPalCheckout = useAction(api.paypal.startPayPalCheckout);
 
   const [open, setOpen] = React.useState(false);
+  const [provider, setProvider] = React.useState<Provider>("SASAPAY");
   const [amount, setAmount] = React.useState<number | "">("");
   const [email, setEmail] = React.useState("");
   const [message, setMessage] = React.useState("");
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  function handleProviderChange(next: Provider) {
+    setProvider(next);
+    setAmount("");
+    setError(null);
+  }
+
+  const presets =
+    provider === "SASAPAY" ? AMOUNT_PRESETS_KES : AMOUNT_PRESETS_USD;
+  const currencyLabel = provider === "SASAPAY" ? "KES" : "USD";
+
+  async function handleSubmit(event: React.SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
 
@@ -57,16 +66,32 @@ export function DonateButton({ fundraiserId, disabled }: DonateButtonProps) {
 
     setSubmitting(true);
     try {
-      const { checkoutUrl } = await startDonationCheckout({
-        fundraiserId,
-        grossAmount,
-        donorEmail: email.trim(),
-        message: message.trim() || undefined,
-        isAnonymous: false,
-        origin: window.location.origin,
-      });
-      // Full navigation, not router.push — SasaPay's hosted checkout page
-      // is a different origin entirely.
+      let checkoutUrl: string;
+
+      if (provider === "SASAPAY") {
+        const result = await startDonationCheckout({
+          fundraiserId,
+          grossAmount,
+          donorEmail: email.trim(),
+          message: message.trim() || undefined,
+          isAnonymous: false,
+          origin: window.location.origin,
+        });
+        checkoutUrl = result.checkoutUrl;
+      } else {
+        const result = await startPayPalCheckout({
+          fundraiserId,
+          amountUsd: grossAmount,
+          donorEmail: email.trim(),
+          message: message.trim() || undefined,
+          isAnonymous: false,
+          origin: window.location.origin,
+        });
+        checkoutUrl = result.checkoutUrl;
+      }
+
+      // Full navigation, not router.push — both SasaPay's and PayPal's
+      // hosted checkout pages are a different origin entirely.
       window.location.href = checkoutUrl;
     } catch (err) {
       setError(
@@ -80,7 +105,8 @@ export function DonateButton({ fundraiserId, disabled }: DonateButtonProps) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button className="w-full" size="lg" disabled={disabled} />}
+      <DialogTrigger
+        render={<Button className="w-full" size="lg" disabled={disabled} />}
       >
         {disabled ? "Donations closed" : "Donate now"}
       </DialogTrigger>
@@ -88,15 +114,31 @@ export function DonateButton({ fundraiserId, disabled }: DonateButtonProps) {
         <DialogHeader>
           <DialogTitle>Make a donation</DialogTitle>
           <DialogDescription>
-            You&apos;ll be redirected to SasaPay to complete payment.
+            {provider === "SASAPAY"
+              ? "You'll be redirected to SasaPay to complete payment."
+              : "You'll be redirected to PayPal to complete payment."}
           </DialogDescription>
         </DialogHeader>
 
+        <Tabs
+          value={provider}
+          onValueChange={(value) => handleProviderChange(value as Provider)}
+        >
+          <TabsList className="w-full">
+            <TabsTrigger value="SASAPAY" className="flex-1">
+              SasaPay (KES)
+            </TabsTrigger>
+            <TabsTrigger value="PAYPAL" className="flex-1">
+              PayPal (USD)
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="donate-amount">Amount (KES)</Label>
+            <Label htmlFor="donate-amount">Amount ({currencyLabel})</Label>
             <div className="flex flex-wrap gap-2">
-              {AMOUNT_PRESETS.map((preset) => (
+              {presets.map((preset) => (
                 <Button
                   key={preset}
                   type="button"
@@ -104,7 +146,7 @@ export function DonateButton({ fundraiserId, disabled }: DonateButtonProps) {
                   size="sm"
                   onClick={() => setAmount(preset)}
                 >
-                  KES {preset.toLocaleString()}
+                  {currencyLabel} {preset.toLocaleString()}
                 </Button>
               ))}
             </div>
@@ -115,9 +157,7 @@ export function DonateButton({ fundraiserId, disabled }: DonateButtonProps) {
               placeholder="Custom amount"
               value={amount}
               onChange={(event) =>
-                setAmount(
-                  event.target.value ? Number(event.target.value) : "",
-                )
+                setAmount(event.target.value ? Number(event.target.value) : "")
               }
               required
             />

@@ -1,10 +1,15 @@
 // convex/paypal.ts
-import { action, internalMutation, internalQuery } from "./_generated/server";
+import {
+  action,
+  httpAction,
+  internalMutation,
+  internalQuery,
+} from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { getUsdToKesRate } from "./lib/fx";
-import { PLATFORM_FEE_RATE } from "./donations";
+import { PLATFORM_FEE_RATE, resolveReturnOrigin } from "./lib/constants";
 
 const PAYPAL_BASE_URL = "https://api-m.sandbox.paypal.com"; // Switch to https://api-m.paypal.com for production
 
@@ -59,7 +64,6 @@ export const createPendingPayPalDonation = internalMutation({
     netAmountKes: v.number(),
     platformFeeRate: v.number(),
     message: v.optional(v.string()),
-    checkoutRequestId: v.string(), // PayPal Order ID
   },
   returns: v.id("donations"),
   handler: async (ctx, args) => {
@@ -80,7 +84,6 @@ export const createPendingPayPalDonation = internalMutation({
       paymentMethod: "PAYPAL",
       status: "PENDING",
       payoutStatus: "NOT_YET_PAYABLE",
-      checkoutRequestId: args.checkoutRequestId,
       createdAt: Date.now(),
       updatedAt: Date.now(),
     });
@@ -95,37 +98,51 @@ export const startPayPalCheckout = action({
     donorEmail: v.optional(v.string()),
     donorPhone: v.optional(v.string()),
     isAnonymous: v.boolean(),
-    amountUsd: v.number(), // Amount entered by donor in USD
+    amountUsd: v.number(),
     message: v.optional(v.string()),
-    returnUrl: v.string(),
-    cancelUrl: v.string(),
+    origin: v.string(), // window.location.origin from the client
   },
   returns: v.object({
     checkoutUrl: v.string(),
-    orderId: v.string(),
     donationId: v.id("donations"),
   }),
   handler: async (
     ctx,
     args,
-  ): Promise<{
-    checkoutUrl: string;
-    orderId: string;
-    donationId: Id<"donations">;
-  }> => {
+  ): Promise<{ checkoutUrl: string; donationId: Id<"donations"> }> => {
     if (args.amountUsd <= 0) {
       throw new Error("Donation amount must be greater than 0.");
     }
 
-    const token = await getPayPalAccessToken();
-
-    // 1. Convert USD amount to KES equivalent for local progress tracking
     const fxRate = await getUsdToKesRate(ctx);
     const grossAmountKes = Math.round(args.amountUsd * fxRate);
     const platformFeeAmountKes = Math.round(grossAmountKes * PLATFORM_FEE_RATE);
     const netAmountKes = grossAmountKes - platformFeeAmountKes;
 
-    // 2. Create PayPal Order
+    // Create the pending donation FIRST so there's a real donationId to
+    // put in the return URL — same order startDonationCheckout uses.
+    const donationId: Id<"donations"> = await ctx.runMutation(
+      internal.paypal.createPendingPayPalDonation,
+      {
+        fundraiserId: args.fundraiserId,
+        donorUserId: args.donorUserId,
+        donorName: args.donorName,
+        donorEmail: args.donorEmail,
+        donorPhone: args.donorPhone,
+        isAnonymous: args.isAnonymous,
+        grossAmountKes,
+        platformFeeAmountKes,
+        netAmountKes,
+        platformFeeRate: PLATFORM_FEE_RATE,
+        message: args.message,
+      },
+    );
+
+    const returnOrigin = resolveReturnOrigin(args.origin);
+    const returnUrl = `${returnOrigin}/fundraiser/${args.fundraiserId}?donation=${donationId}`;
+
+    const token = await getPayPalAccessToken();
+
     const orderPayload = {
       intent: "CAPTURE",
       purchase_units: [
@@ -140,8 +157,8 @@ export const startPayPalCheckout = action({
       payment_source: {
         paypal: {
           experience_context: {
-            return_url: args.returnUrl,
-            cancel_url: args.cancelUrl,
+            return_url: returnUrl,
+            cancel_url: returnUrl,
             user_action: "PAY_NOW",
           },
         },
@@ -159,50 +176,43 @@ export const startPayPalCheckout = action({
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`PayPal Order creation failed: ${errorText}`);
+      await ctx.runMutation(internal.donations.markDonationFailed, {
+        donationId,
+        status: "FAILED",
+        failureReason: `PayPal order creation failed (${response.status}): ${errorText}`,
+      });
+      throw new Error("Could not start PayPal checkout. Please try again.");
     }
 
-    const orderData = (await response.json()) as PayPalOrderResponse;
+    const orderData = await response.json();
 
-    // Prefer payer-action (when payment_source is used) or fall back to approve
-    const approveLinkObj = orderData.links.find(
-      (link) => link.rel === "payer-action" || link.rel === "approve",
+    console.log("PayPal order response:", JSON.stringify(orderData, null, 2));
+
+    const links = orderData.links ?? [];
+
+    const approveLinkObj = links.find(
+      (link: any) => link.rel === "payer-action" || link.rel === "approve",
     );
 
     if (!approveLinkObj?.href) {
-      console.error(
-        "Full PayPal response:",
-        JSON.stringify(orderData, null, 2),
-      );
-      throw new Error(
-        "PayPal response did not contain an approval link (approve or payer-action).",
-      );
+      console.error("No approval link found. Available links:", links);
+
+      await ctx.runMutation(internal.donations.markDonationFailed, {
+        donationId,
+        status: "FAILED",
+        failureReason: `PayPal response did not contain an approval link. Links: ${JSON.stringify(links)}`,
+      });
+
+      throw new Error("Could not start PayPal checkout. Please try again.");
     }
 
-    // 4. Save initial donation record with order ID
-    const donationId: Id<"donations"> = await ctx.runMutation(
-      internal.paypal.createPendingPayPalDonation,
-      {
-        fundraiserId: args.fundraiserId,
-        donorUserId: args.donorUserId,
-        donorName: args.donorName,
-        donorEmail: args.donorEmail,
-        donorPhone: args.donorPhone,
-        isAnonymous: args.isAnonymous,
-        grossAmountKes,
-        platformFeeAmountKes,
-        netAmountKes,
-        platformFeeRate: PLATFORM_FEE_RATE,
-        message: args.message,
-        checkoutRequestId: orderData.id,
-      },
-    );
-
-    return {
-      checkoutUrl: approveLinkObj.href,
-      orderId: orderData.id,
+    // Attach PayPal's order ID
+    await ctx.runMutation(internal.donations.attachProviderIds, {
       donationId,
-    };
+      checkoutRequestId: orderData.id,
+    });
+
+    return { checkoutUrl: approveLinkObj.href, donationId };
   },
 });
 
@@ -366,4 +376,142 @@ export const capturePayPalOrder = action({
       message: "Payment captured successfully",
     };
   },
+});
+
+interface PayPalWebhookEvent {
+  id: string;
+  event_type: string;
+  resource_type?: string;
+  resource: {
+    id: string; // capture ID for PAYMENT.CAPTURE.* events
+    status?: string;
+    supplementary_data?: {
+      related_ids?: {
+        order_id?: string;
+      };
+    };
+    // Fallback paths some payloads use
+    purchase_units?: Array<{
+      payments?: {
+        captures?: Array<{ id: string }>;
+      };
+    }>;
+    // For ORDER events
+    links?: Array<{ rel: string; href: string }>;
+  };
+  summary?: string;
+}
+
+async function verifyPayPalWebhook(
+  headers: Headers,
+  body: string,
+): Promise<boolean> {
+  const webhookId = process.env.PAYPAL_WEBHOOK_ID;
+  if (!webhookId) {
+    console.error("PAYPAL_WEBHOOK_ID is not set");
+    return false;
+  }
+
+  const transmissionId = headers.get("paypal-transmission-id");
+  const transmissionTime = headers.get("paypal-transmission-time");
+  const transmissionSig = headers.get("paypal-transmission-sig");
+  const certUrl = headers.get("paypal-cert-url");
+  const authAlgo = headers.get("paypal-auth-algo");
+
+  if (
+    !transmissionId ||
+    !transmissionTime ||
+    !transmissionSig ||
+    !certUrl ||
+    !authAlgo
+  ) {
+    return false;
+  }
+
+  const token = await getPayPalAccessToken();
+
+  const verifyResponse = await fetch(
+    `${PAYPAL_BASE_URL}/v1/notifications/verify-webhook-signature`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        auth_algo: authAlgo,
+        cert_url: certUrl,
+        transmission_id: transmissionId,
+        transmission_sig: transmissionSig,
+        transmission_time: transmissionTime,
+        webhook_id: webhookId,
+        webhook_event: JSON.parse(body),
+      }),
+    },
+  );
+
+  if (!verifyResponse.ok) {
+    const err = await verifyResponse.text();
+    console.error("PayPal webhook verification failed:", err);
+    return false;
+  }
+
+  const result = (await verifyResponse.json()) as {
+    verification_status?: string;
+  };
+  return result.verification_status === "SUCCESS";
+}
+
+export const paypalWebhook = httpAction(async (ctx, request) => {
+  const body = await request.text();
+
+  // 1. Verify signature (required in production)
+  const isValid = await verifyPayPalWebhook(request.headers, body);
+  if (!isValid) {
+    return new Response("Invalid signature", { status: 401 });
+  }
+
+  let event: PayPalWebhookEvent;
+  try {
+    event = JSON.parse(body) as PayPalWebhookEvent;
+  } catch {
+    return new Response("Invalid JSON", { status: 400 });
+  }
+
+  // We only care about successful captures for now
+  if (event.event_type !== "PAYMENT.CAPTURE.COMPLETED") {
+    // Acknowledge other events so PayPal doesn't keep retrying
+    return new Response("OK", { status: 200 });
+  }
+
+  const captureId = event.resource?.id;
+  const orderId =
+    event.resource?.supplementary_data?.related_ids?.order_id ?? null;
+
+  if (!orderId) {
+    console.error(
+      "PayPal CAPTURE.COMPLETED missing order_id in supplementary_data",
+      event.resource,
+    );
+    // Still 200 so PayPal stops retrying — we can't match the donation
+    return new Response("OK", { status: 200 });
+  }
+
+  const donation = await ctx.runQuery(internal.paypal.getDonationByOrderId, {
+    orderId,
+  });
+
+  if (!donation) {
+    // Stale / unknown order — acknowledge and move on
+    return new Response("OK", { status: 200 });
+  }
+
+  // Idempotent — completePayPalDonation already no-ops if already COMPLETED
+  await ctx.runMutation(internal.paypal.completePayPalDonation, {
+    donationId: donation._id,
+    paypalCaptureId: captureId,
+    rawPayload: body,
+  });
+
+  return new Response("OK", { status: 200 });
 });

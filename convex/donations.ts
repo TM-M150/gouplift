@@ -9,23 +9,10 @@ import {
 import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { authComponent } from "./auth";
-
-export const PLATFORM_FEE_RATE = 0.0425;
+import { PLATFORM_FEE_RATE, resolveReturnOrigin } from "./lib/constants";
 
 function roundToCents(amount: number): number {
   return Math.round(amount * 100) / 100;
-}
-
-function resolveReturnOrigin(requestedOrigin: string): string {
-  const allowed = (process.env.ALLOWED_APP_ORIGINS ?? "")
-    .split(",")
-    .map((origin) => origin.trim())
-    .filter(Boolean);
-
-  if (allowed.includes(requestedOrigin)) {
-    return requestedOrigin;
-  }
-  return allowed[0] ?? requestedOrigin;
 }
 
 export const getUserByAuthUserId = internalQuery({
