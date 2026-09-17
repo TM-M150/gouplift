@@ -419,6 +419,8 @@ export const getDonationStatus = query({
       grossAmount: donation.grossAmount,
       currency: donation.currency,
       paymentMethod: donation.paymentMethod,
+      provider: donation.provider,
+      checkoutRequestId: donation.checkoutRequestId,
       failureReason: donation.failureReason,
       completedAt: donation.completedAt,
     };

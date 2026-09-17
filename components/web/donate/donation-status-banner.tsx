@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useQuery } from "convex/react";
+import { useState, useEffect } from "react";
+import { useQuery, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 
@@ -19,16 +19,79 @@ export function DonationStatusBanner({
   donationId,
 }: DonationStatusBannerProps) {
   const [dismissed, setDismissed] = useState(false);
+  const [capturing, setCapturing] = useState(false);
 
-  // Cheap sanity check before handing a possibly-tampered-with URL param
-  // to Convex — a garbage id would otherwise throw during argument
-  // validation rather than failing gracefully.
   const looksLikeAnId = /^[a-z0-9]{10,}$/i.test(donationId);
 
   const status = useQuery(
     api.donations.getDonationStatus,
     looksLikeAnId ? { donationId: donationId as Id<"donations"> } : "skip",
   );
+
+  const capturePayPalOrder = useAction(api.paypal.capturePayPalOrder);
+
+  useEffect(() => {
+    console.log("=== DonationStatusBanner useEffect ===");
+    console.log("donationId:", donationId);
+    console.log("status:", status);
+    console.log("capturing:", capturing);
+
+    if (!status) {
+      console.log("→ early return: status is null/undefined");
+      return;
+    }
+
+    if (status.status !== "PENDING") {
+      console.log(
+        "→ early return: status is not PENDING, it is",
+        status.status,
+      );
+      return;
+    }
+
+    if (status.provider !== "PAYPAL") {
+      console.log(
+        "→ early return: provider is not PAYPAL, it is",
+        status.provider,
+      );
+      return;
+    }
+
+    if (!status.checkoutRequestId) {
+      console.log("→ early return: no checkoutRequestId");
+      return;
+    }
+
+    if (capturing) {
+      console.log("→ early return: already capturing");
+      return;
+    }
+
+    const orderId = status.checkoutRequestId;
+    console.log("✅ All conditions passed. Will capture order:", orderId);
+
+    let cancelled = false;
+
+    async function tryCapture() {
+      setCapturing(true);
+      try {
+        console.log("Calling capturePayPalOrder with orderId:", orderId);
+        const result = await capturePayPalOrder({ orderId });
+        console.log("Capture result:", result);
+      } catch (err) {
+        console.error("PayPal capture failed:", err);
+      } finally {
+        if (!cancelled) setCapturing(false);
+      }
+    }
+
+    const timer = setTimeout(tryCapture, 800);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [status, capturing, capturePayPalOrder, donationId]);
 
   if (dismissed || !looksLikeAnId || status === null) {
     return null;
@@ -69,7 +132,6 @@ export function DonationStatusBanner({
     );
   }
 
-  // FAILED or CANCELLED
   return (
     <BannerShell tone="error" onDismiss={() => setDismissed(true)}>
       {status.failureReason ??
