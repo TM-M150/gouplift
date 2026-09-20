@@ -75,7 +75,7 @@ function FormPasswordField({
       <div className="flex items-center justify-between">
         <FieldLabel htmlFor={id}>{label}</FieldLabel>
         <Link
-          href="#"
+          href="/forgot-password"
           className="text-xs text-muted-foreground hover:underline"
         >
           Forgot password?

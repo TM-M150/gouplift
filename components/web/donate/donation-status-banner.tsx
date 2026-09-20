@@ -68,7 +68,7 @@ export function DonationStatusBanner({
     }
 
     const orderId = status.checkoutRequestId;
-    console.log("✅ All conditions passed. Will capture order:", orderId);
+    console.log("All conditions passed. Will capture order:", orderId);
 
     let cancelled = false;
 
