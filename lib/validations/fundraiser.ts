@@ -89,3 +89,20 @@ export const fundraiserFrontend = fundraiserObjectSchema
 
 export type FundraiserInput = z.infer<typeof fundraiserSchema>;
 export type FundraiserFrontendInput = z.infer<typeof fundraiserFrontend>;
+
+export const fundraiserUpdateSchema = fundraiserObjectSchema
+  .pick({
+    title: true,
+    tagline: true,
+    story: true,
+    type: true,
+    location: true,
+    goalAmount: true,
+  })
+  .extend({
+    coverImageFile: z
+      .custom<File>((val) => val instanceof File, "Please select an image file")
+      .optional(),
+  });
+
+export type FundraiserUpdateValues = z.infer<typeof fundraiserUpdateSchema>;

@@ -5,11 +5,11 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import type { Metadata } from "next";
 import { DonationStatusBanner } from "@/components/web/donate/donation-status-banner";
 import { DonateButton } from "@/components/web/donate/donate-button";
+import { EditFundraiserButton } from "@/components/web/fundraiser/edit-fundraiser-button";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -140,9 +140,16 @@ export default async function FundraiserPage({
               )}
             </div>
 
-            <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-              {fundraiser.title}
-            </h1>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
+                {fundraiser.title}
+              </h1>
+
+              <EditFundraiserButton
+                fundraiserId={fundraiser._id}
+                creatorId={fundraiser.creatorId}
+              />
+            </div>
 
             {fundraiser.tagline && (
               <p className="text-lg text-muted-foreground">

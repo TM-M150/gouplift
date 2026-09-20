@@ -2,7 +2,10 @@ import { v, ConvexError } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 import { authComponent } from "./auth";
-import { fundraiserSchema } from "../lib/validations/fundraiser";
+import {
+  fundraiserSchema,
+  fundraiserUpdateSchema,
+} from "../lib/validations/fundraiser";
 
 function requireModerator(user: Doc<"users">) {
   if (user.role !== "ADMIN" && user.role !== "MODERATOR") {
@@ -11,7 +14,7 @@ function requireModerator(user: Doc<"users">) {
 }
 
 function requireOwner(user: Doc<"users">, fundraiser: Doc<"fundraisers">) {
-  if (fundraiser.creatorId !== user.authUserId && user.role !== "ADMIN") {
+  if (fundraiser.creatorId !== user._id && user.role !== "ADMIN") {
     throw new ConvexError(
       "You don't have permission to modify this fundraiser.",
     );
@@ -304,5 +307,84 @@ export const searchFundraisers = query({
           : (fundraiser.coverImage ?? null),
       })),
     );
+  },
+});
+
+const LOCKED_STATUSES = new Set([
+  "COMPLETED",
+  "CANCELLED",
+  "REJECTED",
+  "EXPIRED",
+]);
+
+export const updateFundraiser = mutation({
+  args: {
+    fundraiserId: v.id("fundraisers"),
+    title: v.string(),
+    tagline: v.optional(v.string()),
+    story: v.string(),
+    type: v.string(),
+    location: v.optional(v.string()),
+    goalAmount: v.number(),
+    coverImageStorageId: v.optional(v.id("_storage")),
+  },
+  handler: async (ctx, args) => {
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+    if (!authUser) {
+      throw new ConvexError("You must be signed in to edit a fundraiser");
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authUserId", (q) => q.eq("authUserId", authUser._id))
+      .unique();
+    if (!user) {
+      throw new ConvexError("User profile not found");
+    }
+
+    const fundraiser = await ctx.db.get(args.fundraiserId);
+    if (!fundraiser) {
+      throw new ConvexError("Fundraiser not found");
+    }
+
+    requireOwner(user, fundraiser);
+
+    if (LOCKED_STATUSES.has(fundraiser.status)) {
+      throw new ConvexError(
+        `This fundraiser is ${fundraiser.status.toLowerCase()} and can no longer be edited.`,
+      );
+    }
+
+    const parsed = fundraiserUpdateSchema.safeParse(args);
+    if (!parsed.success) {
+      throw new ConvexError(
+        parsed.error.issues[0]?.message ?? "Invalid fundraiser data",
+      );
+    }
+
+    // Swap the cover image only if a new one was actually uploaded, and
+    // clean up the old storage file so it doesn't linger orphaned.
+    if (
+      args.coverImageStorageId &&
+      fundraiser.coverImageStorageId &&
+      fundraiser.coverImageStorageId !== args.coverImageStorageId
+    ) {
+      await ctx.storage.delete(fundraiser.coverImageStorageId);
+    }
+
+    await ctx.db.patch(args.fundraiserId, {
+      title: parsed.data.title,
+      tagline: parsed.data.tagline,
+      story: parsed.data.story,
+      type: parsed.data.type,
+      location: parsed.data.location,
+      goalAmount: parsed.data.goalAmount,
+      ...(args.coverImageStorageId
+        ? { coverImageStorageId: args.coverImageStorageId }
+        : {}),
+      updatedAt: Date.now(),
+    });
+
+    return args.fundraiserId;
   },
 });
