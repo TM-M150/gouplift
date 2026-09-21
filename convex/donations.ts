@@ -120,9 +120,23 @@ export const startDonationCheckout = action({
       throw new Error("Donation amount must be greater than 0.");
     }
 
-    // Donating doesn't require an account — same reasoning as fundraiser
-    // creation's inline-auth flow, but here there's no reason to ask for
-    // one at all. Attach donorUserId only if they happen to be signed in.
+    if (!args.donorEmail?.trim()) {
+      throw new Error("Email is required.");
+    }
+
+    const emailKey = `donate:email:${args.donorEmail.toLowerCase().trim()}`;
+
+    const limit = await ctx.runQuery(internal.lib.rateLimit.check, {
+      key: emailKey,
+    });
+
+    if (!limit.allowed) {
+      const minutes = Math.ceil((limit.retryAfterMs ?? 0) / 60_000);
+      throw new Error(
+        `Too many donation attempts. Please try again in ${minutes} minute${minutes === 1 ? "" : "s"}.`,
+      );
+    }
+
     const authUser = await authComponent.safeGetAuthUser(ctx);
     let donorUserId: Id<"users"> | undefined;
     if (authUser) {
@@ -247,6 +261,11 @@ export const startDonationCheckout = action({
         "SasaPay response didn't include a checkout URL — check the field name against your actual sandbox response.",
       );
     }
+
+    // Increment only on success
+    await ctx.runMutation(internal.lib.rateLimit.increment, {
+      key: emailKey,
+    });
 
     return { donationId, checkoutUrl: data.CheckoutUrl };
   },

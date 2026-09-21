@@ -9,7 +9,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { FaApple, FaGoogle, FaMeta } from "react-icons/fa6";
 import { Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
-
+import { Turnstile } from "@marsidev/react-turnstile";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -112,6 +112,7 @@ function toProperCase(str: string): string {
 
 export default function SignupForm() {
   const [serverError, setServerError] = useState<string | null>(null);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const router = useRouter();
 
   const {
@@ -133,6 +134,11 @@ export default function SignupForm() {
 
   const onSubmit = async (data: SignUpValues) => {
     setServerError(null);
+
+    if (!turnstileToken) {
+      setServerError("Please complete the CAPTCHA.");
+      return;
+    }
 
     const firstName = toProperCase(data.firstName);
     const middleName = data.middleName ? toProperCase(data.middleName) : "";
@@ -251,6 +257,14 @@ export default function SignupForm() {
                       />
                     </FieldGroup>
                   </FieldSet>
+
+                  <div className="flex justify-center py-2">
+                    <Turnstile
+                      siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
+                      onSuccess={setTurnstileToken}
+                      onExpire={() => setTurnstileToken(null)}
+                    />
+                  </div>
 
                   <Field>
                     <Button

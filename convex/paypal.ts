@@ -114,6 +114,23 @@ export const startPayPalCheckout = action({
       throw new Error("Donation amount must be greater than 0.");
     }
 
+    if (!args.donorEmail?.trim()) {
+      throw new Error("Email is required.");
+    }
+
+    const emailKey = `donate:email:${args.donorEmail.toLowerCase().trim()}`;
+
+    const limit = await ctx.runQuery(internal.lib.rateLimit.check, {
+      key: emailKey,
+    });
+
+    if (!limit.allowed) {
+      const minutes = Math.ceil((limit.retryAfterMs ?? 0) / 60_000);
+      throw new Error(
+        `Too many donation attempts. Please try again in ${minutes} minute${minutes === 1 ? "" : "s"}.`,
+      );
+    }
+
     const fxRate = await getUsdToKesRate(ctx);
     const grossAmountKes = Math.round(args.amountUsd * fxRate);
     const platformFeeAmountKes = Math.round(grossAmountKes * PLATFORM_FEE_RATE);
@@ -210,6 +227,11 @@ export const startPayPalCheckout = action({
     await ctx.runMutation(internal.donations.attachProviderIds, {
       donationId,
       checkoutRequestId: orderData.id,
+    });
+
+    // Increment only on success
+    await ctx.runMutation(internal.lib.rateLimit.increment, {
+      key: emailKey,
     });
 
     return { checkoutUrl: approveLinkObj.href, donationId };

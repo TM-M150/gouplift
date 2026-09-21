@@ -273,4 +273,10 @@ export default defineSchema({
     rate: v.number(),
     fetchedAt: v.number(),
   }).index("by_pair", ["pair"]),
+
+  rateLimits: defineTable({
+    key: v.string(), // e.g. "donate:email:user@example.com" or "donate:ip:1.2.3.4"
+    count: v.number(),
+    windowStart: v.number(), // timestamp
+  }).index("by_key", ["key"]),
 });
