@@ -195,6 +195,21 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
       },
     },
 
+    account: {
+      accountLinking: {
+        enabled: true,
+        trustedProviders: ["google"],
+      },
+    },
+
+    advanced: {
+      useSecureCookies: true,
+      defaultCookieAttributes: {
+        sameSite: "none",
+        secure: true,
+      },
+    },
+
     plugins: [phoneNumber(), convex({ authConfig })],
   });
 };
