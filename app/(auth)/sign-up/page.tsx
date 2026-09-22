@@ -287,15 +287,18 @@ export default function SignupForm() {
                     Or continue with
                   </FieldSeparator>
 
-                  <Field className="grid grid-cols-3 gap-4">
-                    <Button variant="outline" type="button">
-                      <FaApple className="size-5 text-[#555555]" />
-                    </Button>
-                    <Button variant="outline" type="button">
+                  <Field className="grid grid-cols-2 gap-4">
+                    <Button
+                      variant="outline"
+                      type="button"
+                      onClick={() =>
+                        authClient.signIn.social({
+                          provider: "google",
+                          callbackURL: "/profile",
+                        })
+                      }
+                    >
                       <FaGoogle className="size-5 text-[#EA4335]" />
-                    </Button>
-                    <Button variant="outline" type="button">
-                      <FaMeta className="size-5 text-[#0082FB]" />
                     </Button>
                   </Field>
 

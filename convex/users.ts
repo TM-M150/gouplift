@@ -1,4 +1,3 @@
-// convex/users.ts
 import { ConvexError, v } from "convex/values";
 import { action, internalMutation, mutation, query } from "./_generated/server";
 import { authComponent } from "./auth";
@@ -29,7 +28,6 @@ export const getCurrentUser = query({
   },
 });
 
-// Follower
 export const getProfileStats = query({
   args: { userId: v.string() },
   handler: async (ctx, args) => {
@@ -129,6 +127,16 @@ export const updateProfile = mutation({
       );
     }
 
+    if (parsed.data.username && parsed.data.username !== user.username) {
+      const existing = await ctx.db
+        .query("users")
+        .withIndex("by_username", (q) => q.eq("username", parsed.data.username))
+        .first();
+      if (existing && existing._id !== user._id) {
+        throw new ConvexError("That username is already taken.");
+      }
+    }
+
     await ctx.db.patch(user._id, { ...parsed.data, updatedAt: Date.now() });
   },
 });
@@ -150,6 +158,11 @@ export const getCurrentUserProfile = query({
       courses: user.courses ?? [],
       isPrivate: user.isPrivate ?? false,
       image: user.image,
+      username: user.username ?? "",
+      location: user.location ?? "",
+      website: user.website ?? "",
+      email: user.email,
+      phoneNumber: user.phoneNumber ?? "",
     };
   },
 });

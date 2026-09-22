@@ -124,13 +124,19 @@ export default defineSchema({
     donorEmail: v.optional(v.string()),
     donorPhone: v.optional(v.string()),
     isAnonymous: v.boolean(),
-    grossAmount: v.number(),
-    currency: v.union(v.literal("KES"), v.literal("USD")),
+    grossAmount: v.number(), // stays the KES-equivalent — everything downstream (fundraiser totals, fees) keeps working unchanged
+    currency: v.union(v.literal("KES")),
+
+    // NEW — records what the donor actually paid, when it wasn't KES
     provider: v.optional(v.union(v.literal("SASAPAY"), v.literal("PAYPAL"))),
+    originalCurrency: v.optional(v.union(v.literal("KES"), v.literal("USD"))),
+    originalAmount: v.optional(v.number()), // amount charged in originalCurrency
+    exchangeRate: v.optional(v.number()), // USD->KES rate used at capture time
+
     message: v.optional(v.string()),
-    platformFeeRate: v.number(), // e.g. 0.0425
-    platformFeeAmount: v.number(), // round(grossAmount * platformFeeRate, 2)
-    netAmount: v.number(), // grossAmount - platformFeeAmount — owed to the fundraiser's beneficiary.
+    platformFeeRate: v.number(),
+    platformFeeAmount: v.number(),
+    netAmount: v.number(),
     gatewayFeeAmount: v.optional(v.number()),
 
     status: v.union(
@@ -153,13 +159,19 @@ export default defineSchema({
         v.literal("AIRTEL_MONEY"),
         v.literal("CARD"),
         v.literal("BANK"),
-        v.literal("PAYPAL"),
+        v.literal("PAYPAL"), // NEW
       ),
     ),
-    merchantRequestId: v.optional(v.string()), // SasaPay's MerchantRequestID or PayPal Order/Capture ID
-    checkoutRequestId: v.optional(v.string()), // SasaPay's CheckoutRequestID
-    providerTransactionCode: v.optional(v.string()), // Provider settlement-time transaction code
-    providerPayload: v.optional(v.string()), // raw callback/webhook JSON stringified
+    merchantRequestId: v.optional(v.string()),
+    checkoutRequestId: v.optional(v.string()),
+    providerTransactionCode: v.optional(v.string()),
+    providerPayload: v.optional(v.string()),
+
+    // NEW — PayPal's own correlation ids
+    paypalOrderId: v.optional(v.string()),
+    paypalCaptureId: v.optional(v.string()),
+    paypalSubscriptionId: v.optional(v.string()),
+    isSubscriptionPayment: v.optional(v.boolean()),
 
     failureReason: v.optional(v.string()),
     refundedAt: v.optional(v.number()),
@@ -174,7 +186,37 @@ export default defineSchema({
     .index("by_donorUserId", ["donorUserId"])
     .index("by_status", ["status"])
     .index("by_checkoutRequestId", ["checkoutRequestId"])
-    .index("by_payoutStatus", ["payoutStatus"]),
+    .index("by_payoutStatus", ["payoutStatus"])
+    .index("by_paypalOrderId", ["paypalOrderId"]) // NEW
+    .index("by_paypalSubscriptionId", ["paypalSubscriptionId"]),
+
+  paypalSubscriptions: defineTable({
+    fundraiserId: v.id("fundraisers"),
+    donorUserId: v.optional(v.id("users")),
+    donorEmail: v.optional(v.string()),
+    donorName: v.optional(v.string()),
+    isAnonymous: v.boolean(),
+    message: v.optional(v.string()),
+
+    paypalSubscriptionId: v.string(),
+    paypalPlanId: v.string(),
+    monthlyAmountUsd: v.number(),
+
+    status: v.union(
+      v.literal("PENDING"), // created, waiting on donor approval redirect
+      v.literal("ACTIVE"),
+      v.literal("SUSPENDED"),
+      v.literal("CANCELLED"),
+      v.literal("EXPIRED"),
+    ),
+
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    cancelledAt: v.optional(v.number()),
+  })
+    .index("by_paypalSubscriptionId", ["paypalSubscriptionId"])
+    .index("by_fundraiserId", ["fundraiserId"])
+    .index("by_donorUserId", ["donorUserId"]),
 
   donationSubscriptions: defineTable({
     subscriptionId: v.string(), // PayPal Subscription ID

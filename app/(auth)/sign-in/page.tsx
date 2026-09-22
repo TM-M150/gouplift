@@ -23,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { signInSchema, SignInValues } from "@/lib/validations/auth";
 import { authClient } from "@/lib/auth-client";
+import { FaGoogle } from "react-icons/fa6";
 
 // Local Input Helper
 interface BaseFieldProps {
@@ -216,6 +217,30 @@ export default function SignInForm() {
                       )}
                     </Button>
                   </Field>
+
+                  <div className="relative my-4">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-card px-2 text-muted-foreground">
+                        Or continue with
+                      </span>
+                    </div>
+                  </div>
+
+                  <Button
+                    variant="outline"
+                    type="button"
+                    onClick={() =>
+                      authClient.signIn.social({
+                        provider: "google",
+                        callbackURL: "/profile",
+                      })
+                    }
+                  >
+                    <FaGoogle className="size-5 text-[#EA4335]" />
+                  </Button>
 
                   <FieldDescription className="text-center">
                     Don&apos;t have an account?{" "}

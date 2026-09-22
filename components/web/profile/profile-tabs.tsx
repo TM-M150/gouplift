@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AdditionalInfoTab } from "./additional-info-tab";
 import { FundraisersTab } from "./fundraisers-tab";
 import { ImpactTab } from "./impact-tab";
+import { SettingsTab } from "./settings-tab";
 
 export function ProfileTabs() {
   return (
@@ -26,7 +27,9 @@ export function ProfileTabs() {
         <TabsContent value="impact">
           <ImpactTab />
         </TabsContent>
-        <TabsContent value="settings"></TabsContent>
+        <TabsContent value="settings">
+          <SettingsTab />
+        </TabsContent>
       </Tabs>
     </section>
   );
