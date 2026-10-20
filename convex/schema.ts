@@ -188,7 +188,8 @@ export default defineSchema({
     .index("by_checkoutRequestId", ["checkoutRequestId"])
     .index("by_payoutStatus", ["payoutStatus"])
     .index("by_paypalOrderId", ["paypalOrderId"]) // NEW
-    .index("by_paypalSubscriptionId", ["paypalSubscriptionId"]),
+    .index("by_paypalSubscriptionId", ["paypalSubscriptionId"])
+    .index("by_paypalCaptureId", ["paypalCaptureId"]),
 
   paypalSubscriptions: defineTable({
     fundraiserId: v.id("fundraisers"),
@@ -203,7 +204,7 @@ export default defineSchema({
     monthlyAmountUsd: v.number(),
 
     status: v.union(
-      v.literal("PENDING"), // created, waiting on donor approval redirect
+      v.literal("PENDING"),
       v.literal("ACTIVE"),
       v.literal("SUSPENDED"),
       v.literal("CANCELLED"),

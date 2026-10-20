@@ -167,7 +167,7 @@ export default function Home() {
                 <div className="before:mask-radial-at-top-left before:mask-radial-from-65% before:mask-radial-[100%_60%] before:ring-foreground before:border-foreground/10 pointer-events-none absolute inset-0 z-10 rounded-2xl ring-1 ring-white/10 before:absolute before:-inset-px before:z-10 before:size-56 before:rounded-tl-2xl before:border-l before:border-t" />
                 <div className="bg-background relative z-0 overflow-hidden rounded-xl border border-white/10 shadow-2xl shadow-black/50">
                   <Image
-                    src="https://plus.unsplash.com/premium_photo-1683140538884-07fb31428ca6?q=80&w=870&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
+                    src="https://images.unsplash.com/photo-1790386857336-976dda373487?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
                     alt="Fundraiser Platform Dashboard"
                     width={1200}
                     height={675}

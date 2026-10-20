@@ -42,7 +42,7 @@ export const footerLinks = [
   {
     name: "Legal",
     links: [
-      { href: "#", label: "Privacy Policy" },
+      { href: "/privacy", label: "Privacy Policy" },
       { href: "/terms", label: "Terms of Use" },
       { href: "#", label: "Donor Guarantee" },
       { href: "#", label: "Cookie Policy" },

@@ -271,7 +271,7 @@ export default function SignInForm() {
               Terms of Use
             </Link>{" "}
             and{" "}
-            <Link href="#" className="underline">
+            <Link href="/privacy" className="underline">
               Privacy Policy
             </Link>
             .

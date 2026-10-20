@@ -315,6 +315,31 @@ export const completePayPalDonation = internalMutation({
   },
 });
 
+export const failPayPalDonation = internalMutation({
+  args: {
+    donationId: v.id("donations"),
+    failureReason: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const donation = await ctx.db.get(args.donationId);
+    if (!donation) {
+      throw new Error(`Donation ${args.donationId} not found.`);
+    }
+
+    // Same guard as completePayPalDonation — a late/duplicate DENIED
+    // webhook must never clobber a donation that already completed.
+    if (donation.status === "COMPLETED") {
+      return;
+    }
+
+    await ctx.db.patch(args.donationId, {
+      status: "FAILED",
+      failureReason: args.failureReason ?? "PayPal declined this payment.",
+      updatedAt: Date.now(),
+    });
+  },
+});
+
 export const capturePayPalOrder = action({
   args: {
     orderId: v.string(),
@@ -484,10 +509,18 @@ async function verifyPayPalWebhook(
   return result.verification_status === "SUCCESS";
 }
 
+interface PayPalSaleResource {
+  id: string;
+  billing_agreement_id?: string;
+  amount?: {
+    total?: string;
+    currency?: string;
+  };
+}
+
 export const paypalWebhook = httpAction(async (ctx, request) => {
   const body = await request.text();
 
-  // 1. Verify signature (required in production)
   const isValid = await verifyPayPalWebhook(request.headers, body);
   if (!isValid) {
     return new Response("Invalid signature", { status: 401 });
@@ -500,40 +533,200 @@ export const paypalWebhook = httpAction(async (ctx, request) => {
     return new Response("Invalid JSON", { status: 400 });
   }
 
-  // We only care about successful captures for now
-  if (event.event_type !== "PAYMENT.CAPTURE.COMPLETED") {
-    // Acknowledge other events so PayPal doesn't keep retrying
-    return new Response("OK", { status: 200 });
-  }
-
-  const captureId = event.resource?.id;
   const orderId =
     event.resource?.supplementary_data?.related_ids?.order_id ?? null;
 
-  if (!orderId) {
-    console.error(
-      "PayPal CAPTURE.COMPLETED missing order_id in supplementary_data",
-      event.resource,
-    );
-    // Still 200 so PayPal stops retrying — we can't match the donation
-    return new Response("OK", { status: 200 });
+  switch (event.event_type) {
+    case "BILLING.SUBSCRIPTION.ACTIVATED": {
+      const subscription = await ctx.runQuery(
+        internal.paypal.getSubscriptionByPayPalId,
+        {
+          paypalSubscriptionId: event.resource.id,
+        },
+      );
+      if (subscription) {
+        await ctx.runMutation(internal.paypal.updateSubscriptionStatus, {
+          subscriptionId: subscription._id,
+          status: "ACTIVE",
+        });
+      }
+      break;
+    }
+
+    case "BILLING.SUBSCRIPTION.SUSPENDED":
+    case "BILLING.SUBSCRIPTION.CANCELLED":
+    case "BILLING.SUBSCRIPTION.EXPIRED": {
+      const status =
+        event.event_type === "BILLING.SUBSCRIPTION.SUSPENDED"
+          ? "SUSPENDED"
+          : event.event_type === "BILLING.SUBSCRIPTION.CANCELLED"
+            ? "CANCELLED"
+            : "EXPIRED";
+      const subscription = await ctx.runQuery(
+        internal.paypal.getSubscriptionByPayPalId,
+        {
+          paypalSubscriptionId: event.resource.id,
+        },
+      );
+      if (subscription) {
+        await ctx.runMutation(internal.paypal.updateSubscriptionStatus, {
+          subscriptionId: subscription._id,
+          status,
+        });
+      }
+      break;
+    }
+
+    case "PAYMENT.SALE.COMPLETED": {
+      const resource = event.resource as PayPalSaleResource;
+      const subscriptionId = resource?.billing_agreement_id;
+
+      if (subscriptionId) {
+        const rate = await getUsdToKesRate(ctx);
+        await ctx.runMutation(internal.paypal.recordSubscriptionPayment, {
+          paypalSubscriptionId: subscriptionId,
+          paypalSaleId: resource.id,
+          grossAmountUsd: Number(resource?.amount?.total ?? 0),
+          exchangeRate: rate,
+        });
+      }
+      break;
+    }
+
+    case "PAYMENT.CAPTURE.DENIED": {
+      if (!orderId) {
+        console.error("PayPal CAPTURE.DENIED missing order_id", event.resource);
+        break;
+      }
+      const donation = await ctx.runQuery(
+        internal.paypal.getDonationByOrderId,
+        { orderId },
+      );
+      if (donation) {
+        await ctx.runMutation(internal.paypal.failPayPalDonation, {
+          donationId: donation._id,
+        });
+      }
+      break;
+    }
+
+    // Subscription events (BILLING.SUBSCRIPTION.ACTIVATED, PAYMENT.SALE.COMPLETED,
+    // .CANCELLED/.SUSPENDED/.EXPIRED) go here — blocked on the schema below.
+
+    default:
+      // Acknowledge anything else so PayPal stops retrying.
+      break;
   }
-
-  const donation = await ctx.runQuery(internal.paypal.getDonationByOrderId, {
-    orderId,
-  });
-
-  if (!donation) {
-    // Stale / unknown order — acknowledge and move on
-    return new Response("OK", { status: 200 });
-  }
-
-  // Idempotent — completePayPalDonation already no-ops if already COMPLETED
-  await ctx.runMutation(internal.paypal.completePayPalDonation, {
-    donationId: donation._id,
-    paypalCaptureId: captureId,
-    rawPayload: body,
-  });
 
   return new Response("OK", { status: 200 });
+});
+
+export const getSubscriptionByPayPalId = internalQuery({
+  args: { paypalSubscriptionId: v.string() },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("paypalSubscriptions")
+      .withIndex("by_paypalSubscriptionId", (q) =>
+        q.eq("paypalSubscriptionId", args.paypalSubscriptionId),
+      )
+      .unique();
+  },
+});
+
+export const updateSubscriptionStatus = internalMutation({
+  args: {
+    subscriptionId: v.id("paypalSubscriptions"),
+    status: v.union(
+      v.literal("ACTIVE"),
+      v.literal("SUSPENDED"),
+      v.literal("CANCELLED"),
+      v.literal("EXPIRED"),
+    ),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    await ctx.db.patch(args.subscriptionId, {
+      status: args.status,
+      updatedAt: now,
+      ...(args.status === "CANCELLED" || args.status === "EXPIRED"
+        ? { cancelledAt: now }
+        : {}),
+    });
+  },
+});
+
+export const recordSubscriptionPayment = internalMutation({
+  args: {
+    paypalSubscriptionId: v.string(),
+    paypalSaleId: v.string(),
+    grossAmountUsd: v.number(),
+    exchangeRate: v.number(), // NEW — resolved by the caller, not fetched here
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("donations")
+      .withIndex("by_paypalCaptureId", (q) =>
+        q.eq("paypalCaptureId", args.paypalSaleId),
+      )
+      .first();
+    if (existing) return;
+
+    const subscription = await ctx.db
+      .query("paypalSubscriptions")
+      .withIndex("by_paypalSubscriptionId", (q) =>
+        q.eq("paypalSubscriptionId", args.paypalSubscriptionId),
+      )
+      .unique();
+    if (!subscription) {
+      console.error(
+        `No paypalSubscriptions row for ${args.paypalSubscriptionId}`,
+      );
+      return;
+    }
+
+    // No getUsdToKesRate(ctx) call here anymore — mutations can't fetch.
+    const grossAmountKes =
+      Math.round(args.grossAmountUsd * args.exchangeRate * 100) / 100;
+    const platformFeeAmount =
+      Math.round(grossAmountKes * PLATFORM_FEE_RATE * 100) / 100;
+    const netAmount =
+      Math.round((grossAmountKes - platformFeeAmount) * 100) / 100;
+
+    const now = Date.now();
+    await ctx.db.insert("donations", {
+      fundraiserId: subscription.fundraiserId,
+      donorUserId: subscription.donorUserId,
+      donorName: subscription.donorName,
+      donorEmail: subscription.donorEmail,
+      isAnonymous: subscription.isAnonymous,
+      grossAmount: grossAmountKes,
+      currency: "KES",
+      provider: "PAYPAL",
+      originalCurrency: "USD",
+      originalAmount: args.grossAmountUsd,
+      exchangeRate: args.exchangeRate,
+      message: subscription.message,
+      platformFeeRate: PLATFORM_FEE_RATE,
+      platformFeeAmount,
+      netAmount,
+      status: "COMPLETED",
+      payoutStatus: "PENDING_PAYOUT",
+      paymentMethod: "PAYPAL",
+      paypalSubscriptionId: args.paypalSubscriptionId,
+      paypalCaptureId: args.paypalSaleId,
+      isSubscriptionPayment: true,
+      completedAt: now,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const fundraiser = await ctx.db.get(subscription.fundraiserId);
+    if (fundraiser) {
+      await ctx.db.patch(subscription.fundraiserId, {
+        amountRaised: fundraiser.amountRaised + grossAmountKes,
+        donorCount: fundraiser.donorCount + 1,
+        updatedAt: now,
+      });
+    }
+  },
 });

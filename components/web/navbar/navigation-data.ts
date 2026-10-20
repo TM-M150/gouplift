@@ -29,8 +29,13 @@ export const fundraise: NavigationItem[] = [
 
 export const donate: NavigationItem[] = [
   {
-    title: "Discover fundraisers to support",
+    title: "Discover courses to support",
     description: "Find causes that matter to you",
+    href: "/fundraisers",
+  },
+  {
+    title: "Discover organizations to support",
+    description: "Find organizations that matter to you",
     href: "/fundraisers",
   },
 ];
