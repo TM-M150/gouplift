@@ -8,7 +8,7 @@ import {
 } from "./_generated/server";
 import type { QueryCtx, MutationCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { authComponent } from "./auth";
 
 const INVITE_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -602,5 +602,127 @@ export const listFundraisersByOrganization = query({
         currency: f.currency,
       }))
       .sort((a, b) => b.id.localeCompare(a.id));
+  },
+});
+
+const BROWSE_SCAN_LIMIT = 60;
+const BROWSE_LIMIT = 24;
+const SEARCH_LIMIT = 20;
+const FUNDRAISER_LIMIT = 24;
+
+function isPubliclyVisible(org: Doc<"organizations">) {
+  return org.verificationStatus !== "REJECTED";
+}
+
+function verifiedRank(org: Doc<"organizations">) {
+  return org.verificationStatus === "VERIFIED" ? 0 : 1;
+}
+
+function safeWebsite(website?: string): string | null {
+  if (!website) return null;
+  try {
+    const url = new URL(website);
+    return url.protocol === "https:" || url.protocol === "http:"
+      ? url.href
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+async function toPublicSummary(ctx: QueryCtx, org: Doc<"organizations">) {
+  return {
+    _id: org._id,
+    slug: org.slug,
+    name: org.name,
+    description: org.description ?? null,
+    isVerified: org.verificationStatus === "VERIFIED",
+    logoUrl: org.logoStorageId
+      ? await ctx.storage.getUrl(org.logoStorageId)
+      : (org.logoUrl ?? null),
+  };
+}
+
+export const listOrganizations = query({
+  args: {},
+  handler: async (ctx) => {
+    const recent = await ctx.db
+      .query("organizations")
+      .order("desc")
+      .take(BROWSE_SCAN_LIMIT);
+
+    const visible = recent
+      .filter(isPubliclyVisible)
+      .sort((a, b) => verifiedRank(a) - verifiedRank(b)) // stable: verified first, newest within each group
+      .slice(0, BROWSE_LIMIT);
+
+    return Promise.all(visible.map((org) => toPublicSummary(ctx, org)));
+  },
+});
+
+export const searchOrganizations = query({
+  args: { searchTerm: v.string() },
+  handler: async (ctx, args) => {
+    const trimmed = args.searchTerm.trim();
+    if (!trimmed) return [];
+
+    const matches = await ctx.db
+      .query("organizations")
+      .withSearchIndex("search_name", (q) => q.search("name", trimmed))
+      .take(SEARCH_LIMIT);
+
+    return Promise.all(
+      matches.filter(isPubliclyVisible).map((org) => toPublicSummary(ctx, org)),
+    );
+  },
+});
+
+export const getPublicOrganization = query({
+  args: { slug: v.string() },
+  handler: async (ctx, args) => {
+    const org = await ctx.db
+      .query("organizations")
+      .withIndex("by_slug", (q) => q.eq("slug", args.slug))
+      .unique();
+    if (!org || !isPubliclyVisible(org)) return null;
+
+    return {
+      ...(await toPublicSummary(ctx, org)),
+      website: safeWebsite(org.website),
+      createdAt: org.createdAt,
+    };
+  },
+});
+
+export const listOrganizationFundraisers = query({
+  args: { organizationId: v.id("organizations") },
+  handler: async (ctx, args) => {
+    const org = await ctx.db.get(args.organizationId);
+    if (!org || !isPubliclyVisible(org)) return [];
+
+    const fundraisers = await ctx.db
+      .query("fundraisers")
+      .withIndex("by_organizationId_and_status_and_isPrivate", (q) =>
+        q
+          .eq("organizationId", args.organizationId)
+          .eq("status", "ACTIVE")
+          .eq("isPrivate", false),
+      )
+      .order("desc")
+      .take(FUNDRAISER_LIMIT);
+
+    return Promise.all(
+      fundraisers.map(async (fundraiser) => ({
+        _id: fundraiser._id,
+        title: fundraiser.title,
+        goalAmount: fundraiser.goalAmount,
+        amountRaised: fundraiser.amountRaised,
+        donorCount: fundraiser.donorCount,
+        location: fundraiser.location,
+        coverImageUrl: fundraiser.coverImageStorageId
+          ? await ctx.storage.getUrl(fundraiser.coverImageStorageId)
+          : (fundraiser.coverImage ?? null),
+      })),
+    );
   },
 });

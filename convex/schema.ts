@@ -112,6 +112,11 @@ export default defineSchema({
     .index("by_beneficiaryUserId", ["beneficiaryUserId"])
     .index("by_endDate", ["endDate"])
     .index("by_organizationId", ["organizationId"])
+    .index("by_organizationId_and_status_and_isPrivate", [
+      "organizationId",
+      "status",
+      "isPrivate",
+    ])
     .searchIndex("search_title", {
       searchField: "title",
       filterFields: ["status", "isPrivate"],
@@ -278,7 +283,8 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_verificationStatus", ["verificationStatus"])
-    .index("by_slug", ["slug"]),
+    .index("by_slug", ["slug"])
+    .searchIndex("search_name", { searchField: "name" }),
 
   organizationMembers: defineTable({
     organizationId: v.id("organizations"),

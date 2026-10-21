@@ -34,9 +34,9 @@ export const donate: NavigationItem[] = [
     href: "/fundraisers",
   },
   {
-    title: "Discover organizations to support",
-    description: "Find organizations that matter to you",
-    href: "/fundraisers",
+    title: "Browse organizations",
+    description: "Find the groups and nonprofits behind the causes",
+    href: "/organizations",
   },
 ];
 
