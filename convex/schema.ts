@@ -1,5 +1,9 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import {
+  documentTypeValidator,
+  organizationTypeValidator,
+} from "./lib/organizationValidators";
 
 export default defineSchema({
   users: defineTable({
@@ -270,12 +274,16 @@ export default defineSchema({
     contactEmail: v.optional(v.string()),
     contactPhone: v.optional(v.string()),
     registrationNumber: v.optional(v.string()),
+    // Optional so organizations created before document verification still validate.
+    organizationType: v.optional(organizationTypeValidator),
     verificationStatus: v.union(
       v.literal("UNVERIFIED"),
       v.literal("PENDING_REVIEW"),
       v.literal("VERIFIED"),
       v.literal("REJECTED"),
     ),
+    verificationSubmittedAt: v.optional(v.number()),
+    rejectionReason: v.optional(v.string()),
     verifiedAt: v.optional(v.number()),
     verifiedBy: v.optional(v.string()),
     createdBy: v.id("users"),
@@ -285,6 +293,34 @@ export default defineSchema({
     .index("by_verificationStatus", ["verificationStatus"])
     .index("by_slug", ["slug"])
     .searchIndex("search_name", { searchField: "name" }),
+
+  // Verification files an organization uploads when it is created. One row per
+  // file (a slot like OFFICIAL_IDS can hold several). Reviewed per document so
+  // an admin can ask for a single file to be replaced.
+  organizationDocuments: defineTable({
+    organizationId: v.id("organizations"),
+    documentType: documentTypeValidator,
+    storageId: v.id("_storage"),
+    fileName: v.string(),
+    contentType: v.string(),
+    size: v.number(),
+    uploadedBy: v.id("users"),
+    reviewStatus: v.union(
+      v.literal("PENDING"),
+      v.literal("APPROVED"),
+      v.literal("REJECTED"),
+    ),
+    reviewNote: v.optional(v.string()),
+    reviewedAt: v.optional(v.number()),
+    reviewedBy: v.optional(v.id("users")),
+    createdAt: v.number(),
+  })
+    .index("by_organizationId", ["organizationId"])
+    .index("by_organizationId_and_documentType", [
+      "organizationId",
+      "documentType",
+    ])
+    .index("by_storageId", ["storageId"]),
 
   organizationMembers: defineTable({
     organizationId: v.id("organizations"),

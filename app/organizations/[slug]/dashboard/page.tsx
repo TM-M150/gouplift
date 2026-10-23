@@ -4,6 +4,7 @@ import { ChartAreaInteractive } from "@/components/web/organization/dashboard/ch
 import { DataTable } from "@/components/web/organization/dashboard/data-table";
 import { SectionCards } from "@/components/web/organization/dashboard/section-cards";
 import { SiteHeader } from "@/components/web/organization/dashboard/site-header";
+import { VerificationBanner } from "@/components/web/organization/dashboard/verification-banner";
 import { api } from "@/convex/_generated/api";
 import { fetchAuthQuery } from "@/lib/auth-server";
 import { notFound } from "next/navigation";
@@ -45,6 +46,10 @@ export default async function Page({ params }: PageProps) {
         <div className="flex flex-1 flex-col">
           <div className="@container/main flex flex-1 flex-col gap-2">
             <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+              <VerificationBanner
+                status={organization.verificationStatus}
+                rejectionReason={organization.rejectionReason}
+              />
               <SectionCards organizationId={organization._id} />
               <div className="px-4 lg:px-6">
                 <ChartAreaInteractive organizationId={organization._id} />

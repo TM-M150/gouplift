@@ -10,8 +10,20 @@ import type { QueryCtx, MutationCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { authComponent } from "./auth";
+import {
+  ALLOWED_DOCUMENT_CONTENT_TYPES,
+  MAX_DOCUMENT_BYTES,
+  getDocumentSlots,
+  type DocumentType,
+} from "../lib/organization-verification";
+import { organizationDetailsSchema } from "../lib/validations/organization";
+import {
+  documentTypeValidator,
+  organizationTypeValidator,
+} from "./lib/organizationValidators";
 
 const INVITE_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+const MAX_DOCUMENT_FILE_NAME_LENGTH = 200;
 
 function resolveReturnOrigin(requestedOrigin: string): string {
   const allowed = (process.env.ALLOWED_APP_ORIGINS ?? "")
@@ -139,13 +151,26 @@ export const getMyMembershipRole = query({
   },
 });
 
+// An organization is created together with the documents that prove it exists.
+// The files are uploaded to Convex storage first (via users.generateUploadUrl)
+// and referenced here by storageId; everything else about a file (type, size)
+// is read from storage rather than trusted from the client.
 export const createOrganization = mutation({
   args: {
     name: v.string(),
+    organizationType: organizationTypeValidator,
+    registrationNumber: v.string(),
     description: v.optional(v.string()),
     website: v.optional(v.string()),
     contactEmail: v.optional(v.string()),
     contactPhone: v.optional(v.string()),
+    documents: v.array(
+      v.object({
+        documentType: documentTypeValidator,
+        storageId: v.id("_storage"),
+        fileName: v.string(),
+      }),
+    ),
   },
   handler: async (ctx, args) => {
     const authUser = await authComponent.safeGetAuthUser(ctx);
@@ -161,9 +186,106 @@ export const createOrganization = mutation({
       throw new ConvexError("User profile not found.");
     }
 
-    const name = args.name.trim();
-    if (!name) {
-      throw new ConvexError("Organization name is required.");
+    const parsed = organizationDetailsSchema.safeParse(args);
+    if (!parsed.success) {
+      throw new ConvexError(
+        parsed.error.issues[0]?.message ?? "Invalid organization details.",
+      );
+    }
+    const details = parsed.data;
+    const name = details.name;
+
+    // 1. Shape check: only documents this type of organization is asked for,
+    //    within each slot's file limit, with every required slot filled.
+    const slots = getDocumentSlots(details.organizationType);
+    const slotByType = new Map(slots.map((slot) => [slot.documentType, slot]));
+    const countByType = new Map<DocumentType, number>();
+    const seenStorageIds = new Set<string>();
+
+    for (const doc of args.documents) {
+      const slot = slotByType.get(doc.documentType);
+      if (!slot) {
+        throw new ConvexError(
+          "A document was attached that isn't needed for this type of organization.",
+        );
+      }
+
+      const count = (countByType.get(doc.documentType) ?? 0) + 1;
+      if (count > slot.maxFiles) {
+        throw new ConvexError(
+          `${slot.label}: you can upload at most ${slot.maxFiles} file${slot.maxFiles === 1 ? "" : "s"}.`,
+        );
+      }
+      countByType.set(doc.documentType, count);
+
+      if (seenStorageIds.has(doc.storageId)) {
+        throw new ConvexError("The same file was attached more than once.");
+      }
+      seenStorageIds.add(doc.storageId);
+    }
+
+    const missing = slots.filter(
+      (slot) => slot.required && !countByType.has(slot.documentType),
+    );
+    if (missing.length > 0) {
+      throw new ConvexError(
+        `Missing required documents: ${missing.map((slot) => slot.label).join(", ")}.`,
+      );
+    }
+
+    // 2. File check: read the real type and size from storage, and make sure
+    //    the file isn't already attached to another submission.
+    const verifiedDocuments: Array<{
+      documentType: DocumentType;
+      storageId: Id<"_storage">;
+      fileName: string;
+      contentType: string;
+      size: number;
+    }> = [];
+
+    for (const doc of args.documents) {
+      const fileName =
+        doc.fileName.trim().slice(0, MAX_DOCUMENT_FILE_NAME_LENGTH) ||
+        "document";
+
+      const stored = await ctx.db.system.get("_storage", doc.storageId);
+      if (!stored) {
+        throw new ConvexError(
+          `${fileName} wasn't uploaded properly. Please try again.`,
+        );
+      }
+
+      const contentType = stored.contentType ?? "";
+      if (
+        !(ALLOWED_DOCUMENT_CONTENT_TYPES as readonly string[]).includes(
+          contentType,
+        )
+      ) {
+        throw new ConvexError(
+          `${fileName} isn't a supported file. Use PDF, JPG, PNG or WebP.`,
+        );
+      }
+      if (stored.size > MAX_DOCUMENT_BYTES) {
+        throw new ConvexError(
+          `${fileName} is larger than ${MAX_DOCUMENT_BYTES / (1024 * 1024)} MB.`,
+        );
+      }
+
+      const alreadyUsed = await ctx.db
+        .query("organizationDocuments")
+        .withIndex("by_storageId", (q) => q.eq("storageId", doc.storageId))
+        .first();
+      if (alreadyUsed) {
+        throw new ConvexError(`${fileName} has already been submitted.`);
+      }
+
+      verifiedDocuments.push({
+        documentType: doc.documentType,
+        storageId: doc.storageId,
+        fileName,
+        contentType,
+        size: stored.size,
+      });
     }
 
     // Generate unique slug base
@@ -179,14 +301,19 @@ export const createOrganization = mutation({
     }
 
     const now = Date.now();
+    // Submitting the documents is part of creating the organization, so it
+    // starts out waiting for an admin to review it.
     const organizationId = await ctx.db.insert("organizations", {
       name,
       slug,
-      description: args.description,
-      website: args.website,
-      contactEmail: args.contactEmail,
-      contactPhone: args.contactPhone,
-      verificationStatus: "UNVERIFIED",
+      organizationType: details.organizationType,
+      registrationNumber: details.registrationNumber,
+      description: details.description,
+      website: details.website,
+      contactEmail: details.contactEmail,
+      contactPhone: details.contactPhone,
+      verificationStatus: "PENDING_REVIEW",
+      verificationSubmittedAt: now,
       createdBy: user._id,
       createdAt: now,
       updatedAt: now,
@@ -198,6 +325,16 @@ export const createOrganization = mutation({
       role: "OWNER",
       joinedAt: now,
     });
+
+    for (const doc of verifiedDocuments) {
+      await ctx.db.insert("organizationDocuments", {
+        organizationId,
+        ...doc,
+        uploadedBy: user._id,
+        reviewStatus: "PENDING",
+        createdAt: now,
+      });
+    }
 
     return { organizationId, slug };
   },
