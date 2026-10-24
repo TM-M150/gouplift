@@ -726,3 +726,39 @@ export const listOrganizationFundraisers = query({
     );
   },
 });
+
+export const listMyOrganizations = query({
+  args: {},
+  handler: async (ctx) => {
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+    if (!authUser) return [];
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authUserId", (q) => q.eq("authUserId", authUser._id))
+      .unique();
+    if (!user) return [];
+
+    const memberships = await ctx.db
+      .query("organizationMembers")
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .take(50);
+
+    const organizations = await Promise.all(
+      memberships.map(async (membership) => {
+        const org = await ctx.db.get(membership.organizationId);
+        // Rejected orgs 404 on their public page, so a fundraiser linked to
+        // one would be orphaned. Keep them out of the picker.
+        if (!org || org.verificationStatus === "REJECTED") return null;
+        return {
+          _id: org._id,
+          name: org.name,
+          isVerified: org.verificationStatus === "VERIFIED",
+          role: membership.role,
+        };
+      }),
+    );
+
+    return organizations.filter((org) => org !== null);
+  },
+});
