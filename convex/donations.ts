@@ -10,6 +10,10 @@ import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { authComponent } from "./auth";
 import { PLATFORM_FEE_RATE, resolveReturnOrigin } from "./lib/constants";
+import {
+  clientDonationSourceValidator,
+  donationSourceValidator,
+} from "./lib/donationSource";
 
 function roundToCents(amount: number): number {
   return Math.round(amount * 100) / 100;
@@ -111,6 +115,8 @@ export const startDonationCheckout = action({
     // Pass window.location.origin from the client — validated against
     // ALLOWED_APP_ORIGINS below, not trusted as-is.
     origin: v.string(),
+    // Attribution only. Omit for a normal GoUplift checkout.
+    source: v.optional(clientDonationSourceValidator),
   },
   handler: async (
     ctx,
@@ -160,6 +166,7 @@ export const startDonationCheckout = action({
         donorName: args.donorName,
         donorEmail: args.donorEmail,
         donorPhone: args.donorPhone,
+        source: args.source,
       },
     );
 
@@ -282,6 +289,7 @@ export const createPendingDonation = internalMutation({
     donorName: v.optional(v.string()),
     donorEmail: v.optional(v.string()),
     donorPhone: v.optional(v.string()),
+    source: v.optional(donationSourceValidator),
     // paymentMethod is NOT collected here — with the hosted Checkout API,
     // the donor picks their method on SasaPay's page, so it's only known
     // once the callback reports it. See markDonationCompleted below.
@@ -307,6 +315,7 @@ export const createPendingDonation = internalMutation({
       grossAmount: args.grossAmount,
       currency: args.currency,
       message: args.message,
+      source: args.source,
       platformFeeRate: PLATFORM_FEE_RATE,
       platformFeeAmount,
       netAmount,

@@ -10,6 +10,10 @@ import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { getUsdToKesRate } from "./lib/fx";
 import { PLATFORM_FEE_RATE, resolveReturnOrigin } from "./lib/constants";
+import {
+  clientDonationSourceValidator,
+  donationSourceValidator,
+} from "./lib/donationSource";
 
 const PAYPAL_BASE_URL = "https://api-m.sandbox.paypal.com"; // Switch to https://api-m.paypal.com for production
 
@@ -64,6 +68,7 @@ export const createPendingPayPalDonation = internalMutation({
     netAmountKes: v.number(),
     platformFeeRate: v.number(),
     message: v.optional(v.string()),
+    source: v.optional(donationSourceValidator),
   },
   returns: v.id("donations"),
   handler: async (ctx, args) => {
@@ -79,6 +84,7 @@ export const createPendingPayPalDonation = internalMutation({
       platformFeeAmount: args.platformFeeAmountKes,
       netAmount: args.netAmountKes,
       message: args.message,
+      source: args.source,
       currency: "KES",
       provider: "PAYPAL",
       paymentMethod: "PAYPAL",
@@ -101,6 +107,8 @@ export const startPayPalCheckout = action({
     amountUsd: v.number(),
     message: v.optional(v.string()),
     origin: v.string(), // window.location.origin from the client
+    // Attribution only. Omit for a normal GoUplift checkout.
+    source: v.optional(clientDonationSourceValidator),
   },
   returns: v.object({
     checkoutUrl: v.string(),
@@ -152,6 +160,7 @@ export const startPayPalCheckout = action({
         netAmountKes,
         platformFeeRate: PLATFORM_FEE_RATE,
         message: args.message,
+        source: args.source,
       },
     );
 

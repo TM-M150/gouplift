@@ -21,6 +21,13 @@ import {
   documentTypeValidator,
   organizationTypeValidator,
 } from "./lib/organizationValidators";
+import {
+  isPubliclyVisible,
+  loadPublicFundraisers,
+  loadPublicOrganizationBySlug,
+  toPublicOrganizationSummary,
+} from "./lib/publicOrganizations";
+import { generateUniqueOrganizationSlug } from "./lib/slug";
 
 const INVITE_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 const MAX_DOCUMENT_FILE_NAME_LENGTH = 200;
@@ -37,15 +44,6 @@ function resolveReturnOrigin(requestedOrigin: string): string {
   return allowed[0] ?? requestedOrigin;
 }
 
-function slugify(text: string) {
-  return text
-    .toLowerCase()
-    .trim()
-    .replace(/[^\w\s-]/g, "")
-    .replace(/[\s_-]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
-
 async function getMembership(
   ctx: QueryCtx | MutationCtx,
   organizationId: Id<"organizations">,
@@ -59,27 +57,6 @@ async function getMembership(
     .unique();
 }
 
-export const getPublicOrganizationBySlug = query({
-  args: { slug: v.string() },
-  handler: async (ctx, args) => {
-    const organization = await ctx.db
-      .query("organizations")
-      .withIndex("by_slug", (q) => q.eq("slug", args.slug))
-      .unique();
-
-    if (!organization) return null;
-
-    return {
-      _id: organization._id,
-      name: organization.name,
-      description: organization.description,
-      logoUrl: organization.logoUrl,
-      heroVideoUrl: organization.heroVideoUrl,
-      heroImageUrl: organization.heroImageUrl,
-    };
-  },
-});
-
 export const getUserByAuthUserId = internalQuery({
   args: { authUserId: v.string() },
   handler: async (ctx, args) => {
@@ -87,43 +64,6 @@ export const getUserByAuthUserId = internalQuery({
       .query("users")
       .withIndex("by_authUserId", (q) => q.eq("authUserId", args.authUserId))
       .unique();
-  },
-});
-
-export const getPublicFundraisersByOrganization = query({
-  args: {
-    organizationId: v.id("organizations"),
-  },
-  handler: async (ctx, args) => {
-    const allFundraisers = await ctx.db
-      .query("fundraisers")
-      .withIndex("by_organizationId", (q) =>
-        q.eq("organizationId", args.organizationId),
-      )
-      .collect();
-
-    const active = allFundraisers.filter(
-      (f) => f.status === "ACTIVE" && !f.isPrivate,
-    );
-
-    return await Promise.all(
-      active.map(async (f) => ({
-        _id: f._id,
-        title: f.title,
-        tagline: f.tagline,
-        story: f.story,
-        coverImage:
-          f.coverImage ??
-          (f.coverImageStorageId
-            ? await ctx.storage.getUrl(f.coverImageStorageId)
-            : undefined),
-        goalAmount: f.goalAmount,
-        amountRaised: f.amountRaised,
-        donorCount: f.donorCount,
-        currency: f.currency,
-        type: f.type,
-      })),
-    );
   },
 });
 
@@ -288,17 +228,7 @@ export const createOrganization = mutation({
       });
     }
 
-    // Generate unique slug base
-    let slug = slugify(name);
-    const existing = await ctx.db
-      .query("organizations")
-      .withIndex("by_slug", (q) => q.eq("slug", slug))
-      .unique();
-
-    // Append a short random suffix if a duplicate slug exists
-    if (existing) {
-      slug = `${slug}-${Math.random().toString(36).substring(2, 7)}`;
-    }
+    const slug = await generateUniqueOrganizationSlug(ctx, name);
 
     const now = Date.now();
     // Submitting the documents is part of creating the organization, so it
@@ -745,39 +675,9 @@ export const listFundraisersByOrganization = query({
 const BROWSE_SCAN_LIMIT = 60;
 const BROWSE_LIMIT = 24;
 const SEARCH_LIMIT = 20;
-const FUNDRAISER_LIMIT = 24;
-
-function isPubliclyVisible(org: Doc<"organizations">) {
-  return org.verificationStatus !== "REJECTED";
-}
 
 function verifiedRank(org: Doc<"organizations">) {
   return org.verificationStatus === "VERIFIED" ? 0 : 1;
-}
-
-function safeWebsite(website?: string): string | null {
-  if (!website) return null;
-  try {
-    const url = new URL(website);
-    return url.protocol === "https:" || url.protocol === "http:"
-      ? url.href
-      : null;
-  } catch {
-    return null;
-  }
-}
-
-async function toPublicSummary(ctx: QueryCtx, org: Doc<"organizations">) {
-  return {
-    _id: org._id,
-    slug: org.slug,
-    name: org.name,
-    description: org.description ?? null,
-    isVerified: org.verificationStatus === "VERIFIED",
-    logoUrl: org.logoStorageId
-      ? await ctx.storage.getUrl(org.logoStorageId)
-      : (org.logoUrl ?? null),
-  };
 }
 
 export const listOrganizations = query({
@@ -793,7 +693,9 @@ export const listOrganizations = query({
       .sort((a, b) => verifiedRank(a) - verifiedRank(b)) // stable: verified first, newest within each group
       .slice(0, BROWSE_LIMIT);
 
-    return Promise.all(visible.map((org) => toPublicSummary(ctx, org)));
+    return Promise.all(
+      visible.map((org) => toPublicOrganizationSummary(ctx, org)),
+    );
   },
 });
 
@@ -809,7 +711,9 @@ export const searchOrganizations = query({
       .take(SEARCH_LIMIT);
 
     return Promise.all(
-      matches.filter(isPubliclyVisible).map((org) => toPublicSummary(ctx, org)),
+      matches
+        .filter(isPubliclyVisible)
+        .map((org) => toPublicOrganizationSummary(ctx, org)),
     );
   },
 });
@@ -817,50 +721,14 @@ export const searchOrganizations = query({
 export const getPublicOrganization = query({
   args: { slug: v.string() },
   handler: async (ctx, args) => {
-    const org = await ctx.db
-      .query("organizations")
-      .withIndex("by_slug", (q) => q.eq("slug", args.slug))
-      .unique();
-    if (!org || !isPubliclyVisible(org)) return null;
-
-    return {
-      ...(await toPublicSummary(ctx, org)),
-      website: safeWebsite(org.website),
-      createdAt: org.createdAt,
-    };
+    return await loadPublicOrganizationBySlug(ctx, args.slug);
   },
 });
 
 export const listOrganizationFundraisers = query({
   args: { organizationId: v.id("organizations") },
   handler: async (ctx, args) => {
-    const org = await ctx.db.get(args.organizationId);
-    if (!org || !isPubliclyVisible(org)) return [];
-
-    const fundraisers = await ctx.db
-      .query("fundraisers")
-      .withIndex("by_organizationId_and_status_and_isPrivate", (q) =>
-        q
-          .eq("organizationId", args.organizationId)
-          .eq("status", "ACTIVE")
-          .eq("isPrivate", false),
-      )
-      .order("desc")
-      .take(FUNDRAISER_LIMIT);
-
-    return Promise.all(
-      fundraisers.map(async (fundraiser) => ({
-        _id: fundraiser._id,
-        title: fundraiser.title,
-        goalAmount: fundraiser.goalAmount,
-        amountRaised: fundraiser.amountRaised,
-        donorCount: fundraiser.donorCount,
-        location: fundraiser.location,
-        coverImageUrl: fundraiser.coverImageStorageId
-          ? await ctx.storage.getUrl(fundraiser.coverImageStorageId)
-          : (fundraiser.coverImage ?? null),
-      })),
-    );
+    return await loadPublicFundraisers(ctx, args.organizationId);
   },
 });
 
