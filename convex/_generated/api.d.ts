@@ -14,6 +14,7 @@ import type * as fundraiser from "../fundraiser.js";
 import type * as http from "../http.js";
 import type * as lib_constants from "../lib/constants.js";
 import type * as lib_fx from "../lib/fx.js";
+import type * as lib_organizationValidators from "../lib/organizationValidators.js";
 import type * as lib_rateLimit from "../lib/rateLimit.js";
 import type * as lib_turnstile from "../lib/turnstile.js";
 import type * as organizations from "../organizations.js";
@@ -34,6 +35,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   "lib/constants": typeof lib_constants;
   "lib/fx": typeof lib_fx;
+  "lib/organizationValidators": typeof lib_organizationValidators;
   "lib/rateLimit": typeof lib_rateLimit;
   "lib/turnstile": typeof lib_turnstile;
   organizations: typeof organizations;
