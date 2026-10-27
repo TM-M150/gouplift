@@ -23,6 +23,7 @@ import {
 } from "./lib/organizationValidators";
 
 const INVITE_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+const DASHBOARD_FUNDRAISER_LIST_LIMIT = 200;
 const MAX_DOCUMENT_FILE_NAME_LENGTH = 200;
 
 function resolveReturnOrigin(requestedOrigin: string): string {
@@ -519,6 +520,25 @@ export const getOrganizationBySlug = query({
   },
 });
 
+// Every fundraiser an organization has, read through by_organizationId so the
+// cost follows the organization's own fundraisers rather than every
+// fundraiser on the platform. Iterated rather than .take()n because the
+// dashboard totals must include all of them; a silent cap would under-report.
+async function readOrganizationFundraisers(
+  ctx: QueryCtx,
+  organizationId: Id<"organizations">,
+) {
+  const fundraisers: Doc<"fundraisers">[] = [];
+  for await (const fundraiser of ctx.db
+    .query("fundraisers")
+    .withIndex("by_organizationId", (q) =>
+      q.eq("organizationId", organizationId),
+    )) {
+    fundraisers.push(fundraiser);
+  }
+  return fundraisers;
+}
+
 export const getDonationStats = query({
   args: {
     organizationId: v.id("organizations"),
@@ -537,11 +557,9 @@ export const getDonationStats = query({
     const membership = await getMembership(ctx, args.organizationId, user._id);
     if (!membership) return [];
 
-    // Get all fundraisers belonging to this organization
-    // NOTE: Add .index("by_organizationId", ["organizationId"]) on fundraisers for better performance
-    const allFundraisers = await ctx.db.query("fundraisers").collect();
-    const orgFundraisers = allFundraisers.filter(
-      (f) => f.organizationId === args.organizationId,
+    const orgFundraisers = await readOrganizationFundraisers(
+      ctx,
+      args.organizationId,
     );
 
     if (orgFundraisers.length === 0) return [];
@@ -553,15 +571,14 @@ export const getDonationStats = query({
     const dailyTotals = new Map<string, number>();
 
     for (const fundraiser of orgFundraisers) {
-      const donations = await ctx.db
+      // Only COMPLETED donations are read at all, not filtered afterwards.
+      const completedDonations = ctx.db
         .query("donations")
-        .withIndex("by_fundraiserId", (q) =>
-          q.eq("fundraiserId", fundraiser._id),
-        )
-        .collect();
+        .withIndex("by_fundraiserId_and_status", (q) =>
+          q.eq("fundraiserId", fundraiser._id).eq("status", "COMPLETED"),
+        );
 
-      for (const donation of donations) {
-        if (donation.status !== "COMPLETED") continue;
+      for await (const donation of completedDonations) {
         if (donation.completedAt === undefined) continue;
         if (donation.completedAt < startTime) continue;
 
@@ -623,9 +640,9 @@ export const getOrganizationDashboardStats = query({
       };
     }
 
-    const allFundraisers = await ctx.db.query("fundraisers").collect();
-    const orgFundraisers = allFundraisers.filter(
-      (f) => f.organizationId === args.organizationId,
+    const orgFundraisers = await readOrganizationFundraisers(
+      ctx,
+      args.organizationId,
     );
 
     let totalRaised = 0;
@@ -644,15 +661,13 @@ export const getOrganizationDashboardStats = query({
     let completedTotal = 0;
 
     for (const fundraiser of orgFundraisers) {
-      const donations = await ctx.db
+      const completed = ctx.db
         .query("donations")
-        .withIndex("by_fundraiserId", (q) =>
-          q.eq("fundraiserId", fundraiser._id),
-        )
-        .collect();
+        .withIndex("by_fundraiserId_and_status", (q) =>
+          q.eq("fundraiserId", fundraiser._id).eq("status", "COMPLETED"),
+        );
 
-      for (const d of donations) {
-        if (d.status !== "COMPLETED") continue;
+      for await (const d of completed) {
         completedDonations += 1;
         completedTotal += d.netAmount ?? 0;
       }
@@ -683,11 +698,11 @@ export const getMyOrganizations = query({
       .unique();
     if (!user) return [];
 
-    // Get all memberships for this user
+    // Get this user's memberships (by_userId, same bound as listMyOrganizations)
     const memberships = await ctx.db
       .query("organizationMembers")
-      .filter((q) => q.eq(q.field("userId"), user._id))
-      .collect();
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .take(50);
 
     // Fetch the organization details for each membership
     const orgs = await Promise.all(
@@ -722,23 +737,26 @@ export const listFundraisersByOrganization = query({
     const membership = await getMembership(ctx, args.organizationId, user._id);
     if (!membership) return [];
 
-    const allFundraisers = await ctx.db.query("fundraisers").collect();
-    const orgFundraisers = allFundraisers.filter(
-      (f) => f.organizationId === args.organizationId,
-    );
+    // Newest first. This is a list the dashboard renders, so it is capped
+    // (the stats above iterate every fundraiser; this one only displays them).
+    const orgFundraisers = await ctx.db
+      .query("fundraisers")
+      .withIndex("by_organizationId", (q) =>
+        q.eq("organizationId", args.organizationId),
+      )
+      .order("desc")
+      .take(DASHBOARD_FUNDRAISER_LIST_LIMIT);
 
-    return orgFundraisers
-      .map((f) => ({
-        id: f._id,
-        title: f.title,
-        type: f.type,
-        status: f.status,
-        goalAmount: f.goalAmount,
-        amountRaised: f.amountRaised,
-        donorCount: f.donorCount,
-        currency: f.currency,
-      }))
-      .sort((a, b) => b.id.localeCompare(a.id));
+    return orgFundraisers.map((f) => ({
+      id: f._id,
+      title: f.title,
+      type: f.type,
+      status: f.status,
+      goalAmount: f.goalAmount,
+      amountRaised: f.amountRaised,
+      donorCount: f.donorCount,
+      currency: f.currency,
+    }));
   },
 });
 

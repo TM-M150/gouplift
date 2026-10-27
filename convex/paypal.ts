@@ -8,6 +8,7 @@ import {
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
+import { authComponent } from "./auth";
 import { getUsdToKesRate } from "./lib/fx";
 import { PLATFORM_FEE_RATE, resolveReturnOrigin } from "./lib/constants";
 
@@ -93,7 +94,8 @@ export const createPendingPayPalDonation = internalMutation({
 export const startPayPalCheckout = action({
   args: {
     fundraiserId: v.id("fundraisers"),
-    donorUserId: v.optional(v.id("users")),
+    // No donorUserId here on purpose: who the donor is comes from their
+    // session below, never from an argument the caller could set to anyone.
     donorName: v.optional(v.string()),
     donorEmail: v.optional(v.string()),
     donorPhone: v.optional(v.string()),
@@ -131,6 +133,17 @@ export const startPayPalCheckout = action({
       );
     }
 
+    // Link the donation to the signed-in donor, if there is one — resolved
+    // the same way startDonationCheckout does it. Guests donate with no user.
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+    let donorUserId: Id<"users"> | undefined;
+    if (authUser) {
+      const user = await ctx.runQuery(internal.donations.getUserByAuthUserId, {
+        authUserId: authUser._id,
+      });
+      donorUserId = user?._id;
+    }
+
     const fxRate = await getUsdToKesRate(ctx);
     const grossAmountKes = Math.round(args.amountUsd * fxRate);
     const platformFeeAmountKes = Math.round(grossAmountKes * PLATFORM_FEE_RATE);
@@ -142,7 +155,7 @@ export const startPayPalCheckout = action({
       internal.paypal.createPendingPayPalDonation,
       {
         fundraiserId: args.fundraiserId,
-        donorUserId: args.donorUserId,
+        donorUserId,
         donorName: args.donorName,
         donorEmail: args.donorEmail,
         donorPhone: args.donorPhone,
