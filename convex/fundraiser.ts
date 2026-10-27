@@ -7,12 +7,6 @@ import {
   fundraiserUpdateSchema,
 } from "../lib/validations/fundraiser";
 
-function requireModerator(user: Doc<"users">) {
-  if (user.role !== "ADMIN" && user.role !== "MODERATOR") {
-    throw new ConvexError("You don't have permission to do that.");
-  }
-}
-
 function requireOwner(user: Doc<"users">, fundraiser: Doc<"fundraisers">) {
   if (fundraiser.creatorId !== user._id && user.role !== "ADMIN") {
     throw new ConvexError(
