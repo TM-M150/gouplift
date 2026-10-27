@@ -1,5 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { donationSourceValidator } from "./lib/donationSource";
 import {
   documentTypeValidator,
   organizationTypeValidator,
@@ -143,6 +144,11 @@ export default defineSchema({
     exchangeRate: v.optional(v.number()), // USD->KES rate used at capture time
 
     message: v.optional(v.string()),
+
+    // Where the donation was started. Missing on every donation made before
+    // this field existed, and treated as "WEB".
+    source: v.optional(donationSourceValidator),
+
     platformFeeRate: v.number(),
     platformFeeAmount: v.number(),
     netAmount: v.number(),

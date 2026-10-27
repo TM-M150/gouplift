@@ -21,8 +21,16 @@ import {
   documentTypeValidator,
   organizationTypeValidator,
 } from "./lib/organizationValidators";
+import {
+  isPubliclyVisible,
+  loadPublicFundraisers,
+  loadPublicOrganizationBySlug,
+  toPublicOrganizationSummary,
+} from "./lib/publicOrganizations";
+import { generateUniqueOrganizationSlug } from "./lib/slug";
 
 const INVITE_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+const DASHBOARD_FUNDRAISER_LIST_LIMIT = 200;
 const MAX_DOCUMENT_FILE_NAME_LENGTH = 200;
 
 function resolveReturnOrigin(requestedOrigin: string): string {
@@ -35,15 +43,6 @@ function resolveReturnOrigin(requestedOrigin: string): string {
     return requestedOrigin;
   }
   return allowed[0] ?? requestedOrigin;
-}
-
-function slugify(text: string) {
-  return text
-    .toLowerCase()
-    .trim()
-    .replace(/[^\w\s-]/g, "")
-    .replace(/[\s_-]+/g, "-")
-    .replace(/^-+|-+$/g, "");
 }
 
 async function getMembership(
@@ -59,27 +58,6 @@ async function getMembership(
     .unique();
 }
 
-export const getPublicOrganizationBySlug = query({
-  args: { slug: v.string() },
-  handler: async (ctx, args) => {
-    const organization = await ctx.db
-      .query("organizations")
-      .withIndex("by_slug", (q) => q.eq("slug", args.slug))
-      .unique();
-
-    if (!organization) return null;
-
-    return {
-      _id: organization._id,
-      name: organization.name,
-      description: organization.description,
-      logoUrl: organization.logoUrl,
-      heroVideoUrl: organization.heroVideoUrl,
-      heroImageUrl: organization.heroImageUrl,
-    };
-  },
-});
-
 export const getUserByAuthUserId = internalQuery({
   args: { authUserId: v.string() },
   handler: async (ctx, args) => {
@@ -87,43 +65,6 @@ export const getUserByAuthUserId = internalQuery({
       .query("users")
       .withIndex("by_authUserId", (q) => q.eq("authUserId", args.authUserId))
       .unique();
-  },
-});
-
-export const getPublicFundraisersByOrganization = query({
-  args: {
-    organizationId: v.id("organizations"),
-  },
-  handler: async (ctx, args) => {
-    const allFundraisers = await ctx.db
-      .query("fundraisers")
-      .withIndex("by_organizationId", (q) =>
-        q.eq("organizationId", args.organizationId),
-      )
-      .collect();
-
-    const active = allFundraisers.filter(
-      (f) => f.status === "ACTIVE" && !f.isPrivate,
-    );
-
-    return await Promise.all(
-      active.map(async (f) => ({
-        _id: f._id,
-        title: f.title,
-        tagline: f.tagline,
-        story: f.story,
-        coverImage:
-          f.coverImage ??
-          (f.coverImageStorageId
-            ? await ctx.storage.getUrl(f.coverImageStorageId)
-            : undefined),
-        goalAmount: f.goalAmount,
-        amountRaised: f.amountRaised,
-        donorCount: f.donorCount,
-        currency: f.currency,
-        type: f.type,
-      })),
-    );
   },
 });
 
@@ -288,17 +229,7 @@ export const createOrganization = mutation({
       });
     }
 
-    // Generate unique slug base
-    let slug = slugify(name);
-    const existing = await ctx.db
-      .query("organizations")
-      .withIndex("by_slug", (q) => q.eq("slug", slug))
-      .unique();
-
-    // Append a short random suffix if a duplicate slug exists
-    if (existing) {
-      slug = `${slug}-${Math.random().toString(36).substring(2, 7)}`;
-    }
+    const slug = await generateUniqueOrganizationSlug(ctx, name);
 
     const now = Date.now();
     // Submitting the documents is part of creating the organization, so it
@@ -519,6 +450,25 @@ export const getOrganizationBySlug = query({
   },
 });
 
+// Every fundraiser an organization has, read through by_organizationId so the
+// cost follows the organization's own fundraisers rather than every
+// fundraiser on the platform. Iterated rather than .take()n because the
+// dashboard totals must include all of them; a silent cap would under-report.
+async function readOrganizationFundraisers(
+  ctx: QueryCtx,
+  organizationId: Id<"organizations">,
+) {
+  const fundraisers: Doc<"fundraisers">[] = [];
+  for await (const fundraiser of ctx.db
+    .query("fundraisers")
+    .withIndex("by_organizationId", (q) =>
+      q.eq("organizationId", organizationId),
+    )) {
+    fundraisers.push(fundraiser);
+  }
+  return fundraisers;
+}
+
 export const getDonationStats = query({
   args: {
     organizationId: v.id("organizations"),
@@ -537,11 +487,9 @@ export const getDonationStats = query({
     const membership = await getMembership(ctx, args.organizationId, user._id);
     if (!membership) return [];
 
-    // Get all fundraisers belonging to this organization
-    // NOTE: Add .index("by_organizationId", ["organizationId"]) on fundraisers for better performance
-    const allFundraisers = await ctx.db.query("fundraisers").collect();
-    const orgFundraisers = allFundraisers.filter(
-      (f) => f.organizationId === args.organizationId,
+    const orgFundraisers = await readOrganizationFundraisers(
+      ctx,
+      args.organizationId,
     );
 
     if (orgFundraisers.length === 0) return [];
@@ -553,15 +501,14 @@ export const getDonationStats = query({
     const dailyTotals = new Map<string, number>();
 
     for (const fundraiser of orgFundraisers) {
-      const donations = await ctx.db
+      // Only COMPLETED donations are read at all, not filtered afterwards.
+      const completedDonations = ctx.db
         .query("donations")
-        .withIndex("by_fundraiserId", (q) =>
-          q.eq("fundraiserId", fundraiser._id),
-        )
-        .collect();
+        .withIndex("by_fundraiserId_and_status", (q) =>
+          q.eq("fundraiserId", fundraiser._id).eq("status", "COMPLETED"),
+        );
 
-      for (const donation of donations) {
-        if (donation.status !== "COMPLETED") continue;
+      for await (const donation of completedDonations) {
         if (donation.completedAt === undefined) continue;
         if (donation.completedAt < startTime) continue;
 
@@ -623,9 +570,9 @@ export const getOrganizationDashboardStats = query({
       };
     }
 
-    const allFundraisers = await ctx.db.query("fundraisers").collect();
-    const orgFundraisers = allFundraisers.filter(
-      (f) => f.organizationId === args.organizationId,
+    const orgFundraisers = await readOrganizationFundraisers(
+      ctx,
+      args.organizationId,
     );
 
     let totalRaised = 0;
@@ -644,15 +591,13 @@ export const getOrganizationDashboardStats = query({
     let completedTotal = 0;
 
     for (const fundraiser of orgFundraisers) {
-      const donations = await ctx.db
+      const completed = ctx.db
         .query("donations")
-        .withIndex("by_fundraiserId", (q) =>
-          q.eq("fundraiserId", fundraiser._id),
-        )
-        .collect();
+        .withIndex("by_fundraiserId_and_status", (q) =>
+          q.eq("fundraiserId", fundraiser._id).eq("status", "COMPLETED"),
+        );
 
-      for (const d of donations) {
-        if (d.status !== "COMPLETED") continue;
+      for await (const d of completed) {
         completedDonations += 1;
         completedTotal += d.netAmount ?? 0;
       }
@@ -683,11 +628,11 @@ export const getMyOrganizations = query({
       .unique();
     if (!user) return [];
 
-    // Get all memberships for this user
+    // Get this user's memberships (by_userId, same bound as listMyOrganizations)
     const memberships = await ctx.db
       .query("organizationMembers")
-      .filter((q) => q.eq(q.field("userId"), user._id))
-      .collect();
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .take(50);
 
     // Fetch the organization details for each membership
     const orgs = await Promise.all(
@@ -722,62 +667,35 @@ export const listFundraisersByOrganization = query({
     const membership = await getMembership(ctx, args.organizationId, user._id);
     if (!membership) return [];
 
-    const allFundraisers = await ctx.db.query("fundraisers").collect();
-    const orgFundraisers = allFundraisers.filter(
-      (f) => f.organizationId === args.organizationId,
-    );
+    // Newest first. This is a list the dashboard renders, so it is capped
+    // (the stats above iterate every fundraiser; this one only displays them).
+    const orgFundraisers = await ctx.db
+      .query("fundraisers")
+      .withIndex("by_organizationId", (q) =>
+        q.eq("organizationId", args.organizationId),
+      )
+      .order("desc")
+      .take(DASHBOARD_FUNDRAISER_LIST_LIMIT);
 
-    return orgFundraisers
-      .map((f) => ({
-        id: f._id,
-        title: f.title,
-        type: f.type,
-        status: f.status,
-        goalAmount: f.goalAmount,
-        amountRaised: f.amountRaised,
-        donorCount: f.donorCount,
-        currency: f.currency,
-      }))
-      .sort((a, b) => b.id.localeCompare(a.id));
+    return orgFundraisers.map((f) => ({
+      id: f._id,
+      title: f.title,
+      type: f.type,
+      status: f.status,
+      goalAmount: f.goalAmount,
+      amountRaised: f.amountRaised,
+      donorCount: f.donorCount,
+      currency: f.currency,
+    }));
   },
 });
 
 const BROWSE_SCAN_LIMIT = 60;
 const BROWSE_LIMIT = 24;
 const SEARCH_LIMIT = 20;
-const FUNDRAISER_LIMIT = 24;
-
-function isPubliclyVisible(org: Doc<"organizations">) {
-  return org.verificationStatus !== "REJECTED";
-}
 
 function verifiedRank(org: Doc<"organizations">) {
   return org.verificationStatus === "VERIFIED" ? 0 : 1;
-}
-
-function safeWebsite(website?: string): string | null {
-  if (!website) return null;
-  try {
-    const url = new URL(website);
-    return url.protocol === "https:" || url.protocol === "http:"
-      ? url.href
-      : null;
-  } catch {
-    return null;
-  }
-}
-
-async function toPublicSummary(ctx: QueryCtx, org: Doc<"organizations">) {
-  return {
-    _id: org._id,
-    slug: org.slug,
-    name: org.name,
-    description: org.description ?? null,
-    isVerified: org.verificationStatus === "VERIFIED",
-    logoUrl: org.logoStorageId
-      ? await ctx.storage.getUrl(org.logoStorageId)
-      : (org.logoUrl ?? null),
-  };
 }
 
 export const listOrganizations = query({
@@ -793,7 +711,9 @@ export const listOrganizations = query({
       .sort((a, b) => verifiedRank(a) - verifiedRank(b)) // stable: verified first, newest within each group
       .slice(0, BROWSE_LIMIT);
 
-    return Promise.all(visible.map((org) => toPublicSummary(ctx, org)));
+    return Promise.all(
+      visible.map((org) => toPublicOrganizationSummary(ctx, org)),
+    );
   },
 });
 
@@ -809,7 +729,9 @@ export const searchOrganizations = query({
       .take(SEARCH_LIMIT);
 
     return Promise.all(
-      matches.filter(isPubliclyVisible).map((org) => toPublicSummary(ctx, org)),
+      matches
+        .filter(isPubliclyVisible)
+        .map((org) => toPublicOrganizationSummary(ctx, org)),
     );
   },
 });
@@ -817,49 +739,49 @@ export const searchOrganizations = query({
 export const getPublicOrganization = query({
   args: { slug: v.string() },
   handler: async (ctx, args) => {
-    const org = await ctx.db
-      .query("organizations")
-      .withIndex("by_slug", (q) => q.eq("slug", args.slug))
-      .unique();
-    if (!org || !isPubliclyVisible(org)) return null;
-
-    return {
-      ...(await toPublicSummary(ctx, org)),
-      website: safeWebsite(org.website),
-      createdAt: org.createdAt,
-    };
+    return await loadPublicOrganizationBySlug(ctx, args.slug);
   },
 });
 
 export const listOrganizationFundraisers = query({
   args: { organizationId: v.id("organizations") },
   handler: async (ctx, args) => {
-    const org = await ctx.db.get(args.organizationId);
-    if (!org || !isPubliclyVisible(org)) return [];
+    return await loadPublicFundraisers(ctx, args.organizationId);
+  },
+});
 
-    const fundraisers = await ctx.db
-      .query("fundraisers")
-      .withIndex("by_organizationId_and_status_and_isPrivate", (q) =>
-        q
-          .eq("organizationId", args.organizationId)
-          .eq("status", "ACTIVE")
-          .eq("isPrivate", false),
-      )
-      .order("desc")
-      .take(FUNDRAISER_LIMIT);
+export const listMyOrganizations = query({
+  args: {},
+  handler: async (ctx) => {
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+    if (!authUser) return [];
 
-    return Promise.all(
-      fundraisers.map(async (fundraiser) => ({
-        _id: fundraiser._id,
-        title: fundraiser.title,
-        goalAmount: fundraiser.goalAmount,
-        amountRaised: fundraiser.amountRaised,
-        donorCount: fundraiser.donorCount,
-        location: fundraiser.location,
-        coverImageUrl: fundraiser.coverImageStorageId
-          ? await ctx.storage.getUrl(fundraiser.coverImageStorageId)
-          : (fundraiser.coverImage ?? null),
-      })),
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authUserId", (q) => q.eq("authUserId", authUser._id))
+      .unique();
+    if (!user) return [];
+
+    const memberships = await ctx.db
+      .query("organizationMembers")
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .take(50);
+
+    const organizations = await Promise.all(
+      memberships.map(async (membership) => {
+        const org = await ctx.db.get(membership.organizationId);
+        // Rejected orgs 404 on their public page, so a fundraiser linked to
+        // one would be orphaned. Keep them out of the picker.
+        if (!org || org.verificationStatus === "REJECTED") return null;
+        return {
+          _id: org._id,
+          name: org.name,
+          isVerified: org.verificationStatus === "VERIFIED",
+          role: membership.role,
+        };
+      }),
     );
+
+    return organizations.filter((org) => org !== null);
   },
 });

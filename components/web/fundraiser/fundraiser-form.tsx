@@ -23,8 +23,9 @@ import {
   LOCATION_CHOICES,
 } from "./form-questions";
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import React from "react";
@@ -34,12 +35,23 @@ import { Id } from "@/convex/_generated/dataModel";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 
+const OTHER_ORGANIZATION = "OTHER";
+const MAX_COVER_BYTES = 5 * 1024 * 1024; // 5MB, same cap as profile photos
+
+const ROLE_LABELS: Record<string, string> = {
+  OWNER: "Owner",
+  ADMIN: "Admin",
+  MEMBER: "Member",
+};
+
 export default function FundraiserForm() {
   const router = useRouter();
   const createFundraiser = useMutation(api.fundraiser.createFundraiser);
   const generateUploadUrl = useMutation(api.users.generateUploadUrl);
+  const myOrganizations = useQuery(api.organizations.listMyOrganizations);
 
   const [beneficiaryType, setBeneficiaryType] = React.useState("");
+  const [organizationChoice, setOrganizationChoice] = React.useState("");
   const [coverFile, setCoverFile] = React.useState<File | null>(null);
   const [coverPreviewUrl, setCoverPreviewUrl] = React.useState<string | null>(
     null,
@@ -53,19 +65,50 @@ export default function FundraiserForm() {
     };
   }, [coverPreviewUrl]);
 
+  const isOrgBeneficiary = beneficiaryType === "ORGANIZATION";
+  const hasOrganizations = (myOrganizations?.length ?? 0) > 0;
+
+  // Only counts while the beneficiary is still "An organization", so going
+  // back and changing that answer can't leave a stale link behind.
+  const linkedOrganization = isOrgBeneficiary
+    ? myOrganizations?.find((org) => org._id === organizationChoice)
+    : undefined;
+
+  // The free-text name/organization step is skipped for "Myself" and when one
+  // of the user's own organizations was picked (its name is used instead).
+  const needsBeneficiaryDetails =
+    beneficiaryType !== "" && beneficiaryType !== "SELF" && !linkedOrganization;
+
+  const beneficiaryCopy = isOrgBeneficiary
+    ? {
+        title: "What's the organization called?",
+        placeholder: "e.g. Kajiado Youth Trust",
+      }
+    : { title: "Who are they?", placeholder: "Their full name" };
+
   function handleCoverChange(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0] ?? null;
+    const input = event.target;
+    const file = input.files?.[0] ?? null;
+
+    if (file) {
+      const problem = !file.type.startsWith("image/")
+        ? "Please choose an image file."
+        : file.size > MAX_COVER_BYTES
+          ? "Image must be smaller than 5MB."
+          : null;
+
+      if (problem) {
+        toast.error(problem);
+        input.value = ""; // clear the picker so the same file can be retried
+        setCoverFile(null);
+        setCoverPreviewUrl(null);
+        return;
+      }
+    }
+
     setCoverFile(file);
     setCoverPreviewUrl(file ? URL.createObjectURL(file) : null);
   }
-
-  const beneficiaryCopy =
-    beneficiaryType === "ORGANIZATION"
-      ? {
-          title: "What's the organization called?",
-          placeholder: "e.g. Kajiado Youth Trust",
-        }
-      : { title: "Who are they?", placeholder: "Their full name" };
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -73,8 +116,6 @@ export default function FundraiserForm() {
 
     const formData = new FormData(event.currentTarget);
     const goalRaw = formData.get("goal");
-
-    const isOrg = beneficiaryType === "ORGANIZATION";
     const beneficiaryDetails = String(
       formData.get("beneficiaryDetails") ?? "",
     ).trim();
@@ -83,10 +124,15 @@ export default function FundraiserForm() {
       location: String(formData.get("location") ?? "").trim(),
       type: String(formData.get("type") ?? ""),
       beneficiaryType,
+      // Keyed off the beneficiary type, not just "is there text", so a name
+      // typed earlier can't leak into a fundraiser for "Myself".
       beneficiaryName:
-        !isOrg && beneficiaryDetails ? beneficiaryDetails : undefined,
-      organizationName:
-        isOrg && beneficiaryDetails ? beneficiaryDetails : undefined,
+        beneficiaryType === "SOMEONE_ELSE" && beneficiaryDetails
+          ? beneficiaryDetails
+          : undefined,
+      organizationName: isOrgBeneficiary
+        ? (linkedOrganization?.name ?? (beneficiaryDetails || undefined))
+        : undefined,
       goalAmount: Number(goalRaw ?? 0),
       currency: "KES" as const,
       country: "Kenya",
@@ -132,6 +178,9 @@ export default function FundraiserForm() {
         beneficiaryType: parsed.data.beneficiaryType,
         beneficiaryName: parsed.data.beneficiaryName,
         organizationName: parsed.data.organizationName,
+        // From state, not parsed.data: the frontend zod schema doesn't know
+        // about it. The server re-checks membership either way.
+        organizationId: linkedOrganization?._id,
         goalAmount: parsed.data.goalAmount,
         currency: parsed.data.currency,
         location: parsed.data.location,
@@ -142,7 +191,9 @@ export default function FundraiserForm() {
       // TODO: adjust if your Fundraisers tab needs a query param, e.g.
       // router.push("/profile?tab=fundraisers")
       toast.success("Fundraiser created!", {
-        description: "It's now live on your profile.",
+        description: linkedOrganization
+          ? `It's now live on your profile and on ${linkedOrganization.name}'s page.`
+          : "It's now live on your profile.",
       });
       router.push("/profile");
     } catch (error) {
@@ -236,10 +287,57 @@ export default function FundraiserForm() {
               <QuestionnaireError />
             </QuestionnaireItem>
 
+            {/* Only shown for "An organization" when the user belongs to at
+                least one. Everyone else goes straight to the details step. */}
+            <QuestionnaireItem
+              name="organization"
+              required={isOrgBeneficiary && hasOrganizations}
+              disabled={!isOrgBeneficiary || !hasOrganizations}
+            >
+              <QuestionnaireTitle>
+                Is this on behalf of one of your organizations?
+              </QuestionnaireTitle>
+              <QuestionnaireDescription>
+                It will appear on the organization&apos;s public page.{" "}
+                <Link
+                  href="/organizations/new"
+                  target="_blank"
+                  className="underline underline-offset-4"
+                >
+                  Create an organization
+                </Link>
+              </QuestionnaireDescription>
+              <QuestionnaireChoices>
+                {myOrganizations?.map((organization) => (
+                  <QuestionnaireChoice
+                    key={organization._id}
+                    value={organization._id}
+                    onChange={() => setOrganizationChoice(organization._id)}
+                  >
+                    <span className="font-medium">{organization.name}</span>
+                    <span className="text-muted-foreground">
+                      {organization.isVerified ? "Verified · " : ""}
+                      {ROLE_LABELS[organization.role] ?? organization.role}
+                    </span>
+                  </QuestionnaireChoice>
+                ))}
+                <QuestionnaireChoice
+                  value={OTHER_ORGANIZATION}
+                  onChange={() => setOrganizationChoice(OTHER_ORGANIZATION)}
+                >
+                  <span className="font-medium">A different organization</span>
+                  <span className="text-muted-foreground">
+                    You&apos;ll enter its name next.
+                  </span>
+                </QuestionnaireChoice>
+              </QuestionnaireChoices>
+              <QuestionnaireError />
+            </QuestionnaireItem>
+
             <QuestionnaireItem
               name="beneficiaryDetails"
-              required={beneficiaryType !== "" && beneficiaryType !== "SELF"}
-              disabled={beneficiaryType === "" || beneficiaryType === "SELF"}
+              required={needsBeneficiaryDetails}
+              disabled={!needsBeneficiaryDetails}
             >
               <QuestionnaireTitle>{beneficiaryCopy.title}</QuestionnaireTitle>
               <QuestionnaireInput
@@ -274,7 +372,8 @@ export default function FundraiserForm() {
             <QuestionnaireItem name="coverPhoto" required>
               <QuestionnaireTitle>Add a cover photo</QuestionnaireTitle>
               <QuestionnaireDescription>
-                A clear photo helps donors trust your fundraiser.
+                A clear photo helps donors trust your fundraiser. Images only,
+                up to 5MB.
               </QuestionnaireDescription>
               <Input
                 type="file"

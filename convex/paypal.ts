@@ -8,8 +8,13 @@ import {
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
+import { authComponent } from "./auth";
 import { getUsdToKesRate } from "./lib/fx";
 import { PLATFORM_FEE_RATE, resolveReturnOrigin } from "./lib/constants";
+import {
+  clientDonationSourceValidator,
+  donationSourceValidator,
+} from "./lib/donationSource";
 
 const PAYPAL_BASE_URL = "https://api-m.sandbox.paypal.com"; // Switch to https://api-m.paypal.com for production
 
@@ -64,6 +69,7 @@ export const createPendingPayPalDonation = internalMutation({
     netAmountKes: v.number(),
     platformFeeRate: v.number(),
     message: v.optional(v.string()),
+    source: v.optional(donationSourceValidator),
   },
   returns: v.id("donations"),
   handler: async (ctx, args) => {
@@ -79,6 +85,7 @@ export const createPendingPayPalDonation = internalMutation({
       platformFeeAmount: args.platformFeeAmountKes,
       netAmount: args.netAmountKes,
       message: args.message,
+      source: args.source,
       currency: "KES",
       provider: "PAYPAL",
       paymentMethod: "PAYPAL",
@@ -93,7 +100,8 @@ export const createPendingPayPalDonation = internalMutation({
 export const startPayPalCheckout = action({
   args: {
     fundraiserId: v.id("fundraisers"),
-    donorUserId: v.optional(v.id("users")),
+    // No donorUserId here on purpose: who the donor is comes from their
+    // session below, never from an argument the caller could set to anyone.
     donorName: v.optional(v.string()),
     donorEmail: v.optional(v.string()),
     donorPhone: v.optional(v.string()),
@@ -101,6 +109,8 @@ export const startPayPalCheckout = action({
     amountUsd: v.number(),
     message: v.optional(v.string()),
     origin: v.string(), // window.location.origin from the client
+    // Attribution only. Omit for a normal GoUplift checkout.
+    source: v.optional(clientDonationSourceValidator),
   },
   returns: v.object({
     checkoutUrl: v.string(),
@@ -131,6 +141,17 @@ export const startPayPalCheckout = action({
       );
     }
 
+    // Link the donation to the signed-in donor, if there is one — resolved
+    // the same way startDonationCheckout does it. Guests donate with no user.
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+    let donorUserId: Id<"users"> | undefined;
+    if (authUser) {
+      const user = await ctx.runQuery(internal.donations.getUserByAuthUserId, {
+        authUserId: authUser._id,
+      });
+      donorUserId = user?._id;
+    }
+
     const fxRate = await getUsdToKesRate(ctx);
     const grossAmountKes = Math.round(args.amountUsd * fxRate);
     const platformFeeAmountKes = Math.round(grossAmountKes * PLATFORM_FEE_RATE);
@@ -142,7 +163,7 @@ export const startPayPalCheckout = action({
       internal.paypal.createPendingPayPalDonation,
       {
         fundraiserId: args.fundraiserId,
-        donorUserId: args.donorUserId,
+        donorUserId,
         donorName: args.donorName,
         donorEmail: args.donorEmail,
         donorPhone: args.donorPhone,
@@ -152,6 +173,7 @@ export const startPayPalCheckout = action({
         netAmountKes,
         platformFeeRate: PLATFORM_FEE_RATE,
         message: args.message,
+        source: args.source,
       },
     );
 

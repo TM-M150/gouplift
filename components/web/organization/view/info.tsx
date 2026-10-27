@@ -13,7 +13,7 @@ import { LogoCloud } from "./logo-cloud";
 interface InfoProps {
   organization: {
     name: string;
-    description?: string;
+    description: string | null;
   };
 }
 
