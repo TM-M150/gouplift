@@ -328,6 +328,25 @@ export default defineSchema({
     ])
     .index("by_storageId", ["storageId"]),
 
+  // Who did what in the admin area. Written by every staff decision so a
+  // verification (which later unlocks payouts) can always be traced.
+  adminAuditLog: defineTable({
+    actorId: v.id("users"),
+    action: v.union(
+      v.literal("DOCUMENT_REVIEWED"),
+      v.literal("ORGANIZATION_VERIFIED"),
+      v.literal("ORGANIZATION_REJECTED"),
+    ),
+    organizationId: v.optional(v.id("organizations")),
+    documentId: v.optional(v.id("organizationDocuments")),
+    statusBefore: v.optional(v.string()),
+    statusAfter: v.optional(v.string()),
+    note: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_organizationId", ["organizationId"])
+    .index("by_actorId", ["actorId"]),
+
   organizationMembers: defineTable({
     organizationId: v.id("organizations"),
     userId: v.id("users"),

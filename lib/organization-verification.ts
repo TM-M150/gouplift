@@ -265,6 +265,33 @@ export function getDocumentSlots(type: OrganizationType): DocumentSlot[] {
   ];
 }
 
+export type DocumentReviewStatus = "PENDING" | "APPROVED" | "REJECTED";
+
+/**
+ * The required slots that still stop an organization from being verified:
+ * every required slot needs at least one file, and every file in it approved.
+ * The server enforces this on verify; the admin UI uses it to explain why the
+ * Verify button is disabled.
+ */
+export function getVerificationBlockers(
+  type: OrganizationType,
+  documents: ReadonlyArray<{
+    documentType: DocumentType;
+    reviewStatus: DocumentReviewStatus;
+  }>,
+): DocumentSlot[] {
+  return getDocumentSlots(type).filter((slot) => {
+    if (!slot.required) return false;
+    const files = documents.filter(
+      (doc) => doc.documentType === slot.documentType,
+    );
+    return (
+      files.length === 0 ||
+      files.some((file) => file.reviewStatus !== "APPROVED")
+    );
+  });
+}
+
 /** Client-side check for a single chosen file. Returns an error message or null. */
 export function validateDocumentFile(file: File): string | null {
   if (
