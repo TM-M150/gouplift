@@ -102,6 +102,13 @@ export async function loadPublicOrganizationBySlug(
   return await toPublicOrganization(ctx, org);
 }
 
+export type PublicOrganization = NonNullable<
+  Awaited<ReturnType<typeof loadPublicOrganizationBySlug>>
+>;
+export type PublicFundraiser = Awaited<
+  ReturnType<typeof loadPublicFundraisers>
+>[number];
+
 // Active, non-private fundraisers of a publicly visible organization, newest
 // first. Bounded: this list is read by every visitor to an organization page,
 // and will be read by every site that embeds one.
