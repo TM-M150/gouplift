@@ -24,6 +24,7 @@ import type * as lib_staff from "../lib/staff.js";
 import type * as lib_turnstile from "../lib/turnstile.js";
 import type * as organizations from "../organizations.js";
 import type * as paypal from "../paypal.js";
+import type * as publicApi from "../publicApi.js";
 import type * as sasapay from "../sasapay.js";
 import type * as users from "../users.js";
 
@@ -50,6 +51,7 @@ declare const fullApi: ApiFromModules<{
   "lib/turnstile": typeof lib_turnstile;
   organizations: typeof organizations;
   paypal: typeof paypal;
+  publicApi: typeof publicApi;
   sasapay: typeof sasapay;
   users: typeof users;
 }>;
