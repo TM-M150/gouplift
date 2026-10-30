@@ -26,9 +26,16 @@ type Provider = "SASAPAY" | "PAYPAL";
 interface DonateButtonProps {
   fundraiserId: Id<"fundraisers">;
   disabled?: boolean;
+  // Where the donor came from, recorded on the donation. Leave out for a
+  // normal visit to the fundraiser page.
+  source?: "WEB" | "EMBED";
 }
 
-export function DonateButton({ fundraiserId, disabled }: DonateButtonProps) {
+export function DonateButton({
+  fundraiserId,
+  disabled,
+  source,
+}: DonateButtonProps) {
   const startDonationCheckout = useAction(api.donations.startDonationCheckout);
   const startPayPalCheckout = useAction(api.paypal.startPayPalCheckout);
 
@@ -76,6 +83,7 @@ export function DonateButton({ fundraiserId, disabled }: DonateButtonProps) {
           message: message.trim() || undefined,
           isAnonymous: false,
           origin: window.location.origin,
+          source,
         });
         checkoutUrl = result.checkoutUrl;
       } else {
@@ -86,6 +94,7 @@ export function DonateButton({ fundraiserId, disabled }: DonateButtonProps) {
           message: message.trim() || undefined,
           isAnonymous: false,
           origin: window.location.origin,
+          source,
         });
         checkoutUrl = result.checkoutUrl;
       }

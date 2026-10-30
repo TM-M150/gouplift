@@ -13,7 +13,7 @@ import { EditFundraiserButton } from "@/components/web/fundraiser/edit-fundraise
 
 interface PageProps {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ donation?: string }>;
+  searchParams: Promise<{ donation?: string; source?: string }>;
 }
 
 const currencyFormatter = new Intl.NumberFormat("en-KE", {
@@ -91,7 +91,7 @@ export default async function FundraiserPage({
   searchParams,
 }: PageProps) {
   const { id } = await params;
-  const { donation: donationId } = await searchParams;
+  const { donation: donationId, source } = await searchParams;
   const fundraiser = await loadFundraiser(id);
 
   if (!fundraiser) {
@@ -196,6 +196,9 @@ export default async function FundraiserPage({
               <DonateButton
                 fundraiserId={fundraiser._id}
                 disabled={fundraiser.status !== "ACTIVE"}
+                // The embed widget links here with ?source=embed. This only
+                // labels the donation; it grants nothing.
+                source={source === "embed" ? "EMBED" : undefined}
               />
             </CardContent>
           </Card>
