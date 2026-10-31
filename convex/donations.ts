@@ -405,6 +405,16 @@ export const markDonationCompleted = internalMutation({
         updatedAt: now,
       });
     }
+
+    // Tell the organization's webhooks, if it has any. Scheduled rather than
+    // called so that nothing about webhooks can hold up or undo recording a
+    // payment; the early return above keeps a redelivered callback from
+    // queueing a second event.
+    await ctx.scheduler.runAfter(
+      0,
+      internal.webhookDelivery.enqueueDonationCompleted,
+      { donationId: args.donationId },
+    );
   },
 });
 

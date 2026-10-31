@@ -333,6 +333,14 @@ export const completePayPalDonation = internalMutation({
       });
     }
 
+    // See markDonationCompleted: scheduled so webhooks can't affect payment
+    // recording, and skipped on a repeat callback by the guard above.
+    await ctx.scheduler.runAfter(
+      0,
+      internal.webhookDelivery.enqueueDonationCompleted,
+      { donationId: args.donationId },
+    );
+
     return null;
   },
 });
@@ -715,7 +723,9 @@ export const recordSubscriptionPayment = internalMutation({
       Math.round((grossAmountKes - platformFeeAmount) * 100) / 100;
 
     const now = Date.now();
-    await ctx.db.insert("donations", {
+    // This path creates the donation already completed (a recurring payment
+    // arrives as one event), so the id is needed to tell webhooks about it.
+    const donationId = await ctx.db.insert("donations", {
       fundraiserId: subscription.fundraiserId,
       donorUserId: subscription.donorUserId,
       donorName: subscription.donorName,
@@ -750,5 +760,13 @@ export const recordSubscriptionPayment = internalMutation({
         updatedAt: now,
       });
     }
+
+    // The early return on an existing capture id above is what keeps a
+    // repeated PayPal notification from queueing a second event.
+    await ctx.scheduler.runAfter(
+      0,
+      internal.webhookDelivery.enqueueDonationCompleted,
+      { donationId },
+    );
   },
 });
