@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import {
   IconBuilding,
+  IconCode,
   IconDashboard,
   IconExternalLink,
   IconListDetails,
@@ -58,6 +59,11 @@ export function AppSidebar({
       title: "Members",
       url: `#`,
       icon: IconUsers,
+    },
+    {
+      title: "Developers",
+      url: `/organizations/${slug}/developers`,
+      icon: IconCode,
     },
   ];
 
