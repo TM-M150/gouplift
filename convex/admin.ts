@@ -4,6 +4,7 @@ import type { MutationCtx, QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { getStaffUser, requireStaff } from "./lib/staff";
 import { getVerificationBlockers } from "../lib/organization-verification";
+import { DAY_MS, EAT_OFFSET_MS } from "@/lib/time";
 
 const LIST_LIMIT = 100;
 const DOCUMENTS_LIMIT = 50;
@@ -12,6 +13,8 @@ const MAX_NOTE_LENGTH = 1000;
 const MIN_REJECTION_REASON_LENGTH = 10;
 const QUEUE_CAP = 100;
 const TOTALS_CAP = 500;
+const SERIES_CAP = 2000;
+const MAX_DAYS = 90;
 
 const reviewableStatusValidator = v.union(
   v.literal("PENDING_REVIEW"),
@@ -430,6 +433,61 @@ export const getPlatformTotals = query({
         ...tally(pendingPayout, TOTALS_CAP),
         netOwed: sumOf(pendingPayout, TOTALS_CAP, (d) => d.netAmount),
       },
+    };
+  },
+});
+
+export const getPlatformDonationSeries = query({
+  // The client passes the start of today so the query never reads the clock,
+  // which keeps its result cacheable.
+  args: { startOfToday: v.number(), days: v.number() },
+  handler: async (ctx, args) => {
+    await requireStaff(ctx);
+
+    const days = Math.min(Math.max(Math.floor(args.days), 1), MAX_DAYS);
+    const firstDayStart = args.startOfToday - (days - 1) * DAY_MS;
+
+    // Newest first, so if the cap is hit the oldest days are the ones cut.
+    const rows = await ctx.db
+      .query("donations")
+      .withIndex("by_status", (q) =>
+        q.eq("status", "COMPLETED").gte("_creationTime", firstDayStart),
+      )
+      .order("desc")
+      .take(SERIES_CAP + 1);
+
+    const truncated = rows.length > SERIES_CAP;
+
+    const series = Array.from({ length: days }, (_, i) => ({
+      // Label each bucket with its East Africa calendar date.
+      date: new Date(firstDayStart + i * DAY_MS + EAT_OFFSET_MS)
+        .toISOString()
+        .slice(0, 10),
+      netAmount: 0,
+      platformFeeAmount: 0,
+      grossAmount: 0,
+      donationCount: 0,
+    }));
+
+    for (const donation of rows.slice(0, SERIES_CAP)) {
+      const when = donation.completedAt ?? donation._creationTime;
+      const i = Math.floor((when - firstDayStart) / DAY_MS);
+      if (i < 0 || i >= days) continue;
+
+      series[i].netAmount += donation.netAmount;
+      series[i].platformFeeAmount += donation.platformFeeAmount;
+      series[i].grossAmount += donation.grossAmount;
+      series[i].donationCount += 1;
+    }
+
+    return {
+      truncated,
+      days: series.map((d) => ({
+        ...d,
+        netAmount: money(d.netAmount),
+        platformFeeAmount: money(d.platformFeeAmount),
+        grossAmount: money(d.grossAmount),
+      })),
     };
   },
 });
