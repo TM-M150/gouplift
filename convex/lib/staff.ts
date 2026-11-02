@@ -31,9 +31,16 @@ export async function getStaffUser(ctx: Ctx): Promise<Doc<"users"> | null> {
 }
 
 /** Moderators and admins. Throws for everyone else, signed in or not. */
-export async function requireStaff(ctx: Ctx): Promise<Doc<"users">> {
-  const user = await getStaffUser(ctx);
-  if (!user) {
+export async function requireStaff(ctx: QueryCtx | MutationCtx) {
+  const authUser = await authComponent.safeGetAuthUser(ctx);
+  if (!authUser) throw new ConvexError("You must be signed in.");
+
+  const user = await ctx.db
+    .query("users")
+    .withIndex("by_authUserId", (q) => q.eq("authUserId", authUser._id))
+    .unique();
+
+  if (!user || (user.role !== "ADMIN" && user.role !== "MODERATOR")) {
     throw new ConvexError("You don't have permission to do that.");
   }
   return user;

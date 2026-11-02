@@ -10,6 +10,8 @@ const DOCUMENTS_LIMIT = 50;
 const HISTORY_LIMIT = 30;
 const MAX_NOTE_LENGTH = 1000;
 const MIN_REJECTION_REASON_LENGTH = 10;
+const QUEUE_CAP = 100;
+const TOTALS_CAP = 500;
 
 const reviewableStatusValidator = v.union(
   v.literal("PENDING_REVIEW"),
@@ -119,9 +121,7 @@ export const getOrganizationForReview = query({
       listDocuments(ctx, org._id),
       ctx.db
         .query("adminAuditLog")
-        .withIndex("by_organizationId", (q) =>
-          q.eq("organizationId", org._id),
-        )
+        .withIndex("by_organizationId", (q) => q.eq("organizationId", org._id))
         .order("desc")
         .take(HISTORY_LIMIT),
     ]);
@@ -223,7 +223,9 @@ export const reviewDocument = mutation({
     const org = await ctx.db.get(doc.organizationId);
     if (!org) throw new ConvexError("Organization not found.");
     if (org.verificationStatus !== "PENDING_REVIEW") {
-      throw new ConvexError("This organization is no longer waiting for review.");
+      throw new ConvexError(
+        "This organization is no longer waiting for review.",
+      );
     }
 
     const note = cleanNote(args.note);
@@ -259,7 +261,9 @@ export const verifyOrganization = mutation({
     const org = await ctx.db.get(args.organizationId);
     if (!org) throw new ConvexError("Organization not found.");
     if (org.verificationStatus !== "PENDING_REVIEW") {
-      throw new ConvexError("This organization is no longer waiting for review.");
+      throw new ConvexError(
+        "This organization is no longer waiting for review.",
+      );
     }
     if (!org.organizationType) {
       throw new ConvexError("This organization has no type set.");
@@ -300,7 +304,9 @@ export const rejectOrganization = mutation({
     const org = await ctx.db.get(args.organizationId);
     if (!org) throw new ConvexError("Organization not found.");
     if (org.verificationStatus !== "PENDING_REVIEW") {
-      throw new ConvexError("This organization is no longer waiting for review.");
+      throw new ConvexError(
+        "This organization is no longer waiting for review.",
+      );
     }
 
     const reason = cleanNote(args.reason);
@@ -349,5 +355,81 @@ export const setUserRole = internalMutation({
 
     await ctx.db.patch(user._id, { role: args.role, updatedAt: Date.now() });
     return { email, role: args.role };
+  },
+});
+
+const money = (n: number) => Math.round(n * 100) / 100;
+
+// Callers fetch cap + 1 rows so "exactly cap" and "more than cap" differ.
+function tally(rows: unknown[], cap: number) {
+  return { count: Math.min(rows.length, cap), capped: rows.length > cap };
+}
+
+function sumOf<T>(rows: T[], cap: number, pick: (row: T) => number) {
+  return money(rows.slice(0, cap).reduce((total, row) => total + pick(row), 0));
+}
+
+export const getAttentionCounts = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireStaff(ctx);
+
+    const [orgs, fundraisers] = await Promise.all([
+      ctx.db
+        .query("organizations")
+        .withIndex("by_verificationStatus", (q) =>
+          q.eq("verificationStatus", "PENDING_REVIEW"),
+        )
+        .take(QUEUE_CAP + 1),
+      ctx.db
+        .query("fundraisers")
+        .withIndex("by_status", (q) => q.eq("status", "PENDING_REVIEW"))
+        .take(QUEUE_CAP + 1),
+    ]);
+
+    return {
+      orgsAwaitingVerification: tally(orgs, QUEUE_CAP),
+      fundraisersAwaitingReview: tally(fundraisers, QUEUE_CAP),
+    };
+  },
+});
+
+export const getPlatformTotals = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireStaff(ctx);
+
+    const [users, active, completed, pendingPayout] = await Promise.all([
+      ctx.db.query("users").take(TOTALS_CAP + 1),
+      ctx.db
+        .query("fundraisers")
+        .withIndex("by_status", (q) => q.eq("status", "ACTIVE"))
+        .take(TOTALS_CAP + 1),
+      ctx.db
+        .query("donations")
+        .withIndex("by_status", (q) => q.eq("status", "COMPLETED"))
+        .take(TOTALS_CAP + 1),
+      ctx.db
+        .query("donations")
+        .withIndex("by_payoutStatus", (q) =>
+          q.eq("payoutStatus", "PENDING_PAYOUT"),
+        )
+        .take(TOTALS_CAP + 1),
+    ]);
+
+    return {
+      cap: TOTALS_CAP,
+      users: tally(users, TOTALS_CAP),
+      activeFundraisers: tally(active, TOTALS_CAP),
+      completedDonations: {
+        ...tally(completed, TOTALS_CAP),
+        grossVolume: sumOf(completed, TOTALS_CAP, (d) => d.grossAmount),
+        platformFees: sumOf(completed, TOTALS_CAP, (d) => d.platformFeeAmount),
+      },
+      pendingPayouts: {
+        ...tally(pendingPayout, TOTALS_CAP),
+        netOwed: sumOf(pendingPayout, TOTALS_CAP, (d) => d.netAmount),
+      },
+    };
   },
 });

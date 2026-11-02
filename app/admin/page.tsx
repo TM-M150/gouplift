@@ -1,6 +1,10 @@
-import { redirect } from "next/navigation";
-
-// Organization verification is the only admin tool so far.
-export default function AdminPage() {
-  redirect("/admin/organizations");
+export default function AdminOverviewPage() {
+  return (
+    <div className="space-y-1">
+      <h1 className="text-2xl font-semibold tracking-tight">Overview</h1>
+      <p className="text-sm text-muted-foreground">
+        Platform activity at a glance.
+      </p>
+    </div>
+  );
 }
