@@ -44,15 +44,15 @@ export default function AdminOverviewPage() {
       <section className="space-y-3">
         <h2 className="text-sm font-semibold">Needs attention</h2>
         <div className="grid gap-4 sm:grid-cols-2">
-          {/* Add href="/admin/organizations" and "/admin/fundraisers"
-              as those pages get built. */}
           <StatCard
             title="Organizations awaiting verification"
             icon={Building2}
             value={orgs && formatCount(orgs.count, orgs.capped)}
             hint="Documents waiting for review"
             highlight={!!orgs && orgs.count > 0}
+            href="/admin/organizations"
           />
+          {/* Add href="/admin/fundraisers" once that page exists. */}
           <StatCard
             title="Fundraisers awaiting review"
             icon={ClipboardCheck}

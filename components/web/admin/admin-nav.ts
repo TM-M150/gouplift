@@ -20,7 +20,7 @@ export const adminNav: AdminNavItem[] = [
     title: "Organizations",
     href: "/admin/organizations",
     icon: Building2,
-    ready: false,
+    ready: true,
   },
   {
     title: "Fundraisers",
