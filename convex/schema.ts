@@ -100,7 +100,7 @@ export default defineSchema({
     isVerified: v.boolean(),
     verifiedAt: v.optional(v.number()),
     verifiedBy: v.optional(v.string()),
-    rejectionReason: v.optional(v.id("users")),
+    rejectionReason: v.optional(v.string()),
     startDate: v.optional(v.number()),
     endDate: v.optional(v.number()),
     publishedAt: v.optional(v.number()),
