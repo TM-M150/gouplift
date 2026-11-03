@@ -333,6 +333,17 @@ export default defineSchema({
     ])
     .index("by_storageId", ["storageId"]),
 
+  // Verification files someone has uploaded and registered but not yet
+  // submitted. createOrganization claims (deletes) the rows for the files it
+  // attaches; the sweep in documentUploads.ts deletes the rest, and their files,
+  // once they are a day old. See documentUploads.ts for the whole lifecycle.
+  pendingUploads: defineTable({
+    storageId: v.id("_storage"),
+    userId: v.id("users"),
+  })
+    .index("by_storageId", ["storageId"])
+    .index("by_userId", ["userId"]),
+
   // Who did what in the admin area. Written by every staff decision so a
   // verification (which later unlocks payouts) can always be traced.
   adminAuditLog: defineTable({

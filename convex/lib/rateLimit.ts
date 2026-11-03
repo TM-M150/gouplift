@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery } from "../_generated/server";
+import type { MutationCtx } from "../_generated/server";
 
 const WINDOW_MS = 60 * 60 * 1000; // 1 hour
 const MAX_ATTEMPTS = 8; // max donation starts per email per hour
@@ -60,3 +61,43 @@ export const increment = internalMutation({
     return null;
   },
 });
+
+export type RateLimitResult =
+  | { allowed: true }
+  | { allowed: false; retryAfterMs: number };
+
+/**
+ * Counts one use of `key` and says whether it is allowed. Unlike check and
+ * increment above, which run as a separate query and mutation under one fixed
+ * limit, this runs inside the caller's mutation with a limit of its own, so
+ * reading and counting happen in a single transaction.
+ */
+export async function consumeRateLimit(
+  ctx: MutationCtx,
+  key: string,
+  limit: { max: number; windowMs: number },
+): Promise<RateLimitResult> {
+  const now = Date.now();
+  const existing = await ctx.db
+    .query("rateLimits")
+    .withIndex("by_key", (q) => q.eq("key", key))
+    .unique();
+
+  if (!existing || now - existing.windowStart > limit.windowMs) {
+    if (existing) {
+      await ctx.db.delete(existing._id);
+    }
+    await ctx.db.insert("rateLimits", { key, count: 1, windowStart: now });
+    return { allowed: true };
+  }
+
+  if (existing.count >= limit.max) {
+    return {
+      allowed: false,
+      retryAfterMs: limit.windowMs - (now - existing.windowStart),
+    };
+  }
+
+  await ctx.db.patch(existing._id, { count: existing.count + 1 });
+  return { allowed: true };
+}

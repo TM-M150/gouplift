@@ -51,7 +51,13 @@ type FilesBySlot = Partial<Record<DocumentType, File[]>>;
 export function OrganizationForm() {
   const router = useRouter();
   const createOrganization = useMutation(api.organizations.createOrganization);
-  const generateUploadUrl = useMutation(api.users.generateUploadUrl);
+  const generateUploadUrl = useMutation(
+    api.documentUploads.generateDocumentUploadUrl,
+  );
+  const registerUpload = useMutation(
+    api.documentUploads.registerDocumentUpload,
+  );
+  const discardUpload = useMutation(api.documentUploads.discardDocumentUpload);
 
   const [name, setName] = React.useState("");
   const [organizationType, setOrganizationType] =
@@ -69,8 +75,19 @@ export function OrganizationForm() {
   const [error, setError] = React.useState<string | null>(null);
 
   // Remembers files that already reached storage, so retrying after a failed
-  // submit doesn't upload (and orphan) the same files again.
+  // submit doesn't upload the same files again.
   const uploadedIds = React.useRef(new WeakMap<File, Id<"_storage">>());
+
+  // Deletes files that were uploaded and then removed or replaced. Best effort:
+  // if this fails the server's clean-up of old uploads removes them instead.
+  function discardUploaded(removed: File[]) {
+    for (const file of removed) {
+      const storageId = uploadedIds.current.get(file);
+      if (!storageId) continue;
+      uploadedIds.current.delete(file);
+      discardUpload({ storageId }).catch(() => undefined);
+    }
+  }
 
   const slots = React.useMemo(
     () => (organizationType ? getDocumentSlots(organizationType) : []),
@@ -86,6 +103,11 @@ export function OrganizationForm() {
     const stillAsked = new Set(
       getDocumentSlots(value).map((slot) => slot.documentType),
     );
+    discardUploaded(
+      Object.entries(files)
+        .filter(([slot]) => !stillAsked.has(slot as DocumentType))
+        .flatMap(([, dropped]) => dropped ?? []),
+    );
     setFiles((previous) => {
       const next: FilesBySlot = {};
       for (const slot of stillAsked) {
@@ -96,6 +118,9 @@ export function OrganizationForm() {
   }
 
   function handleFilesChange(documentType: DocumentType, next: File[]) {
+    discardUploaded(
+      (files[documentType] ?? []).filter((file) => !next.includes(file)),
+    );
     setFiles((previous) => ({ ...previous, [documentType]: next }));
     if (next.length > 0 && missing.has(documentType)) {
       const remaining = new Set(missing);
@@ -120,6 +145,12 @@ export function OrganizationForm() {
     const { storageId } = (await response.json()) as {
       storageId: Id<"_storage">;
     };
+
+    // Registering checks the file's type and size. A file that fails is
+    // deleted by the server, so there is nothing to remember or clean up.
+    const registered = await registerUpload({ storageId, fileName: file.name });
+    if (!registered.ok) throw new Error(registered.error);
+
     uploadedIds.current.set(file, storageId);
     return storageId;
   }
