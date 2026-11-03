@@ -11,12 +11,15 @@ import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { authComponent } from "./auth";
 import {
-  ALLOWED_DOCUMENT_CONTENT_TYPES,
-  MAX_DOCUMENT_BYTES,
   getDocumentSlots,
   type DocumentType,
 } from "../lib/organization-verification";
 import { organizationDetailsSchema } from "../lib/validations/organization";
+import {
+  checkStoredDocument,
+  describeFileProblem,
+  findPendingUpload,
+} from "./lib/documentFiles";
 import {
   documentTypeValidator,
   organizationTypeValidator,
@@ -93,9 +96,10 @@ export const getMyMembershipRole = query({
 });
 
 // An organization is created together with the documents that prove it exists.
-// The files are uploaded to Convex storage first (via users.generateUploadUrl)
-// and referenced here by storageId; everything else about a file (type, size)
-// is read from storage rather than trusted from the client.
+// The files are uploaded to Convex storage first and registered (see
+// documentUploads.ts), then referenced here by storageId. Only files this user
+// registered can be attached, and everything else about a file (type, size) is
+// read from storage rather than trusted from the client.
 export const createOrganization = mutation({
   args: {
     name: v.string(),
@@ -174,8 +178,9 @@ export const createOrganization = mutation({
       );
     }
 
-    // 2. File check: read the real type and size from storage, and make sure
-    //    the file isn't already attached to another submission.
+    // 2. File check: every file must be one this user registered (which also
+    //    means it can't be attached twice, or by someone else), and it is
+    //    checked against storage again so what is saved is what was approved.
     const verifiedDocuments: Array<{
       documentType: DocumentType;
       storageId: Id<"_storage">;
@@ -183,50 +188,31 @@ export const createOrganization = mutation({
       contentType: string;
       size: number;
     }> = [];
+    const claimedUploads: Array<Id<"pendingUploads">> = [];
 
     for (const doc of args.documents) {
       const fileName =
         doc.fileName.trim().slice(0, MAX_DOCUMENT_FILE_NAME_LENGTH) ||
         "document";
 
-      const stored = await ctx.db.system.get("_storage", doc.storageId);
-      if (!stored) {
-        throw new ConvexError(
-          `${fileName} wasn't uploaded properly. Please try again.`,
-        );
+      const pending = await findPendingUpload(ctx, doc.storageId);
+      if (!pending || pending.userId !== user._id) {
+        throw new ConvexError(describeFileProblem("MISSING", fileName));
       }
 
-      const contentType = stored.contentType ?? "";
-      if (
-        !(ALLOWED_DOCUMENT_CONTENT_TYPES as readonly string[]).includes(
-          contentType,
-        )
-      ) {
-        throw new ConvexError(
-          `${fileName} isn't a supported file. Use PDF, JPG, PNG or WebP.`,
-        );
-      }
-      if (stored.size > MAX_DOCUMENT_BYTES) {
-        throw new ConvexError(
-          `${fileName} is larger than ${MAX_DOCUMENT_BYTES / (1024 * 1024)} MB.`,
-        );
-      }
-
-      const alreadyUsed = await ctx.db
-        .query("organizationDocuments")
-        .withIndex("by_storageId", (q) => q.eq("storageId", doc.storageId))
-        .first();
-      if (alreadyUsed) {
-        throw new ConvexError(`${fileName} has already been submitted.`);
+      const check = await checkStoredDocument(ctx, doc.storageId);
+      if (!check.ok) {
+        throw new ConvexError(describeFileProblem(check.reason, fileName));
       }
 
       verifiedDocuments.push({
         documentType: doc.documentType,
         storageId: doc.storageId,
         fileName,
-        contentType,
-        size: stored.size,
+        contentType: check.contentType,
+        size: check.size,
       });
+      claimedUploads.push(pending._id);
     }
 
     const slug = await generateUniqueOrganizationSlug(ctx, name);
@@ -265,6 +251,12 @@ export const createOrganization = mutation({
         reviewStatus: "PENDING",
         createdAt: now,
       });
+    }
+
+    // The files belong to the organization now, so they stop being "pending"
+    // and the clean-up of old uploads leaves them alone.
+    for (const pendingId of claimedUploads) {
+      await ctx.db.delete(pendingId);
     }
 
     return { organizationId, slug };

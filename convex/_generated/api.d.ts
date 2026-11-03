@@ -10,10 +10,13 @@
 
 import type * as admin from "../admin.js";
 import type * as auth from "../auth.js";
+import type * as crons from "../crons.js";
+import type * as documentUploads from "../documentUploads.js";
 import type * as donations from "../donations.js";
 import type * as fundraiser from "../fundraiser.js";
 import type * as http from "../http.js";
 import type * as lib_constants from "../lib/constants.js";
+import type * as lib_documentFiles from "../lib/documentFiles.js";
 import type * as lib_donationSource from "../lib/donationSource.js";
 import type * as lib_fx from "../lib/fx.js";
 import type * as lib_orgAccess from "../lib/orgAccess.js";
@@ -46,10 +49,13 @@ import type {
 declare const fullApi: ApiFromModules<{
   admin: typeof admin;
   auth: typeof auth;
+  crons: typeof crons;
+  documentUploads: typeof documentUploads;
   donations: typeof donations;
   fundraiser: typeof fundraiser;
   http: typeof http;
   "lib/constants": typeof lib_constants;
+  "lib/documentFiles": typeof lib_documentFiles;
   "lib/donationSource": typeof lib_donationSource;
   "lib/fx": typeof lib_fx;
   "lib/orgAccess": typeof lib_orgAccess;
