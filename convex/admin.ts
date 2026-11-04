@@ -2,7 +2,8 @@ import { ConvexError, v } from "convex/values";
 import { internalMutation, mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
-import { getStaffUser, requireStaff } from "./lib/staff";
+import { getStaffUser, requireAdmin, requireStaff } from "./lib/staff";
+import { getActivePayoutHold } from "./lib/payoutEligibility";
 import { getVerificationBlockers } from "../lib/organization-verification";
 import { DAY_MS, EAT_OFFSET_MS } from "@/lib/time";
 
@@ -332,6 +333,83 @@ export const rejectOrganization = mutation({
       statusBefore: org.verificationStatus,
       statusAfter: "REJECTED",
       note: reason,
+    });
+  },
+});
+
+// Holding payouts (policy 3.3, 8.2). Any staff member can stop money moving;
+// only an admin can let it go again, so a hold can't be undone by the same
+// person who may have been pressured to place it, and a moderator can't
+// quietly clear one.
+export const placePayoutHold = mutation({
+  args: { fundraiserId: v.id("fundraisers"), reason: v.string() },
+  handler: async (ctx, args) => {
+    const staff = await requireStaff(ctx);
+
+    const fundraiser = await ctx.db.get(args.fundraiserId);
+    if (!fundraiser) throw new ConvexError("Fundraiser not found.");
+
+    const reason = cleanNote(args.reason);
+    if (!reason || reason.length < MIN_REJECTION_REASON_LENGTH) {
+      throw new ConvexError(
+        "Record why payouts are being held (at least 10 characters).",
+      );
+    }
+
+    if (await getActivePayoutHold(ctx, fundraiser._id)) {
+      throw new ConvexError("Payouts for this fundraiser are already on hold.");
+    }
+
+    await ctx.db.insert("fundraiserPayoutHolds", {
+      fundraiserId: fundraiser._id,
+      status: "ACTIVE",
+      reason,
+      placedBy: staff._id,
+      placedAt: Date.now(),
+    });
+
+    await logAction(ctx, {
+      actorId: staff._id,
+      action: "PAYOUT_HOLD_PLACED",
+      fundraiserId: fundraiser._id,
+      statusBefore: "NO_HOLD",
+      statusAfter: "ON_HOLD",
+      note: reason,
+    });
+  },
+});
+
+export const releasePayoutHold = mutation({
+  args: { fundraiserId: v.id("fundraisers"), note: v.string() },
+  handler: async (ctx, args) => {
+    const admin = await requireAdmin(ctx);
+
+    const hold = await getActivePayoutHold(ctx, args.fundraiserId);
+    if (!hold) {
+      throw new ConvexError("Payouts for this fundraiser aren't on hold.");
+    }
+
+    const note = cleanNote(args.note);
+    if (!note || note.length < MIN_REJECTION_REASON_LENGTH) {
+      throw new ConvexError(
+        "Record why the hold is being lifted (at least 10 characters).",
+      );
+    }
+
+    await ctx.db.patch(hold._id, {
+      status: "RELEASED",
+      releasedBy: admin._id,
+      releasedAt: Date.now(),
+      releaseNote: note,
+    });
+
+    await logAction(ctx, {
+      actorId: admin._id,
+      action: "PAYOUT_HOLD_RELEASED",
+      fundraiserId: args.fundraiserId,
+      statusBefore: "ON_HOLD",
+      statusAfter: "NO_HOLD",
+      note,
     });
   },
 });
