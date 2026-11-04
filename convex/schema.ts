@@ -352,8 +352,11 @@ export default defineSchema({
       v.literal("DOCUMENT_REVIEWED"),
       v.literal("ORGANIZATION_VERIFIED"),
       v.literal("ORGANIZATION_REJECTED"),
+      v.literal("PAYOUT_HOLD_PLACED"),
+      v.literal("PAYOUT_HOLD_RELEASED"),
     ),
     organizationId: v.optional(v.id("organizations")),
+    fundraiserId: v.optional(v.id("fundraisers")),
     documentId: v.optional(v.id("organizationDocuments")),
     statusBefore: v.optional(v.string()),
     statusAfter: v.optional(v.string()),
@@ -361,7 +364,24 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index("by_organizationId", ["organizationId"])
+    .index("by_fundraiserId", ["fundraiserId"])
     .index("by_actorId", ["actorId"]),
+
+  // Staff holds on releasing a fundraiser's money (policy 3.3: the MLRO can
+  // block payouts). Kept in a table of their own rather than on the
+  // fundraiser: public queries return fundraiser documents, and the reason for
+  // a hold must never reach the fundraiser (policy 12.3, no tipping off). A
+  // released hold stays as a row, so the history is a record (policy 15).
+  fundraiserPayoutHolds: defineTable({
+    fundraiserId: v.id("fundraisers"),
+    status: v.union(v.literal("ACTIVE"), v.literal("RELEASED")),
+    reason: v.string(),
+    placedBy: v.id("users"),
+    placedAt: v.number(),
+    releasedBy: v.optional(v.id("users")),
+    releasedAt: v.optional(v.number()),
+    releaseNote: v.optional(v.string()),
+  }).index("by_fundraiserId_and_status", ["fundraiserId", "status"]),
 
   organizationMembers: defineTable({
     organizationId: v.id("organizations"),

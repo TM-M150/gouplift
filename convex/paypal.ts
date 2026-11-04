@@ -11,6 +11,7 @@ import { Id } from "./_generated/dataModel";
 import { authComponent } from "./auth";
 import { getUsdToKesRate } from "./lib/fx";
 import { PLATFORM_FEE_RATE, resolveReturnOrigin } from "./lib/constants";
+import { assertAcceptsDonations } from "./lib/donationGate";
 import {
   clientDonationSourceValidator,
   donationSourceValidator,
@@ -73,6 +74,10 @@ export const createPendingPayPalDonation = internalMutation({
   },
   returns: v.id("donations"),
   handler: async (ctx, args) => {
+    // Refuse a missing or closed fundraiser here, in the transaction that
+    // creates the donation, before anything is sent to PayPal.
+    await assertAcceptsDonations(ctx, args.fundraiserId);
+
     return await ctx.db.insert("donations", {
       fundraiserId: args.fundraiserId,
       donorUserId: args.donorUserId,

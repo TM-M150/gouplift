@@ -10,6 +10,7 @@ import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { authComponent } from "./auth";
 import { PLATFORM_FEE_RATE, resolveReturnOrigin } from "./lib/constants";
+import { assertAcceptsDonations } from "./lib/donationGate";
 import {
   clientDonationSourceValidator,
   donationSourceValidator,
@@ -298,6 +299,10 @@ export const createPendingDonation = internalMutation({
     if (args.grossAmount <= 0) {
       throw new Error("Donation amount must be greater than 0.");
     }
+
+    // Refuse a missing or closed fundraiser here, in the transaction that
+    // creates the donation, before anything is sent to SasaPay.
+    await assertAcceptsDonations(ctx, args.fundraiserId);
 
     const platformFeeAmount = roundToCents(
       args.grossAmount * PLATFORM_FEE_RATE,

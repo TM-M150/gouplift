@@ -62,6 +62,10 @@ function describeHistory(
       return `${actor} verified the organization`;
     case "ORGANIZATION_REJECTED":
       return `${actor} rejected the organization`;
+    // Payout holds belong to a fundraiser, so they are never in an
+    // organization's history; this only keeps the switch total.
+    default:
+      return `${actor} recorded an action`;
   }
 }
 
