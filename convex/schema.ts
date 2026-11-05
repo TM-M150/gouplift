@@ -2,6 +2,13 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { donationSourceValidator } from "./lib/donationSource";
 import {
+  kycDocumentTypeValidator,
+  kycIdTypeValidator,
+  kycRequestedTierValidator,
+  kycReviewCheckValidator,
+  kycSubmissionStatusValidator,
+} from "./lib/kycValidators";
+import {
   documentTypeValidator,
   organizationTypeValidator,
 } from "./lib/organizationValidators";
@@ -354,9 +361,12 @@ export default defineSchema({
       v.literal("ORGANIZATION_REJECTED"),
       v.literal("PAYOUT_HOLD_PLACED"),
       v.literal("PAYOUT_HOLD_RELEASED"),
+      v.literal("KYC_APPROVED"),
+      v.literal("KYC_REJECTED"),
     ),
     organizationId: v.optional(v.id("organizations")),
     fundraiserId: v.optional(v.id("fundraisers")),
+    kycSubmissionId: v.optional(v.id("kycSubmissions")),
     documentId: v.optional(v.id("organizationDocuments")),
     statusBefore: v.optional(v.string()),
     statusAfter: v.optional(v.string()),
@@ -365,7 +375,57 @@ export default defineSchema({
   })
     .index("by_organizationId", ["organizationId"])
     .index("by_fundraiserId", ["fundraiserId"])
+    .index("by_kycSubmissionId", ["kycSubmissionId"])
     .index("by_actorId", ["actorId"]),
+
+  // An individual fundraiser's application for a verification tier (policy
+  // 5.3). Every application is kept, approved or not, as the record of who was
+  // checked, by whom and against what (policy 15). A user's tier is the
+  // highest one with an APPROVED submission; see lib/kycTier.ts.
+  //
+  // Tier 1 submissions carry the identity fields, Tier 2 ones the KRA PIN.
+  // Never return a whole row to the client: it holds an ID number.
+  kycSubmissions: defineTable({
+    userId: v.id("users"),
+    requestedTier: kycRequestedTierValidator,
+    status: kycSubmissionStatusValidator,
+    legalName: v.optional(v.string()),
+    idType: v.optional(kycIdTypeValidator),
+    idNumber: v.optional(v.string()), // normalized: upper-case, no spaces
+    phoneNumber: v.optional(v.string()), // +254...
+    campaignPurpose: v.optional(v.string()),
+    kraPin: v.optional(v.string()),
+    submittedAt: v.number(),
+    reviewedBy: v.optional(v.id("users")),
+    reviewedAt: v.optional(v.number()),
+    // What the reviewer confirmed before approving.
+    confirmedChecks: v.optional(v.array(kycReviewCheckValidator)),
+    // Shown to the fundraiser, so it must never hint at a suspicion.
+    rejectionReason: v.optional(v.string()),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_userId_and_status", ["userId", "status"])
+    .index("by_status_and_submittedAt", ["status", "submittedAt"])
+    // Finds the same ID, or the same phone number, on more than one account.
+    .index("by_idType_and_idNumber_and_status", [
+      "idType",
+      "idNumber",
+      "status",
+    ])
+    .index("by_phoneNumber_and_status", ["phoneNumber", "status"]),
+
+  kycDocuments: defineTable({
+    submissionId: v.id("kycSubmissions"),
+    userId: v.id("users"),
+    documentType: kycDocumentTypeValidator,
+    storageId: v.id("_storage"),
+    fileName: v.string(),
+    contentType: v.string(),
+    size: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_submissionId", ["submissionId"])
+    .index("by_storageId", ["storageId"]),
 
   // Staff holds on releasing a fundraiser's money (policy 3.3: the MLRO can
   // block payouts). Kept in a table of their own rather than on the

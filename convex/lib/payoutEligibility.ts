@@ -1,14 +1,18 @@
 import { ConvexError } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
+import type { KycTier } from "../../lib/kyc";
+import { getKycTier } from "./kycTier";
 
 // AML policy 5.2 and 5.5: no money is released to a fundraiser who hasn't been
 // verified, and staff can hold payouts at any time. There is no payout flow in
 // the app yet, so this is the single check that flow must call before moving
 // money (see assertPayoutEligible below).
 //
-// Individuals are checked with users.isVerified for now. The tiered KYC step
-// (policy 5.3) replaces that with per-tier limits.
+// An individual must have an approved Tier 1 or higher (policy 5.3, see
+// lib/kycTier.ts). This only says whether money may move at all; holding a
+// payout to the tier's cumulative limit needs the amounts, and belongs to the
+// payout flow.
 
 type FundraiserStatus = Doc<"fundraisers">["status"];
 
@@ -36,7 +40,9 @@ export const PAYABLE_STATUSES: ReadonlySet<FundraiserStatus> = new Set([
 
 interface EligibilityInput {
   fundraiser: Pick<Doc<"fundraisers">, "status" | "organizationId">;
-  creator: Pick<Doc<"users">, "isVerified"> | null;
+  // The KYC tier of the fundraiser's owner. Not looked at for an organization's
+  // fundraiser, which is checked through the organization instead.
+  ownerKycTier: KycTier;
   organization: Pick<Doc<"organizations">, "verificationStatus"> | null;
   hasActiveHold: boolean;
 }
@@ -69,7 +75,7 @@ export function evaluatePayoutEligibility(
         message: "The organization hasn't been verified.",
       });
     }
-  } else if (!input.creator?.isVerified) {
+  } else if (input.ownerKycTier < 1) {
     blockers.push({
       code: "OWNER_NOT_VERIFIED",
       message: "The fundraiser's owner hasn't been verified.",
@@ -97,15 +103,16 @@ export async function getPayoutBlockers(
   ctx: QueryCtx | MutationCtx,
   fundraiser: Doc<"fundraisers">,
 ): Promise<PayoutBlocker[]> {
-  const [creator, organization, hold] = await Promise.all([
-    ctx.db.get(fundraiser.creatorId),
+  const [ownerKycTier, organization, hold] = await Promise.all([
+    // A missing creator has no approved submissions, so reads as tier 0.
+    getKycTier(ctx, fundraiser.creatorId),
     fundraiser.organizationId ? ctx.db.get(fundraiser.organizationId) : null,
     getActivePayoutHold(ctx, fundraiser._id),
   ]);
 
   return evaluatePayoutEligibility({
     fundraiser,
-    creator,
+    ownerKycTier,
     organization,
     hasActiveHold: hold !== null,
   });

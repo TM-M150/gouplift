@@ -1,8 +1,13 @@
 import { ConvexError, v } from "convex/values";
 import { internalMutation, mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
-import type { Doc, Id } from "./_generated/dataModel";
+import type { Id } from "./_generated/dataModel";
 import { getStaffUser, requireAdmin, requireStaff } from "./lib/staff";
+import {
+  cleanNote,
+  logAction,
+  MIN_REJECTION_REASON_LENGTH,
+} from "./lib/adminAudit";
 import { getActivePayoutHold } from "./lib/payoutEligibility";
 import { getVerificationBlockers } from "../lib/organization-verification";
 import { DAY_MS, EAT_OFFSET_MS } from "@/lib/time";
@@ -10,8 +15,6 @@ import { DAY_MS, EAT_OFFSET_MS } from "@/lib/time";
 const LIST_LIMIT = 100;
 const DOCUMENTS_LIMIT = 50;
 const HISTORY_LIMIT = 30;
-const MAX_NOTE_LENGTH = 1000;
-const MIN_REJECTION_REASON_LENGTH = 10;
 const QUEUE_CAP = 100;
 const TOTALS_CAP = 500;
 const SERIES_CAP = 2000;
@@ -33,22 +36,6 @@ async function listDocuments(
       q.eq("organizationId", organizationId),
     )
     .take(DOCUMENTS_LIMIT);
-}
-
-function cleanNote(note: string | undefined): string | undefined {
-  const trimmed = note?.trim();
-  if (!trimmed) return undefined;
-  if (trimmed.length > MAX_NOTE_LENGTH) {
-    throw new ConvexError(`Keep notes under ${MAX_NOTE_LENGTH} characters.`);
-  }
-  return trimmed;
-}
-
-async function logAction(
-  ctx: MutationCtx,
-  entry: Omit<Doc<"adminAuditLog">, "_id" | "_creationTime" | "createdAt">,
-) {
-  await ctx.db.insert("adminAuditLog", { ...entry, createdAt: Date.now() });
 }
 
 // Whether the signed-in user is staff. The /admin layout calls this to decide

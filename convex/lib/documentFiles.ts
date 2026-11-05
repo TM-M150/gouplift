@@ -63,6 +63,29 @@ export function describeFileProblem(
   }
 }
 
+/**
+ * Whether a stored file already belongs to a submission: an organization's
+ * documents or an individual fundraiser's KYC documents. Anything that decides
+ * a file is "unclaimed" (registering it, sweeping it) has to ask this, so a
+ * file attached to one kind of submission is never mistaken for a stray.
+ */
+export async function isStorageAttached(
+  ctx: QueryCtx | MutationCtx,
+  storageId: Id<"_storage">,
+): Promise<boolean> {
+  const [organizationDocument, kycDocument] = await Promise.all([
+    ctx.db
+      .query("organizationDocuments")
+      .withIndex("by_storageId", (q) => q.eq("storageId", storageId))
+      .first(),
+    ctx.db
+      .query("kycDocuments")
+      .withIndex("by_storageId", (q) => q.eq("storageId", storageId))
+      .first(),
+  ]);
+  return organizationDocument !== null || kycDocument !== null;
+}
+
 /** The pending-upload row for a file, if someone has registered it. */
 export async function findPendingUpload(
   ctx: QueryCtx | MutationCtx,

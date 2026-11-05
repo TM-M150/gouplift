@@ -5,6 +5,7 @@ import {
   checkStoredDocument,
   describeFileProblem,
   findPendingUpload,
+  isStorageAttached,
 } from "./lib/documentFiles";
 import { consumeRateLimit } from "./lib/rateLimit";
 import { getCurrentUserDoc } from "./lib/staff";
@@ -16,7 +17,8 @@ import { getCurrentUserDoc } from "./lib/staff";
 //   1. generateDocumentUploadUrl  - signed-in users only, rate limited
 //   2. the browser uploads the file
 //   3. registerDocumentUpload     - checks it; a file that fails is deleted now
-//   4. createOrganization         - claims the registered files it is given
+//   4. createOrganization or submitKyc
+//                                 - claims the registered files it is given
 //   5. sweepStaleDocumentUploads  - deletes registered files nobody submitted
 //
 // Not covered: a file uploaded and never registered (the tab closed in between,
@@ -52,7 +54,7 @@ export const generateDocumentUploadUrl = mutation({
       .take(MAX_PENDING_UPLOADS_PER_USER);
     if (pending.length >= MAX_PENDING_UPLOADS_PER_USER) {
       throw new ConvexError(
-        "You have too many uploaded files waiting to be submitted. Submit your organization or remove some files first.",
+        "You have too many uploaded files waiting to be submitted. Submit your documents or remove some files first.",
       );
     }
 
@@ -94,11 +96,9 @@ export const registerDocumentUpload = mutation({
         ? { ok: true }
         : { ok: false, error: NOT_FOUND };
     }
-    const attached = await ctx.db
-      .query("organizationDocuments")
-      .withIndex("by_storageId", (q) => q.eq("storageId", args.storageId))
-      .first();
-    if (attached) return { ok: false, error: NOT_FOUND };
+    if (await isStorageAttached(ctx, args.storageId)) {
+      return { ok: false, error: NOT_FOUND };
+    }
 
     const check = await checkStoredDocument(ctx, args.storageId);
     if (!check.ok && check.reason === "MISSING") {
@@ -156,10 +156,7 @@ export const sweepStaleDocumentUploads = internalMutation({
 
     for (const row of stale) {
       // A file that is part of a submission is never deleted here.
-      const attached = await ctx.db
-        .query("organizationDocuments")
-        .withIndex("by_storageId", (q) => q.eq("storageId", row.storageId))
-        .first();
+      const attached = await isStorageAttached(ctx, row.storageId);
       if (!attached && (await ctx.db.system.get("_storage", row.storageId))) {
         await ctx.storage.delete(row.storageId);
       }
