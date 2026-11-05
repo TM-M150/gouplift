@@ -1,6 +1,7 @@
 import {
   Building2,
   Heart,
+  Landmark,
   LayoutDashboard,
   ShieldCheck,
   Users,
@@ -27,6 +28,12 @@ export const adminNav: AdminNavItem[] = [
     title: "Verification",
     href: "/admin/verification",
     icon: ShieldCheck,
+    ready: true,
+  },
+  {
+    title: "Payout accounts",
+    href: "/admin/payout-accounts",
+    icon: Landmark,
     ready: true,
   },
   {

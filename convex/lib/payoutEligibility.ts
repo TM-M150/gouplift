@@ -2,7 +2,12 @@ import { ConvexError } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { KycTier } from "../../lib/kyc";
+import { payoutChangeHeldUntil } from "../../lib/payout-accounts";
 import { getKycTier } from "./kycTier";
+import {
+  getFundraiserPayoutSelection,
+  payoutAccountBelongsToFundraiser,
+} from "./payoutAccounts";
 
 // AML policy 5.2 and 5.5: no money is released to a fundraiser who hasn't been
 // verified, and staff can hold payouts at any time. There is no payout flow in
@@ -10,9 +15,11 @@ import { getKycTier } from "./kycTier";
 // money (see assertPayoutEligible below).
 //
 // An individual must have an approved Tier 1 or higher (policy 5.3, see
-// lib/kycTier.ts). This only says whether money may move at all; holding a
-// payout to the tier's cumulative limit needs the amounts, and belongs to the
-// payout flow.
+// lib/kycTier.ts). The money goes only to a verified payout account that
+// belongs to the fundraiser's owner (policy 5.5), and not for a while after
+// the account was changed. This only says whether money may move at all;
+// holding a payout to the tier's cumulative limit needs the amounts, and
+// belongs to the payout flow.
 
 type FundraiserStatus = Doc<"fundraisers">["status"];
 
@@ -20,7 +27,11 @@ export type PayoutBlockerCode =
   | "ON_HOLD"
   | "FUNDRAISER_STATUS"
   | "OWNER_NOT_VERIFIED"
-  | "ORGANIZATION_NOT_VERIFIED";
+  | "ORGANIZATION_NOT_VERIFIED"
+  | "PAYOUT_ACCOUNT_MISSING"
+  | "PAYOUT_ACCOUNT_NOT_VERIFIED"
+  | "PAYOUT_ACCOUNT_MISMATCH"
+  | "PAYOUT_ACCOUNT_RECENTLY_CHANGED";
 
 export interface PayoutBlocker {
   code: PayoutBlockerCode;
@@ -39,12 +50,25 @@ export const PAYABLE_STATUSES: ReadonlySet<FundraiserStatus> = new Set([
 ]);
 
 interface EligibilityInput {
-  fundraiser: Pick<Doc<"fundraisers">, "status" | "organizationId">;
+  fundraiser: Pick<
+    Doc<"fundraisers">,
+    "status" | "organizationId" | "creatorId"
+  >;
   // The KYC tier of the fundraiser's owner. Not looked at for an organization's
   // fundraiser, which is checked through the organization instead.
   ownerKycTier: KycTier;
   organization: Pick<Doc<"organizations">, "verificationStatus"> | null;
   hasActiveHold: boolean;
+  // The account the fundraiser is set to be paid to, null if none was chosen.
+  payoutAccount: Pick<
+    Doc<"payoutAccounts">,
+    "status" | "userId" | "organizationId"
+  > | null;
+  // When that account replaced an earlier one, if it did.
+  payoutAccountChangedAt: number | null;
+  // The time to judge the hold after an account change against. Null skips
+  // that rule, for queries, which can't read the clock.
+  now: number | null;
 }
 
 /** Pure rules, no database. Empty array means the money may be released. */
@@ -82,6 +106,34 @@ export function evaluatePayoutEligibility(
     });
   }
 
+  if (!input.payoutAccount) {
+    blockers.push({
+      code: "PAYOUT_ACCOUNT_MISSING",
+      message: "No payout account has been chosen.",
+    });
+  } else if (!payoutAccountBelongsToFundraiser(input.payoutAccount, input.fundraiser)) {
+    blockers.push({
+      code: "PAYOUT_ACCOUNT_MISMATCH",
+      message: "The payout account doesn't belong to the fundraiser's owner.",
+    });
+  } else if (input.payoutAccount.status !== "VERIFIED") {
+    blockers.push({
+      code: "PAYOUT_ACCOUNT_NOT_VERIFIED",
+      message: "The payout account hasn't been verified.",
+    });
+  }
+
+  if (
+    input.now !== null &&
+    input.payoutAccountChangedAt !== null &&
+    input.now < payoutChangeHeldUntil(input.payoutAccountChangedAt)
+  ) {
+    blockers.push({
+      code: "PAYOUT_ACCOUNT_RECENTLY_CHANGED",
+      message: "The payout account was changed recently.",
+    });
+  }
+
   return blockers;
 }
 
@@ -98,23 +150,35 @@ export async function getActivePayoutHold(
     .first();
 }
 
-/** Loads what the rules need and returns whatever is stopping a payout. */
+/**
+ * Loads what the rules need and returns whatever is stopping a payout. Pass
+ * the time to judge the hold after an account change against, or null from a
+ * query, which can't read the clock.
+ */
 export async function getPayoutBlockers(
   ctx: QueryCtx | MutationCtx,
   fundraiser: Doc<"fundraisers">,
+  now: number | null,
 ): Promise<PayoutBlocker[]> {
-  const [ownerKycTier, organization, hold] = await Promise.all([
+  const [ownerKycTier, organization, hold, selection] = await Promise.all([
     // A missing creator has no approved submissions, so reads as tier 0.
     getKycTier(ctx, fundraiser.creatorId),
     fundraiser.organizationId ? ctx.db.get(fundraiser.organizationId) : null,
     getActivePayoutHold(ctx, fundraiser._id),
+    getFundraiserPayoutSelection(ctx, fundraiser._id),
   ]);
+  const payoutAccount = selection
+    ? await ctx.db.get(selection.payoutAccountId)
+    : null;
 
   return evaluatePayoutEligibility({
     fundraiser,
     ownerKycTier,
     organization,
     hasActiveHold: hold !== null,
+    payoutAccount,
+    payoutAccountChangedAt: selection?.changedAt ?? null,
+    now,
   });
 }
 
@@ -126,11 +190,12 @@ export async function getPayoutBlockers(
 export async function assertPayoutEligible(
   ctx: QueryCtx | MutationCtx,
   fundraiserId: Id<"fundraisers">,
+  now: number = Date.now(),
 ): Promise<void> {
   const fundraiser = await ctx.db.get(fundraiserId);
   if (!fundraiser) throw new ConvexError("Fundraiser not found.");
 
-  const blockers = await getPayoutBlockers(ctx, fundraiser);
+  const blockers = await getPayoutBlockers(ctx, fundraiser, now);
   if (blockers.length > 0) {
     throw new ConvexError(
       `Payout blocked: ${blockers.map((b) => b.message).join(" ")}`,

@@ -5,6 +5,7 @@ import schema from "./schema";
 import { api } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { KycTier } from "../lib/kyc";
+import { PAYOUT_ACCOUNT_CHANGE_HOLD_MS } from "../lib/payout-accounts";
 import {
   assertPayoutEligible,
   evaluatePayoutEligibility,
@@ -29,6 +30,7 @@ const modules = import.meta.glob("./**/*.ts");
 type T = TestConvex<typeof schema>;
 type Status = Doc<"fundraisers">["status"];
 type OrgStatus = Doc<"organizations">["verificationStatus"];
+type PayoutStatus = Doc<"payoutAccounts">["status"];
 
 const REASON = "Donor reported that the story is copied from another campaign.";
 
@@ -41,11 +43,23 @@ afterEach(() => {
 });
 
 describe("evaluatePayoutEligibility", () => {
+  const creatorId = "user1" as Id<"users">;
   const base = {
-    fundraiser: { status: "ACTIVE" as Status, organizationId: undefined },
+    fundraiser: {
+      status: "ACTIVE" as Status,
+      organizationId: undefined,
+      creatorId,
+    },
     ownerKycTier: 1 as KycTier,
     organization: null,
     hasActiveHold: false,
+    payoutAccount: {
+      status: "VERIFIED" as PayoutStatus,
+      userId: creatorId,
+      organizationId: undefined,
+    },
+    payoutAccountChangedAt: null,
+    now: Date.now(),
   };
   const codes = (input: Parameters<typeof evaluatePayoutEligibility>[0]) =>
     evaluatePayoutEligibility(input).map((b) => b.code);
@@ -86,6 +100,13 @@ describe("evaluatePayoutEligibility", () => {
     const orgFundraiser = {
       status: "ACTIVE" as Status,
       organizationId: "org1" as Id<"organizations">,
+      creatorId,
+    };
+    // An organization's fundraiser is paid to the organization's accounts.
+    const orgAccount = {
+      status: "VERIFIED" as PayoutStatus,
+      userId: creatorId,
+      organizationId: "org1" as Id<"organizations">,
     };
 
     it("needs the organization to be VERIFIED", () => {
@@ -99,6 +120,7 @@ describe("evaluatePayoutEligibility", () => {
           codes({
             ...base,
             fundraiser: orgFundraiser,
+            payoutAccount: orgAccount,
             organization: { verificationStatus },
           }),
         ).toEqual(["ORGANIZATION_NOT_VERIFIED"]);
@@ -107,6 +129,7 @@ describe("evaluatePayoutEligibility", () => {
         codes({
           ...base,
           fundraiser: orgFundraiser,
+          payoutAccount: orgAccount,
           organization: { verificationStatus: "VERIFIED" },
         }),
       ).toEqual([]);
@@ -114,8 +137,37 @@ describe("evaluatePayoutEligibility", () => {
 
     it("treats a missing organization as unverified", () => {
       expect(
-        codes({ ...base, fundraiser: orgFundraiser, organization: null }),
+        codes({
+          ...base,
+          fundraiser: orgFundraiser,
+          payoutAccount: orgAccount,
+          organization: null,
+        }),
       ).toEqual(["ORGANIZATION_NOT_VERIFIED"]);
+    });
+
+    it("won't pay an organization's fundraiser to a personal account", () => {
+      expect(
+        codes({
+          ...base,
+          fundraiser: orgFundraiser,
+          organization: { verificationStatus: "VERIFIED" },
+        }),
+      ).toEqual(["PAYOUT_ACCOUNT_MISMATCH"]);
+    });
+
+    it("won't pay to another organization's account", () => {
+      expect(
+        codes({
+          ...base,
+          fundraiser: orgFundraiser,
+          payoutAccount: {
+            ...orgAccount,
+            organizationId: "org2" as Id<"organizations">,
+          },
+          organization: { verificationStatus: "VERIFIED" },
+        }),
+      ).toEqual(["PAYOUT_ACCOUNT_MISMATCH"]);
     });
 
     it("looks at the organization, not the individual who created the campaign", () => {
@@ -124,21 +176,105 @@ describe("evaluatePayoutEligibility", () => {
           ...base,
           ownerKycTier: 0 as KycTier,
           fundraiser: orgFundraiser,
+          payoutAccount: orgAccount,
           organization: { verificationStatus: "VERIFIED" },
         }),
       ).toEqual([]);
     });
   });
 
+  describe("the payout account", () => {
+    it("must have been chosen", () => {
+      expect(codes({ ...base, payoutAccount: null })).toEqual([
+        "PAYOUT_ACCOUNT_MISSING",
+      ]);
+    });
+
+    it.each(["PENDING_REVIEW", "REJECTED", "CLOSED"] as PayoutStatus[])(
+      "must be verified, not %s",
+      (status) => {
+        expect(
+          codes({ ...base, payoutAccount: { ...base.payoutAccount, status } }),
+        ).toEqual(["PAYOUT_ACCOUNT_NOT_VERIFIED"]);
+      },
+    );
+
+    it("must belong to the fundraiser's owner", () => {
+      expect(
+        codes({
+          ...base,
+          payoutAccount: {
+            ...base.payoutAccount,
+            userId: "someoneElse" as Id<"users">,
+          },
+        }),
+      ).toEqual(["PAYOUT_ACCOUNT_MISMATCH"]);
+    });
+
+    it("must be a personal account for a personal fundraiser", () => {
+      expect(
+        codes({
+          ...base,
+          payoutAccount: {
+            ...base.payoutAccount,
+            organizationId: "org1" as Id<"organizations">,
+          },
+        }),
+      ).toEqual(["PAYOUT_ACCOUNT_MISMATCH"]);
+    });
+  });
+
+  describe("after the payout account was changed", () => {
+    const changedAt = Date.now();
+
+    it("pauses payouts until the hold period has passed", () => {
+      const justAfter = changedAt + 1;
+      const justBefore = changedAt + PAYOUT_ACCOUNT_CHANGE_HOLD_MS - 1;
+      for (const now of [changedAt, justAfter, justBefore]) {
+        expect(
+          codes({ ...base, payoutAccountChangedAt: changedAt, now }),
+        ).toEqual(["PAYOUT_ACCOUNT_RECENTLY_CHANGED"]);
+      }
+    });
+
+    it("lets payouts resume once it has", () => {
+      expect(
+        codes({
+          ...base,
+          payoutAccountChangedAt: changedAt,
+          now: changedAt + PAYOUT_ACCOUNT_CHANGE_HOLD_MS,
+        }),
+      ).toEqual([]);
+    });
+
+    it("isn't judged without a clock", () => {
+      expect(
+        codes({ ...base, payoutAccountChangedAt: changedAt, now: null }),
+      ).toEqual([]);
+    });
+
+    it("never applies to an account that was never changed", () => {
+      expect(codes({ ...base, payoutAccountChangedAt: null })).toEqual([]);
+    });
+  });
+
   it("reports every reason at once", () => {
     expect(
       codes({
-        fundraiser: { status: "PAUSED", organizationId: undefined },
+        fundraiser: { status: "PAUSED", organizationId: undefined, creatorId },
         ownerKycTier: 0 as KycTier,
         organization: null,
         hasActiveHold: true,
+        payoutAccount: null,
+        payoutAccountChangedAt: null,
+        now: Date.now(),
       }),
-    ).toEqual(["ON_HOLD", "FUNDRAISER_STATUS", "OWNER_NOT_VERIFIED"]);
+    ).toEqual([
+      "ON_HOLD",
+      "FUNDRAISER_STATUS",
+      "OWNER_NOT_VERIFIED",
+      "PAYOUT_ACCOUNT_MISSING",
+    ]);
   });
 });
 
@@ -189,14 +325,34 @@ async function setup() {
         updatedAt: now,
       });
 
+    const verifiedFundraiser = await fundraiser(verifiedOwner);
+    // Paid to the number confirmed at Level 1, which needs no further review.
+    const payoutAccount = await ctx.db.insert("payoutAccounts", {
+      userId: verifiedOwner,
+      method: "MPESA",
+      holder: "OWN",
+      accountName: "Verified Owner",
+      mpesaNumber: "+254712345678",
+      status: "VERIFIED",
+      verifiedVia: "KYC_PHONE",
+      createdAt: now,
+    });
+    await ctx.db.insert("fundraiserPayoutAccounts", {
+      fundraiserId: verifiedFundraiser,
+      payoutAccountId: payoutAccount,
+      selectedBy: verifiedOwner,
+      selectedAt: now,
+    });
+
     return {
       owner,
       verifiedOwner,
       moderator,
       admin,
       stranger,
+      payoutAccount,
       unverifiedFundraiser: await fundraiser(owner),
-      verifiedFundraiser: await fundraiser(verifiedOwner),
+      verifiedFundraiser,
     };
   });
 
@@ -230,11 +386,14 @@ describe("payout eligibility against the database", () => {
     const blockedFor = (fundraiserId: Id<"fundraisers">) =>
       t.run(async (ctx) => {
         const fundraiser = await ctx.db.get(fundraiserId);
-        return (await getPayoutBlockers(ctx, fundraiser!)).map((b) => b.code);
+        return (await getPayoutBlockers(ctx, fundraiser!, Date.now())).map(
+          (b) => b.code,
+        );
       });
 
     expect(await blockedFor(ids.unverifiedFundraiser)).toEqual([
       "OWNER_NOT_VERIFIED",
+      "PAYOUT_ACCOUNT_MISSING",
     ]);
     expect(await blockedFor(ids.verifiedFundraiser)).toEqual([]);
   });
@@ -278,6 +437,24 @@ describe("payout eligibility against the database", () => {
         createdAt: now,
         updatedAt: now,
       });
+      const payoutAccountId = await ctx.db.insert("payoutAccounts", {
+        userId: ids.owner,
+        organizationId: orgId,
+        method: "BANK",
+        holder: "OWN",
+        accountName: "Kajiado Youth Trust",
+        bankName: "Equity Bank",
+        bankAccountNumber: "0123456789012",
+        status: "VERIFIED",
+        verifiedVia: "STAFF_REVIEW",
+        createdAt: now,
+      });
+      await ctx.db.insert("fundraiserPayoutAccounts", {
+        fundraiserId,
+        payoutAccountId,
+        selectedBy: ids.owner,
+        selectedAt: now,
+      });
       return { orgId, fundraiserId };
     });
 
@@ -289,6 +466,42 @@ describe("payout eligibility against the database", () => {
       ctx.db.patch(orgId, { verificationStatus: "VERIFIED" }),
     );
     expect(await checkPayout(t, fundraiserId)).toBe("allowed");
+  });
+
+  it("follows the payout account's status and the change hold", async () => {
+    const { t, ids } = await setup();
+    const blocked = () =>
+      t.run(async (ctx) => {
+        const fundraiser = await ctx.db.get(ids.verifiedFundraiser);
+        return (await getPayoutBlockers(ctx, fundraiser!, Date.now())).map(
+          (b) => b.code,
+        );
+      });
+    expect(await blocked()).toEqual([]);
+
+    // The account is closed.
+    await t.run((ctx) => ctx.db.patch(ids.payoutAccount, { status: "CLOSED" }));
+    expect(await blocked()).toEqual(["PAYOUT_ACCOUNT_NOT_VERIFIED"]);
+    await t.run((ctx) =>
+      ctx.db.patch(ids.payoutAccount, { status: "VERIFIED" }),
+    );
+
+    // It was just swapped in for another one.
+    await t.run(async (ctx) => {
+      const selection = await ctx.db
+        .query("fundraiserPayoutAccounts")
+        .withIndex("by_fundraiserId", (q) =>
+          q.eq("fundraiserId", ids.verifiedFundraiser),
+        )
+        .unique();
+      await ctx.db.patch(selection!._id, { changedAt: Date.now() });
+    });
+    expect(await blocked()).toEqual(["PAYOUT_ACCOUNT_RECENTLY_CHANGED"]);
+
+    // A minute past the end of the hold, since the test database's own clock
+    // runs a little ahead of this one.
+    vi.setSystemTime(Date.now() + PAYOUT_ACCOUNT_CHANGE_HOLD_MS + 60_000);
+    expect(await blocked()).toEqual([]);
   });
 
   it("assertPayoutEligible refuses a fundraiser that doesn't exist", async () => {

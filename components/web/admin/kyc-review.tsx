@@ -4,11 +4,11 @@ import * as React from "react";
 import Link from "next/link";
 import { useMutation, useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
-import { AlertTriangle, ArrowLeft, ExternalLink, FileText } from "lucide-react";
+import { AlertTriangle, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import { Badge } from "@/components/ui/badge";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -20,11 +20,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DecisionDialog } from "@/components/web/admin/decision-dialog";
-import {
-  formatDate,
-  formatDateTime,
-  formatSize,
-} from "@/components/web/admin/utils";
+import { ReviewFileCard } from "@/components/web/admin/review-file-card";
+import { formatDate, formatDateTime } from "@/components/web/admin/utils";
 import { formatKes } from "@/components/web/kyc/format";
 import {
   KYC_DOCUMENT_TYPES,
@@ -39,7 +36,6 @@ import {
 type ReviewData = NonNullable<
   FunctionReturnType<typeof api.kycReview.getKycForReview>
 >;
-type ReviewDocument = ReviewData["documents"][number];
 type HistoryEntry = ReviewData["history"][number];
 
 const STATUS_DISPLAY: Record<
@@ -98,55 +94,6 @@ function Detail({
     <div className="space-y-0.5">
       <dt className="text-xs text-muted-foreground">{label}</dt>
       <dd className="text-sm break-words whitespace-pre-line">{value}</dd>
-    </div>
-  );
-}
-
-function FileCard({
-  document,
-  label,
-}: {
-  document: ReviewDocument;
-  label: string;
-}) {
-  const isImage = document.contentType.startsWith("image/");
-  return (
-    <div className="space-y-3 rounded-xl border bg-card p-4">
-      <div className="min-w-0 space-y-1">
-        <p className="text-sm font-medium">{label}</p>
-        <p className="truncate text-xs text-muted-foreground">
-          {document.fileName} · {formatSize(document.size)}
-        </p>
-      </div>
-
-      {isImage && document.url ? (
-        // Plain <img>: a short-lived storage URL, not something to optimise.
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={document.url}
-          alt={`${label}: ${document.fileName}`}
-          className="max-h-72 w-full rounded-lg border bg-muted/30 object-contain"
-        />
-      ) : (
-        <div className="flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
-          <FileText className="size-4 shrink-0" />
-          PDF — open it to read the document.
-        </div>
-      )}
-
-      {document.url ? (
-        <a
-          href={document.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={buttonVariants({ variant: "outline", size: "sm" })}
-        >
-          <ExternalLink data-icon="inline-start" />
-          Open file
-        </a>
-      ) : (
-        <span className="text-xs text-destructive">File unavailable</span>
-      )}
     </div>
   );
 }
@@ -333,9 +280,9 @@ export function KycReview({ submissionId }: { submissionId: string }) {
         ) : (
           <div className="grid gap-4 md:grid-cols-2">
             {documents.map((doc) => (
-              <FileCard
+              <ReviewFileCard
                 key={doc._id}
-                document={doc}
+                file={doc}
                 label={labels.get(doc.documentType) ?? doc.documentType}
               />
             ))}

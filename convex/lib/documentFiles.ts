@@ -1,3 +1,4 @@
+import { ConvexError } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import {
@@ -64,16 +65,17 @@ export function describeFileProblem(
 }
 
 /**
- * Whether a stored file already belongs to a submission: an organization's
- * documents or an individual fundraiser's KYC documents. Anything that decides
- * a file is "unclaimed" (registering it, sweeping it) has to ask this, so a
- * file attached to one kind of submission is never mistaken for a stray.
+ * Whether a stored file already belongs to something: an organization's
+ * documents, an individual fundraiser's KYC documents or a payout account's
+ * proof. Anything that decides a file is "unclaimed" (registering it,
+ * sweeping it) has to ask this, so a file attached to one kind of submission
+ * is never mistaken for a stray.
  */
 export async function isStorageAttached(
   ctx: QueryCtx | MutationCtx,
   storageId: Id<"_storage">,
 ): Promise<boolean> {
-  const [organizationDocument, kycDocument] = await Promise.all([
+  const [organizationDocument, kycDocument, payoutProof] = await Promise.all([
     ctx.db
       .query("organizationDocuments")
       .withIndex("by_storageId", (q) => q.eq("storageId", storageId))
@@ -82,8 +84,14 @@ export async function isStorageAttached(
       .query("kycDocuments")
       .withIndex("by_storageId", (q) => q.eq("storageId", storageId))
       .first(),
+    ctx.db
+      .query("payoutAccounts")
+      .withIndex("by_proofStorageId", (q) => q.eq("proofStorageId", storageId))
+      .first(),
   ]);
-  return organizationDocument !== null || kycDocument !== null;
+  return (
+    organizationDocument !== null || kycDocument !== null || payoutProof !== null
+  );
 }
 
 /** The pending-upload row for a file, if someone has registered it. */
@@ -95,4 +103,32 @@ export async function findPendingUpload(
     .query("pendingUploads")
     .withIndex("by_storageId", (q) => q.eq("storageId", storageId))
     .unique();
+}
+
+/**
+ * Claims one file the person uploaded and registered: checks it is theirs and
+ * still passes the file rules in storage, then removes its pending-upload row
+ * so the clean-up job leaves it alone. Call it in the same mutation that saves
+ * the file's id, so either both happen or neither does. Throws a message fit to
+ * show the person.
+ */
+export async function claimRegisteredFile(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  file: { storageId: Id<"_storage">; fileName: string },
+): Promise<{ fileName: string; contentType: string; size: number }> {
+  const fileName = file.fileName.trim().slice(0, 200) || "document";
+
+  const pending = await findPendingUpload(ctx, file.storageId);
+  if (!pending || pending.userId !== userId) {
+    throw new ConvexError(describeFileProblem("MISSING", fileName));
+  }
+
+  const check = await checkStoredDocument(ctx, file.storageId);
+  if (!check.ok) {
+    throw new ConvexError(describeFileProblem(check.reason, fileName));
+  }
+
+  await ctx.db.delete(pending._id);
+  return { fileName, contentType: check.contentType, size: check.size };
 }
