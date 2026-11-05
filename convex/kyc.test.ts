@@ -6,7 +6,7 @@ import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import type { KycDocumentType, KycIdType } from "../lib/kyc";
 import { getKycTier } from "./lib/kycTier";
-import { assertPayoutEligible } from "./lib/payoutEligibility";
+import { getPayoutBlockers } from "./lib/payoutEligibility";
 
 // The real auth component needs a running Better Auth deployment. These tests
 // only need `safeGetAuthUser`, so it reads the identity convex-test attaches.
@@ -975,7 +975,7 @@ describe("approveKyc", () => {
     });
   });
 
-  it("lets payouts through only once the owner is approved", async () => {
+  it("stops blocking payouts on the owner once they are approved", async () => {
     const s = await setup();
     const fundraiserId = await s.t.run((ctx) =>
       ctx.db.insert("fundraisers", {
@@ -995,22 +995,25 @@ describe("approveKyc", () => {
         updatedAt: Date.now(),
       }),
     );
-    const check = () =>
+    // Whatever else is still missing (a payout account, say) isn't this
+    // test's business: only the owner's verification is.
+    const blockerCodes = () =>
       s.t.run(async (ctx) => {
-        await assertPayoutEligible(ctx, fundraiserId);
-        return "allowed";
+        const fundraiser = await ctx.db.get(fundraiserId);
+        const blockers = await getPayoutBlockers(ctx, fundraiser!, Date.now());
+        return blockers.map((blocker) => blocker.code);
       });
 
-    await expect(check()).rejects.toThrow(/owner hasn't been verified/);
+    expect(await blockerCodes()).toContain("OWNER_NOT_VERIFIED");
 
     const { submissionId } = await submitTier1(s, s.asAlice, s.ids.alice);
-    await expect(check()).rejects.toThrow(/owner hasn't been verified/);
+    expect(await blockerCodes()).toContain("OWNER_NOT_VERIFIED");
 
     await s.asMod.mutation(api.kycReview.approveKyc, {
       submissionId,
       confirmedChecks: [...TIER_1_CHECKS],
     });
-    expect(await check()).toBe("allowed");
+    expect(await blockerCodes()).not.toContain("OWNER_NOT_VERIFIED");
   });
 });
 

@@ -166,6 +166,16 @@ export function VerificationCenter() {
             </div>
           )}
 
+          {kyc.tier >= 1 && (
+            <p className="text-sm text-muted-foreground">
+              Next, choose where your money is paid on the{" "}
+              <Link href="/payouts" className="underline underline-offset-4">
+                payouts page
+              </Link>
+              .
+            </p>
+          )}
+
           {kyc.nextTier === 1 && <Tier1Form />}
           {kyc.nextTier === 2 && (
             <Tier2Form legalName={kyc.identity?.legalName ?? null} />

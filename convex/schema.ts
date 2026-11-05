@@ -13,6 +13,13 @@ import {
   organizationTypeValidator,
 } from "./lib/organizationValidators";
 import {
+  payoutAccountReviewCheckValidator,
+  payoutAccountStatusValidator,
+  payoutHolderValidator,
+  payoutMethodValidator,
+  payoutVerifiedViaValidator,
+} from "./lib/payoutAccountValidators";
+import {
   webhookDeliveryStatusValidator,
   webhookErrorValidator,
   webhookEventTypeValidator,
@@ -363,10 +370,14 @@ export default defineSchema({
       v.literal("PAYOUT_HOLD_RELEASED"),
       v.literal("KYC_APPROVED"),
       v.literal("KYC_REJECTED"),
+      v.literal("PAYOUT_ACCOUNT_APPROVED"),
+      v.literal("PAYOUT_ACCOUNT_REJECTED"),
+      v.literal("PAYOUT_ACCOUNT_CHANGED"),
     ),
     organizationId: v.optional(v.id("organizations")),
     fundraiserId: v.optional(v.id("fundraisers")),
     kycSubmissionId: v.optional(v.id("kycSubmissions")),
+    payoutAccountId: v.optional(v.id("payoutAccounts")),
     documentId: v.optional(v.id("organizationDocuments")),
     statusBefore: v.optional(v.string()),
     statusAfter: v.optional(v.string()),
@@ -376,6 +387,7 @@ export default defineSchema({
     .index("by_organizationId", ["organizationId"])
     .index("by_fundraiserId", ["fundraiserId"])
     .index("by_kycSubmissionId", ["kycSubmissionId"])
+    .index("by_payoutAccountId", ["payoutAccountId"])
     .index("by_actorId", ["actorId"]),
 
   // An individual fundraiser's application for a verification tier (policy
@@ -426,6 +438,64 @@ export default defineSchema({
   })
     .index("by_submissionId", ["submissionId"])
     .index("by_storageId", ["storageId"]),
+
+  // Where a verified fundraiser or organization can be paid (policy 5.5).
+  // Details never change once saved: to change where money goes, add another
+  // account and choose it (see fundraiserPayoutAccounts), so every change is a
+  // new row to verify and a record of what was used when.
+  //
+  // Whoever registered it is userId; organizationId is set when the account
+  // belongs to an organization. Never return a whole row to the client: it
+  // holds a full account number.
+  payoutAccounts: defineTable({
+    userId: v.id("users"),
+    organizationId: v.optional(v.id("organizations")),
+    method: payoutMethodValidator,
+    // OWN: in the fundraiser's or organization's name. THIRD_PARTY: a verified
+    // beneficiary's (a hospital, a school), which needs a justification.
+    holder: payoutHolderValidator,
+    accountName: v.string(),
+    mpesaNumber: v.optional(v.string()), // +254...
+    bankName: v.optional(v.string()),
+    bankAccountNumber: v.optional(v.string()), // digits only
+    justification: v.optional(v.string()),
+    // The file that shows the account is what it says. Not needed when the
+    // account is the mobile number already verified at Level 1.
+    proofStorageId: v.optional(v.id("_storage")),
+    proofFileName: v.optional(v.string()),
+    proofContentType: v.optional(v.string()),
+    proofSize: v.optional(v.number()),
+    status: payoutAccountStatusValidator,
+    verifiedVia: v.optional(payoutVerifiedViaValidator),
+    createdAt: v.number(),
+    reviewedBy: v.optional(v.id("users")),
+    reviewedAt: v.optional(v.number()),
+    confirmedChecks: v.optional(v.array(payoutAccountReviewCheckValidator)),
+    // Shown to the owner, so it must never hint at a suspicion.
+    rejectionReason: v.optional(v.string()),
+    closedAt: v.optional(v.number()),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_organizationId", ["organizationId"])
+    .index("by_status_and_createdAt", ["status", "createdAt"])
+    .index("by_proofStorageId", ["proofStorageId"])
+    // Find the same number or account behind more than one owner (policy 10).
+    .index("by_mpesaNumber_and_status", ["mpesaNumber", "status"])
+    .index("by_bankAccountNumber_and_status", ["bankAccountNumber", "status"]),
+
+  // Which payout account a fundraiser is paid to. One row per fundraiser, kept
+  // out of the fundraiser document because public queries return that whole
+  // document. changedAt is set only when an account was replaced by another,
+  // and starts the temporary hold in policy 5.5.
+  fundraiserPayoutAccounts: defineTable({
+    fundraiserId: v.id("fundraisers"),
+    payoutAccountId: v.id("payoutAccounts"),
+    selectedBy: v.id("users"),
+    selectedAt: v.number(),
+    changedAt: v.optional(v.number()),
+  })
+    .index("by_fundraiserId", ["fundraiserId"])
+    .index("by_payoutAccountId", ["payoutAccountId"]),
 
   // Staff holds on releasing a fundraiser's money (policy 3.3: the MLRO can
   // block payouts). Kept in a table of their own rather than on the
