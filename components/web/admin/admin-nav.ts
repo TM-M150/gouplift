@@ -2,6 +2,7 @@ import {
   Building2,
   Heart,
   LayoutDashboard,
+  ShieldCheck,
   Users,
   Wallet,
   type LucideIcon,
@@ -20,6 +21,12 @@ export const adminNav: AdminNavItem[] = [
     title: "Organizations",
     href: "/admin/organizations",
     icon: Building2,
+    ready: true,
+  },
+  {
+    title: "Verification",
+    href: "/admin/verification",
+    icon: ShieldCheck,
     ready: true,
   },
   {

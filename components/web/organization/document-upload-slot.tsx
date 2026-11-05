@@ -9,8 +9,15 @@ import { cn } from "@/lib/utils";
 import {
   ACCEPTED_FILE_INPUT,
   validateDocumentFile,
-  type DocumentSlot,
 } from "@/lib/organization-verification";
+
+/** What the slot needs to show. Organization and individual (KYC) slots both fit. */
+interface UploadSlot {
+  label: string;
+  description: string;
+  maxFiles: number;
+  required: boolean;
+}
 
 function formatSize(bytes: number) {
   if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
@@ -18,7 +25,7 @@ function formatSize(bytes: number) {
 }
 
 interface DocumentUploadSlotProps {
-  slot: DocumentSlot;
+  slot: UploadSlot;
   files: File[];
   onChange: (files: File[]) => void;
   disabled?: boolean;

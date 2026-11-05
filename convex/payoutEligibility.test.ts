@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import schema from "./schema";
 import { api } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
+import type { KycTier } from "../lib/kyc";
 import {
   assertPayoutEligible,
   evaluatePayoutEligibility,
@@ -40,28 +41,24 @@ afterEach(() => {
 });
 
 describe("evaluatePayoutEligibility", () => {
-  const verifiedCreator = { isVerified: true };
   const base = {
     fundraiser: { status: "ACTIVE" as Status, organizationId: undefined },
-    creator: verifiedCreator,
+    ownerKycTier: 1 as KycTier,
     organization: null,
     hasActiveHold: false,
   };
   const codes = (input: Parameters<typeof evaluatePayoutEligibility>[0]) =>
     evaluatePayoutEligibility(input).map((b) => b.code);
 
-  it("allows a verified individual's active fundraiser", () => {
-    expect(codes(base)).toEqual([]);
-  });
+  it.each([1, 2, 3] as KycTier[])(
+    "allows an active fundraiser whose owner is at tier %s",
+    (ownerKycTier) => {
+      expect(codes({ ...base, ownerKycTier })).toEqual([]);
+    },
+  );
 
-  it("blocks an individual who isn't verified", () => {
-    expect(codes({ ...base, creator: { isVerified: false } })).toEqual([
-      "OWNER_NOT_VERIFIED",
-    ]);
-  });
-
-  it("blocks when the creator can't be found", () => {
-    expect(codes({ ...base, creator: null })).toEqual(["OWNER_NOT_VERIFIED"]);
+  it("blocks an individual who hasn't been verified (tier 0)", () => {
+    expect(codes({ ...base, ownerKycTier: 0 })).toEqual(["OWNER_NOT_VERIFIED"]);
   });
 
   it("blocks while a hold is in place, even for a verified owner", () => {
@@ -125,7 +122,7 @@ describe("evaluatePayoutEligibility", () => {
       expect(
         codes({
           ...base,
-          creator: { isVerified: false },
+          ownerKycTier: 0 as KycTier,
           fundraiser: orgFundraiser,
           organization: { verificationStatus: "VERIFIED" },
         }),
@@ -137,7 +134,7 @@ describe("evaluatePayoutEligibility", () => {
     expect(
       codes({
         fundraiser: { status: "PAUSED", organizationId: undefined },
-        creator: { isVerified: false },
+        ownerKycTier: 0 as KycTier,
         organization: null,
         hasActiveHold: true,
       }),
@@ -149,20 +146,27 @@ async function setup() {
   const t = convexTest(schema, modules);
   const now = Date.now();
   const ids = await t.run(async (ctx) => {
-    const user = (authUserId: string, role: Doc<"users">["role"], isVerified = false) =>
+    const user = (authUserId: string, role: Doc<"users">["role"]) =>
       ctx.db.insert("users", {
         authUserId,
         email: `${authUserId}@example.test`,
         displayName: authUserId,
         role,
         isPrivate: false,
-        isVerified,
+        isVerified: false,
         createdAt: now,
         updatedAt: now,
       });
 
     const owner = await user("auth_owner", "USER");
-    const verifiedOwner = await user("auth_verified_owner", "USER", true);
+    const verifiedOwner = await user("auth_verified_owner", "USER");
+    // Verified means an approved KYC submission, not users.isVerified.
+    await ctx.db.insert("kycSubmissions", {
+      userId: verifiedOwner,
+      requestedTier: 1,
+      status: "APPROVED",
+      submittedAt: now,
+    });
     const moderator = await user("auth_mod", "MODERATOR");
     const admin = await user("auth_admin", "ADMIN");
     const stranger = await user("auth_stranger", "USER");

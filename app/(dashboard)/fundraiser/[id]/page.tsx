@@ -10,6 +10,7 @@ import type { Metadata } from "next";
 import { DonationStatusBanner } from "@/components/web/donate/donation-status-banner";
 import { DonateButton } from "@/components/web/donate/donate-button";
 import { EditFundraiserButton } from "@/components/web/fundraiser/edit-fundraiser-button";
+import { PayoutVerificationNotice } from "@/components/web/fundraiser/payout-verification-notice";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -139,6 +140,11 @@ export default async function FundraiserPage({
                 </Badge>
               )}
             </div>
+
+            <PayoutVerificationNotice
+              creatorId={fundraiser.creatorId}
+              organizationId={fundraiser.organizationId}
+            />
 
             <div className="flex flex-wrap items-start justify-between gap-3">
               <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
