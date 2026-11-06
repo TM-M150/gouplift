@@ -6,6 +6,7 @@ import {
   KYC_REVIEW_CHECK_LABELS,
   REQUIRED_KYC_REVIEW_CHECKS,
 } from "../lib/kyc";
+import { assessRisk, isEddOutstanding } from "../lib/risk";
 import {
   cleanNote,
   logAction,
@@ -16,11 +17,28 @@ import {
   kycReviewCheckValidator,
   kycSubmissionStatusValidator,
 } from "./lib/kycValidators";
+import { isMlro } from "./lib/mlro";
+import {
+  assessmentPatch,
+  createRiskProfile,
+  describeRating,
+  getRiskProfile,
+  readDeclarations,
+  reassessProfile,
+} from "./lib/riskProfile";
+import {
+  eddRecordValidator,
+  pepOutcomeValidator,
+  riskLevelValidator,
+} from "./lib/riskValidators";
 import { getStaffUser, requireStaff } from "./lib/staff";
 
-// Staff side of individual verification (AML policy 5.3, 5.4). Nothing here is
-// reachable by the applicant: the queries return nothing to anyone who isn't
-// staff, and a signed file URL is only ever produced in getKycForReview.
+// Staff side of individual verification (AML policy 5.3, 5.4, 7, 8). Nothing
+// here is reachable by the applicant: the queries return nothing to anyone who
+// isn't staff, and a signed file URL is only ever produced in getKycForReview.
+// An applicant who needs enhanced due diligence (a PEP, a non-resident, high
+// risk) can only be approved by the MLRO; other reviewers pass it on with
+// escalateKyc. The applicant is never told (policy 12.3).
 
 const LIST_LIMIT = 100;
 const DOCUMENTS_LIMIT = 20;
@@ -91,6 +109,19 @@ async function findSharedIdentifiers(
   return matches;
 }
 
+function previewNeedsMlro(submission: Doc<"kycSubmissions">): boolean {
+  if (submission.requestedTier !== 1) return false;
+  const declared = readDeclarations(submission);
+  if (!declared) return false;
+  return assessRisk({
+    expectedAmountKes: declared.expectedAmountKes,
+    residenceCountry: declared.residenceCountry,
+    pepOutcome: declared.pepDeclared ? "PEP" : "NOT_PEP",
+    behaviour: "LOW",
+    tier: 1,
+  }).requiresEdd;
+}
+
 export const listKycForReview = query({
   args: { status: kycSubmissionStatusValidator },
   handler: async (ctx, args) => {
@@ -126,6 +157,10 @@ export const listKycForReview = query({
           applicantName:
             submission.legalName ?? applicant?.displayName ?? "Unknown",
           documentCount: documents.length,
+          escalated: submission.escalatedAt !== undefined,
+          // From what they declared alone: a reviewer's own findings can still
+          // add to this.
+          needsMlro: previewNeedsMlro(submission),
         };
       }),
     );
@@ -146,8 +181,8 @@ export const getKycForReview = query({
     const submission = await ctx.db.get(submissionId);
     if (!submission) return null;
 
-    const [applicant, documents, history, approved, shared] = await Promise.all(
-      [
+    const [applicant, documents, history, approved, shared, riskProfile] =
+      await Promise.all([
         ctx.db.get(submission.userId),
         ctx.db
           .query("kycDocuments")
@@ -164,8 +199,8 @@ export const getKycForReview = query({
           .take(HISTORY_LIMIT),
         getApprovedKycSubmissions(ctx, submission.userId),
         findSharedIdentifiers(ctx, submission),
-      ],
-    );
+        getRiskProfile(ctx, submission.userId),
+      ]);
 
     const names = new Map<Id<"users">, string>();
     const nameOf = async (userId: Id<"users"> | undefined) => {
@@ -194,11 +229,61 @@ export const getKycForReview = query({
         "This ID is already verified on another account. It can't be approved.";
     }
 
+    const declarations =
+      submission.requestedTier === 1 ? readDeclarations(submission) : null;
+    // An application made before the declarations were asked can't be rated, so
+    // it can only be rejected, asking the applicant to apply again.
+    const approveBlocked =
+      submission.requestedTier === 1 && declarations === null
+        ? "This application was made before we asked where the applicant lives, what they expect to raise and whether they are a PEP. Reject it and ask them to apply again."
+        : null;
+
+    const viewerIsMlro = isMlro(staff);
+    const profileSubject = riskProfile
+      ? {
+          rating: riskProfile.rating,
+          computedRating: riskProfile.computedRating,
+          factors: riskProfile.factors,
+          eddReasons: riskProfile.eddReasons,
+          eddOutstanding: isEddOutstanding(riskProfile),
+          pepOutcome: riskProfile.pepOutcome,
+          behaviour: riskProfile.behaviour,
+          residenceCountry: riskProfile.residenceCountry,
+          expectedAmountKes: riskProfile.expectedAmountKes,
+          mlroFlagged: riskProfile.mlroFlagged,
+          overrideRating: riskProfile.overrideRating ?? null,
+          overrideReason: riskProfile.overrideReason ?? null,
+          ratedAt: riskProfile.ratedAt,
+          ratedByName: await nameOf(riskProfile.ratedBy),
+          nextReviewDue: riskProfile.nextReviewDue,
+          eddCompletedAt: riskProfile.eddCompletedAt ?? null,
+          eddCompletedByName: await nameOf(riskProfile.eddCompletedBy),
+          sourceOfFunds: riskProfile.sourceOfFunds ?? null,
+          sourceOfWealth: riskProfile.sourceOfWealth ?? null,
+          eddNote: riskProfile.eddNote ?? null,
+        }
+      : null;
+
     return {
       _id: submission._id,
       status: submission.status,
       requestedTier: submission.requestedTier,
       submittedAt: submission.submittedAt,
+      escalatedAt: submission.escalatedAt ?? null,
+      viewerIsMlro,
+      // What they are verified to now, which the rating is worked out at.
+      kycTier: highestKycTier(approved),
+      declarations,
+      riskProfile: profileSubject,
+      // The MLRO can rate someone approved before risk was rated, and change
+      // anyone's rating, but not their own.
+      canManageRisk: viewerIsMlro && !isOwnApplication,
+      canRate:
+        viewerIsMlro &&
+        !isOwnApplication &&
+        riskProfile === null &&
+        submission.status === "APPROVED" &&
+        submission.requestedTier === 1,
       reviewedAt: submission.reviewedAt ?? null,
       reviewedByName: await nameOf(submission.reviewedBy),
       rejectionReason: submission.rejectionReason ?? null,
@@ -247,6 +332,7 @@ export const getKycForReview = query({
       canDecide:
         submission.status === "PENDING_REVIEW" && decisionBlocked === null,
       decisionBlocked,
+      approveBlocked,
       history: await Promise.all(
         history.map(async (entry) => ({
           _id: entry._id,
@@ -286,6 +372,13 @@ export const approveKyc = mutation({
     // What the reviewer confirmed against the documents. Every check the tier
     // asks for has to be among them, and is stored with the approval.
     confirmedChecks: v.array(kycReviewCheckValidator),
+    // Level 1 only: what the reviewer found when screening, which with what the
+    // applicant declared sets the risk rating (policy 4.3, 7.1).
+    pepOutcome: v.optional(pepOutcomeValidator),
+    behaviour: v.optional(riskLevelValidator),
+    // Level 1 only, and only the MLRO's: the enhanced due diligence record
+    // (policy 7.2, 8.2), needed when the rating calls for it.
+    edd: v.optional(eddRecordValidator),
   },
   handler: async (ctx, args) => {
     const staff = await requireStaff(ctx);
@@ -316,6 +409,27 @@ export const approveKyc = mutation({
           "Identity verification (Tier 1) has to be approved first.",
         );
       }
+
+      // Level 2 means they expect to be paid more, which can raise the rating
+      // (never lower it) and so how soon they are reviewed again.
+      const profile = await getRiskProfile(ctx, submission.userId);
+      if (profile) {
+        const assessment = reassessProfile(profile, 2);
+        if (assessment.rating !== profile.rating) {
+          await ctx.db.patch(
+            profile._id,
+            assessmentPatch(profile, assessment, staff._id, Date.now()),
+          );
+          await logAction(ctx, {
+            actorId: staff._id,
+            action: "RISK_RATED",
+            kycSubmissionId: submission._id,
+            statusBefore: profile.rating,
+            statusAfter: assessment.rating,
+            note: describeRating(assessment),
+          });
+        }
+      }
     } else {
       const shared = await findSharedIdentifiers(ctx, submission);
       if (
@@ -325,6 +439,37 @@ export const approveKyc = mutation({
           "This ID is already verified on another account. It can't be approved.",
         );
       }
+
+      const declared = readDeclarations(submission);
+      if (!declared) {
+        throw new ConvexError(
+          "This application doesn't say where the applicant lives, what they expect to raise or whether they are a PEP. Reject it and ask them to apply again.",
+        );
+      }
+      if (!args.pepOutcome || !args.behaviour) {
+        throw new ConvexError(
+          "Record the PEP screening result and what you saw of the applicant's behaviour.",
+        );
+      }
+      // Someone who says they are a PEP is one. Only the MLRO deals with that,
+      // and by recording EDD, not by clearing the declaration.
+      if (declared.pepDeclared && args.pepOutcome === "NOT_PEP") {
+        throw new ConvexError(
+          "The applicant said they are a PEP, so the screening result has to say so.",
+        );
+      }
+
+      await createRiskProfile(ctx, {
+        staff,
+        userId: submission.userId,
+        kycSubmissionId: submission._id,
+        residenceCountry: declared.residenceCountry,
+        expectedAmountKes: declared.expectedAmountKes,
+        pepOutcome: args.pepOutcome,
+        behaviour: args.behaviour,
+        tier: 1,
+        edd: args.edd,
+      });
     }
 
     await ctx.db.patch(submission._id, {
@@ -342,6 +487,44 @@ export const approveKyc = mutation({
       statusBefore: submission.status,
       statusAfter: "APPROVED",
       note: `Tier ${submission.requestedTier}`,
+    });
+  },
+});
+
+// A reviewer who can't approve an application, because it needs the MLRO (a
+// PEP, a non-resident, high risk) or because something about it worries them,
+// passes it on. Nothing changes for the applicant, whose application stays
+// "being reviewed" (policy 12.3).
+export const escalateKyc = mutation({
+  args: {
+    submissionId: v.id("kycSubmissions"),
+    note: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const staff = await requireStaff(ctx);
+    const submission = await loadPendingSubmission(
+      ctx,
+      args.submissionId,
+      staff,
+    );
+
+    const note = cleanNote(args.note);
+    if (!note || note.length < MIN_REJECTION_REASON_LENGTH) {
+      throw new ConvexError(
+        "Tell the MLRO why (at least 10 characters).",
+      );
+    }
+    if (submission.escalatedAt !== undefined) {
+      throw new ConvexError("This has already been passed to the MLRO.");
+    }
+
+    await ctx.db.patch(submission._id, { escalatedAt: Date.now() });
+
+    await logAction(ctx, {
+      actorId: staff._id,
+      action: "KYC_ESCALATED",
+      kycSubmissionId: submission._id,
+      note,
     });
   },
 });

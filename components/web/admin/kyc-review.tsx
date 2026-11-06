@@ -22,7 +22,26 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { DecisionDialog } from "@/components/web/admin/decision-dialog";
 import { ReviewFileCard } from "@/components/web/admin/review-file-card";
 import { formatDate, formatDateTime } from "@/components/web/admin/utils";
+import {
+  EddFields,
+  EMPTY_EDD,
+  RateCustomerCard,
+  RiskPreview,
+  RiskProfileCard,
+  ScreeningFields,
+  eddArgs,
+  eddDraftProblem,
+  type EddDraft,
+  type Screening,
+} from "@/components/web/admin/risk-panels";
 import { formatKes } from "@/components/web/kyc/format";
+import { countryName } from "@/lib/countries";
+import {
+  EDD_REASON_LABELS,
+  EXPECTED_TIMELINE_LABELS,
+  assessRisk,
+  type PepOutcome,
+} from "@/lib/risk";
 import {
   KYC_DOCUMENT_TYPES,
   KYC_ID_TYPE_LABELS,
@@ -67,6 +86,16 @@ function describeHistory(entry: HistoryEntry, tier: number): string {
       return `${actor} approved Level ${tier}`;
     case "KYC_REJECTED":
       return `${actor} rejected the application`;
+    case "KYC_ESCALATED":
+      return `${actor} passed it to the MLRO`;
+    case "RISK_RATED":
+      return `${actor} rated the risk`;
+    case "RISK_OVERRIDDEN":
+      return `${actor} changed the risk rating`;
+    case "EDD_FLAGGED":
+      return `${actor} required enhanced due diligence`;
+    case "EDD_RECORDED":
+      return `${actor} recorded enhanced due diligence`;
     default:
       return `${actor} recorded an action`;
   }
@@ -102,12 +131,18 @@ export function KycReview({ submissionId }: { submissionId: string }) {
   const data = useQuery(api.kycReview.getKycForReview, { submissionId });
   const approveKyc = useMutation(api.kycReview.approveKyc);
   const rejectKyc = useMutation(api.kycReview.rejectKyc);
+  const escalateKyc = useMutation(api.kycReview.escalateKyc);
 
   const [confirmed, setConfirmed] = React.useState<
     ReadonlySet<KycReviewCheck>
   >(new Set());
   const [approveOpen, setApproveOpen] = React.useState(false);
   const [rejectOpen, setRejectOpen] = React.useState(false);
+  const [escalateOpen, setEscalateOpen] = React.useState(false);
+  // What the reviewer picked. Anything not picked yet falls back to the
+  // defaults below, which depend on what the applicant declared.
+  const [picked, setPicked] = React.useState<Partial<Screening>>({});
+  const [eddDraft, setEddDraft] = React.useState<EddDraft>(EMPTY_EDD);
 
   if (data === undefined) return <ReviewSkeleton />;
 
@@ -142,6 +177,36 @@ export function KycReview({ submissionId }: { submissionId: string }) {
   const applicantName =
     data.details.legalName ?? data.applicant?.name ?? "this applicant";
 
+  // The rating the server will arrive at, from what the applicant declared and
+  // what the reviewer found. Same rules, same file (lib/risk.ts).
+  const declared = data.declarations;
+  const declaredPep = declared?.pepDeclared ?? false;
+  const screening: Screening = {
+    pepOutcome: (declaredPep ? "PEP" : (picked.pepOutcome ?? "NOT_PEP")) as PepOutcome,
+    behaviour: picked.behaviour ?? "LOW",
+  };
+  const assessment =
+    isPending && data.requestedTier === 1 && declared
+      ? assessRisk({
+          expectedAmountKes: declared.expectedAmountKes,
+          residenceCountry: declared.residenceCountry,
+          pepOutcome: screening.pepOutcome,
+          behaviour: screening.behaviour,
+          tier: 1,
+        })
+      : null;
+  const needsMlro = assessment?.requiresEdd === true && !data.viewerIsMlro;
+  const eddProblem =
+    assessment?.requiresEdd && data.viewerIsMlro
+      ? eddDraftProblem(eddDraft, assessment.isPep)
+      : null;
+  const canApprove =
+    data.canDecide &&
+    !data.approveBlocked &&
+    allConfirmed &&
+    !needsMlro &&
+    !eddProblem;
+
   function toggle(check: KycReviewCheck, checked: boolean) {
     setConfirmed((previous) => {
       const next = new Set(previous);
@@ -165,6 +230,9 @@ export function KycReview({ submissionId }: { submissionId: string }) {
           <h1 className="text-2xl font-semibold">{applicantName}</h1>
           <Badge variant="secondary">Level {data.requestedTier}</Badge>
           <Badge variant={status.variant}>{status.label}</Badge>
+          {isPending && data.escalatedAt && (
+            <Badge variant="outline">With the MLRO</Badge>
+          )}
         </div>
         <p className="text-sm text-muted-foreground">
           Submitted {formatDate(data.submittedAt)}
@@ -228,6 +296,32 @@ export function KycReview({ submissionId }: { submissionId: string }) {
                 value={data.details.campaignPurpose}
               />
               <Detail label="KRA PIN" value={data.details.kraPin} />
+              {declared && (
+                <>
+                  <Detail
+                    label="Lives in"
+                    value={countryName(declared.residenceCountry)}
+                  />
+                  <Detail
+                    label="Expects to raise"
+                    value={`${formatKes(declared.expectedAmountKes)}${declared.expectedTimeline ? `, ${EXPECTED_TIMELINE_LABELS[declared.expectedTimeline].toLowerCase()}` : ""}`}
+                  />
+                  <Detail
+                    label="Senior public position (PEP)"
+                    value={
+                      declared.pepDeclared
+                        ? `Yes. ${declared.pepDetails ?? ""}`.trim()
+                        : "No"
+                    }
+                  />
+                  <Detail
+                    label="Confirmed the money isn't for a prohibited purpose"
+                    value={
+                      declared.prohibitedActivitiesAcknowledged ? "Yes" : "No"
+                    }
+                  />
+                </>
+              )}
             </dl>
           </CardContent>
         </Card>
@@ -290,6 +384,54 @@ export function KycReview({ submissionId }: { submissionId: string }) {
         )}
       </section>
 
+      {isPending && data.canDecide && assessment && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Risk check</CardTitle>
+            <CardDescription>
+              Screen the applicant, then say what you found. The rating comes
+              from this and from what they declared. Staff only: never tell the
+              applicant about it.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <ScreeningFields
+              declaredPep={declaredPep}
+              value={screening}
+              onChange={setPicked}
+            />
+            <RiskPreview assessment={assessment} />
+
+            {needsMlro && (
+              <p role="alert" className="text-sm text-destructive">
+                Only the MLRO can approve this one (
+                {assessment.eddReasons
+                  .map((reason) => EDD_REASON_LABELS[reason])
+                  .join("; ")}
+                ). Pass it on, or reject it if it can&apos;t go ahead.
+              </p>
+            )}
+
+            {assessment.requiresEdd && data.viewerIsMlro && (
+              <div className="space-y-3">
+                <p className="text-sm font-medium">
+                  Enhanced due diligence record
+                </p>
+                <EddFields
+                  draft={eddDraft}
+                  onChange={setEddDraft}
+                  isPep={assessment.isPep}
+                  idPrefix="approve-edd"
+                />
+                {eddProblem && (
+                  <p className="text-xs text-muted-foreground">{eddProblem}</p>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>Decision</CardTitle>
@@ -305,6 +447,11 @@ export function KycReview({ submissionId }: { submissionId: string }) {
           {isPending && data.decisionBlocked && (
             <p role="alert" className="text-destructive">
               {data.decisionBlocked}
+            </p>
+          )}
+          {isPending && !data.decisionBlocked && data.approveBlocked && (
+            <p role="alert" className="text-destructive">
+              {data.approveBlocked}
             </p>
           )}
 
@@ -333,11 +480,21 @@ export function KycReview({ submissionId }: { submissionId: string }) {
             <div className="flex flex-wrap gap-2">
               <Button
                 type="button"
-                disabled={!data.canDecide || !allConfirmed}
+                disabled={!canApprove}
                 onClick={() => setApproveOpen(true)}
               >
                 Approve Level {data.requestedTier}
               </Button>
+              {!data.viewerIsMlro && !data.escalatedAt && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={!data.canDecide}
+                  onClick={() => setEscalateOpen(true)}
+                >
+                  Pass to the MLRO
+                </Button>
+              )}
               <Button
                 type="button"
                 variant="destructive"
@@ -385,6 +542,17 @@ export function KycReview({ submissionId }: { submissionId: string }) {
         </CardContent>
       </Card>
 
+      {data.riskProfile && (
+        <RiskProfileCard
+          submissionId={data._id}
+          profile={data.riskProfile}
+          canManage={data.canManageRisk}
+        />
+      )}
+      {data.canRate && (
+        <RateCustomerCard submissionId={data._id} kycTier={data.kycTier} />
+      )}
+
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">History</h2>
         {data.history.length === 0 ? (
@@ -396,7 +564,7 @@ export function KycReview({ submissionId }: { submissionId: string }) {
             {data.history.map((entry) => (
               <li key={entry._id} className="text-sm">
                 <p>{describeHistory(entry, data.requestedTier)}</p>
-                {entry.note && entry.action === "KYC_REJECTED" && (
+                {entry.note && entry.action !== "KYC_APPROVED" && (
                   <p className="text-muted-foreground">{entry.note}</p>
                 )}
                 <p className="text-xs text-muted-foreground">
@@ -418,8 +586,32 @@ export function KycReview({ submissionId }: { submissionId: string }) {
           await approveKyc({
             submissionId: data._id,
             confirmedChecks: [...confirmed],
+            ...(assessment
+              ? {
+                  pepOutcome: screening.pepOutcome,
+                  behaviour: screening.behaviour,
+                  ...(assessment.requiresEdd
+                    ? { edd: eddArgs(eddDraft, assessment.isPep) }
+                    : {}),
+                }
+              : {}),
           });
           toast.success(`${applicantName} is verified to Level ${data.requestedTier}.`);
+        }}
+      />
+
+      <DecisionDialog
+        open={escalateOpen}
+        onOpenChange={setEscalateOpen}
+        title={`Pass ${applicantName}'s application to the MLRO?`}
+        description="It stays in the queue, marked for the MLRO. The applicant still sees it as being reviewed. Say what you want the MLRO to look at."
+        confirmLabel="Pass it on"
+        noteLabel="For the MLRO"
+        notePlaceholder="e.g. Lives in the UK and the campaign is for a relative in Mombasa."
+        minNoteLength={10}
+        onConfirm={async (note) => {
+          await escalateKyc({ submissionId: data._id, note });
+          toast.success("Passed to the MLRO.");
         }}
       />
 

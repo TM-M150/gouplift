@@ -5,6 +5,7 @@ import schema from "./schema";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import type { KycDocumentType, KycIdType } from "../lib/kyc";
+import type { ExpectedTimeline } from "../lib/risk";
 import { getKycTier } from "./lib/kycTier";
 import { getPayoutBlockers } from "./lib/payoutEligibility";
 
@@ -33,23 +34,44 @@ const TIER_1: {
   idNumber: string;
   phoneNumber: string;
   campaignPurpose: string;
+  residenceCountry: string;
+  expectedAmountKes: number;
+  expectedTimeline: ExpectedTimeline;
+  pepDeclared: boolean;
+  pepDetails?: string;
+  prohibitedActivitiesAcknowledged: boolean;
 } = {
   legalName: "Wanjiru Kamau",
   idType: "NATIONAL_ID",
   idNumber: "12345678",
   phoneNumber: "0712 345 678",
   campaignPurpose: "School fees for my daughter's final year.",
+  // A Kenyan expecting a modest amount, not a PEP: rated Low, no enhanced checks.
+  residenceCountry: "KE",
+  expectedAmountKes: 50_000,
+  expectedTimeline: "ONE_TO_3_MONTHS",
+  pepDeclared: false,
+  prohibitedActivitiesAcknowledged: true,
 };
 const TIER_2 = { kraPin: "a123456789z" };
 
 const ALL_CHECKS = [
   "IDENTITY_MATCHES",
   "PHONE_IN_OWN_NAME",
+  "PEP_SCREENED",
+  "PURPOSE_NOT_PROHIBITED",
   "EVIDENCE_SUPPORTS_CAMPAIGN",
   "KRA_PIN_VALID",
   "PAYOUT_ACCOUNT_OWNERSHIP",
 ] as const;
-const TIER_1_CHECKS = ["IDENTITY_MATCHES", "PHONE_IN_OWN_NAME"] as const;
+const TIER_1_CHECKS = [
+  "IDENTITY_MATCHES",
+  "PHONE_IN_OWN_NAME",
+  "PEP_SCREENED",
+  "PURPOSE_NOT_PROHIBITED",
+] as const;
+// What the reviewer found when screening an ordinary applicant.
+const CLEAN_SCREENING = { pepOutcome: "NOT_PEP", behaviour: "LOW" } as const;
 const TIER_2_CHECKS = [
   "EVIDENCE_SUPPORTS_CAMPAIGN",
   "KRA_PIN_VALID",
@@ -174,6 +196,7 @@ async function approveTier1For(s: Setup, who: Who, userId: Id<"users">) {
   await s.asMod.mutation(api.kycReview.approveKyc, {
     submissionId,
     confirmedChecks: [...TIER_1_CHECKS],
+    ...CLEAN_SCREENING,
   });
   return submissionId;
 }
@@ -227,6 +250,7 @@ describe("getMyKyc", () => {
     await s.asMod.mutation(api.kycReview.approveKyc, {
       submissionId,
       confirmedChecks: [...TIER_1_CHECKS],
+      ...CLEAN_SCREENING,
     });
 
     const mine = await s.asAlice.query(api.kyc.getMyKyc, {});
@@ -351,6 +375,15 @@ describe("submitKycTier1", () => {
       [{ idNumber: "ABC12345" }, /6 to 10 digits/],
       [{ legalName: "W" }, /full name/],
       [{ campaignPurpose: "fees" }, /what the money is for/],
+      [{ residenceCountry: "ZZ" }, /country you live in/],
+      [{ residenceCountry: "" }, /country you live in/],
+      [{ expectedAmountKes: 0 }, /how much you expect/],
+      [{ expectedAmountKes: 1500.5 }, /whole number/],
+      [{ expectedAmountKes: 5_000_000_000 }, /too large/],
+      [{ expectedAmountKes: Number.NaN }, /expect to raise/],
+      [{ pepDeclared: true }, /who it is/],
+      [{ pepDeclared: true, pepDetails: "MP" }, /who it is/],
+      [{ prohibitedActivitiesAcknowledged: false }, /confirm this/],
     ];
     for (const [overrides, message] of bad) {
       await expect(
@@ -359,6 +392,36 @@ describe("submitKycTier1", () => {
     }
     expect(await submissions(s.t)).toHaveLength(0);
     expect(await kycDocuments(s.t)).toHaveLength(0);
+  });
+
+  it("saves what the applicant declared, in a form the risk rating can use", async () => {
+    const s = await setup();
+    await submitTier1(s, s.asAlice, s.ids.alice, {
+      residenceCountry: " ke ",
+      expectedAmountKes: 250_000,
+      expectedTimeline: "SIX_TO_12_MONTHS",
+      pepDeclared: true,
+      pepDetails: "  Member of the county assembly  ",
+    });
+    expect((await submissions(s.t))[0]).toMatchObject({
+      residenceCountry: "KE",
+      expectedAmountKes: 250_000,
+      expectedTimeline: "SIX_TO_12_MONTHS",
+      pepDeclared: true,
+      pepDetails: "Member of the county assembly",
+      prohibitedActivitiesAcknowledged: true,
+    });
+  });
+
+  it("keeps no PEP details for someone who says they aren't one", async () => {
+    const s = await setup();
+    await submitTier1(s, s.asAlice, s.ids.alice, {
+      pepDeclared: false,
+      pepDetails: "left over from an earlier answer",
+    });
+    const [saved] = await submissions(s.t);
+    expect(saved.pepDeclared).toBe(false);
+    expect(saved.pepDetails).toBeUndefined();
   });
 
   it("needs every document the ID type asks for", async () => {
@@ -494,7 +557,9 @@ describe("submitKycTier2", () => {
 
     const { submissionId } = await submitTier2(s, s.asAlice, s.ids.alice);
 
-    const tierTwo = (await submissions(s.t)).find((x) => x._id === submissionId);
+    const tierTwo = (await submissions(s.t)).find(
+      (x) => x._id === submissionId,
+    );
     expect(tierTwo).toMatchObject({
       requestedTier: 2,
       status: "PENDING_REVIEW",
@@ -505,7 +570,11 @@ describe("submitKycTier2", () => {
         .filter((f) => f.submissionId === submissionId)
         .map((f) => f.documentType)
         .sort(),
-    ).toEqual(["CAMPAIGN_EVIDENCE", "KRA_PIN_CERTIFICATE", "PAYOUT_ACCOUNT_PROOF"]);
+    ).toEqual([
+      "CAMPAIGN_EVIDENCE",
+      "KRA_PIN_CERTIFICATE",
+      "PAYOUT_ACCOUNT_PROOF",
+    ]);
   });
 
   it("accepts up to three pieces of campaign evidence, and no more", async () => {
@@ -651,6 +720,7 @@ describe("who can review", () => {
         outsider.mutation(api.kycReview.approveKyc, {
           submissionId,
           confirmedChecks: [...TIER_1_CHECKS],
+          ...CLEAN_SCREENING,
         }),
       ).rejects.toThrow(/signed in|permission/);
       await expect(
@@ -721,13 +791,22 @@ describe("getKycForReview", () => {
         idNumber: "12345678",
         phoneNumber: "+254712345678",
       },
-      requiredChecks: ["IDENTITY_MATCHES", "PHONE_IN_OWN_NAME"],
+      requiredChecks: [...TIER_1_CHECKS],
+      declarations: {
+        residenceCountry: "KE",
+        expectedAmountKes: 50_000,
+        pepDeclared: false,
+      },
+      riskProfile: null,
+      viewerIsMlro: false,
       canDecide: true,
       decisionBlocked: null,
       sharedIdentifiers: [],
     });
     expect(review?.documents).toHaveLength(2);
-    expect(review?.documents.every((d) => typeof d.url === "string")).toBe(true);
+    expect(review?.documents.every((d) => typeof d.url === "string")).toBe(
+      true,
+    );
   });
 
   it("reads an invalid id as not found", async () => {
@@ -801,6 +880,7 @@ describe("approveKyc", () => {
     await s.asMod.mutation(api.kycReview.approveKyc, {
       submissionId,
       confirmedChecks: [...TIER_1_CHECKS],
+      ...CLEAN_SCREENING,
     });
 
     expect((await submissions(s.t))[0]).toMatchObject({
@@ -810,6 +890,13 @@ describe("approveKyc", () => {
       confirmedChecks: [...TIER_1_CHECKS],
     });
     expect(await auditEntries(s.t)).toMatchObject([
+      {
+        action: "RISK_RATED",
+        actorId: s.ids.mod,
+        kycSubmissionId: submissionId,
+        statusAfter: "LOW",
+        note: "Low risk.",
+      },
       {
         action: "KYC_APPROVED",
         actorId: s.ids.mod,
@@ -849,6 +936,7 @@ describe("approveKyc", () => {
     await s.asMod.mutation(api.kycReview.approveKyc, {
       submissionId,
       confirmedChecks: [...ALL_CHECKS],
+      ...CLEAN_SCREENING,
     });
     expect((await submissions(s.t))[0].confirmedChecks).toEqual([
       ...TIER_1_CHECKS,
@@ -865,10 +953,10 @@ describe("approveKyc", () => {
       confirmedChecks: [...TIER_2_CHECKS],
     });
     expect(await tierOf(s.t, s.ids.alice)).toBe(2);
-    expect((await auditEntries(s.t)).map((e) => e.note)).toEqual([
-      "Tier 1",
-      "Tier 2",
-    ]);
+    const approvals = (await auditEntries(s.t)).filter(
+      (e) => e.action === "KYC_APPROVED",
+    );
+    expect(approvals.map((e) => e.note)).toEqual(["Tier 1", "Tier 2"]);
   });
 
   it("won't approve tier 2 without an approved tier 1", async () => {
@@ -897,12 +985,14 @@ describe("approveKyc", () => {
     await s.asMod.mutation(api.kycReview.approveKyc, {
       submissionId,
       confirmedChecks: [...TIER_1_CHECKS],
+      ...CLEAN_SCREENING,
     });
 
     await expect(
       s.asMod.mutation(api.kycReview.approveKyc, {
         submissionId,
         confirmedChecks: [...TIER_1_CHECKS],
+        ...CLEAN_SCREENING,
       }),
     ).rejects.toThrow(/no longer waiting/);
     await expect(
@@ -911,7 +1001,8 @@ describe("approveKyc", () => {
         reason: "Changed my mind about this one.",
       }),
     ).rejects.toThrow(/no longer waiting/);
-    expect(await auditEntries(s.t)).toHaveLength(1);
+    // The one approval and the rating made with it, and nothing from the refusals.
+    expect(await auditEntries(s.t)).toHaveLength(2);
   });
 
   it("won't let staff approve their own verification", async () => {
@@ -929,6 +1020,7 @@ describe("approveKyc", () => {
       s.asMod.mutation(api.kycReview.approveKyc, {
         submissionId,
         confirmedChecks: [...TIER_1_CHECKS],
+        ...CLEAN_SCREENING,
       }),
     ).rejects.toThrow(/your own verification/);
     await expect(
@@ -942,6 +1034,7 @@ describe("approveKyc", () => {
     await s.asAdmin.mutation(api.kycReview.approveKyc, {
       submissionId,
       confirmedChecks: [...TIER_1_CHECKS],
+      ...CLEAN_SCREENING,
     });
     expect(await tierOf(s.t, s.ids.mod)).toBe(1);
   });
@@ -958,12 +1051,15 @@ describe("approveKyc", () => {
     });
     expect(review).toMatchObject({
       canDecide: false,
-      decisionBlocked: expect.stringMatching(/already verified on another account/),
+      decisionBlocked: expect.stringMatching(
+        /already verified on another account/,
+      ),
     });
     await expect(
       s.asMod.mutation(api.kycReview.approveKyc, {
         submissionId,
         confirmedChecks: [...TIER_1_CHECKS],
+        ...CLEAN_SCREENING,
       }),
     ).rejects.toThrow(/already verified on another account/);
     expect(await tierOf(s.t, s.ids.bob)).toBe(0);
@@ -1012,6 +1108,7 @@ describe("approveKyc", () => {
     await s.asMod.mutation(api.kycReview.approveKyc, {
       submissionId,
       confirmedChecks: [...TIER_1_CHECKS],
+      ...CLEAN_SCREENING,
     });
     expect(await blockerCodes()).not.toContain("OWNER_NOT_VERIFIED");
   });

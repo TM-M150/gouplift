@@ -65,7 +65,15 @@ function KycQueue({ status, empty }: { status: QueueStatus; empty: string }) {
           {submissions.map((submission) => (
             <TableRow key={submission._id}>
               <TableCell className="font-medium">
-                {submission.applicantName}
+                <div className="flex flex-wrap items-center gap-2">
+                  {submission.applicantName}
+                  {!decided && submission.escalated && (
+                    <Badge variant="outline">With the MLRO</Badge>
+                  )}
+                  {!decided && !submission.escalated && submission.needsMlro && (
+                    <Badge variant="outline">Needs the MLRO</Badge>
+                  )}
+                </div>
               </TableCell>
               <TableCell>
                 <Badge variant="secondary">Level {submission.requestedTier}</Badge>

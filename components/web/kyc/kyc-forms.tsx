@@ -12,8 +12,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Select,
   SelectContent,
@@ -26,6 +28,7 @@ import { errorMessage } from "@/components/web/admin/utils";
 import { formatKes } from "@/components/web/kyc/format";
 import { useDocumentUpload } from "@/components/web/kyc/use-document-upload";
 import { DocumentUploadSlot } from "@/components/web/organization/document-upload-slot";
+import { HOME_COUNTRY, countryOptions } from "@/lib/countries";
 import {
   KYC_ID_TYPES,
   KYC_ID_TYPE_LABELS,
@@ -36,6 +39,11 @@ import {
   type KycIdType,
 } from "@/lib/kyc";
 import {
+  EXPECTED_TIMELINES,
+  EXPECTED_TIMELINE_LABELS,
+  type ExpectedTimeline,
+} from "@/lib/risk";
+import {
   kycTier1DetailsSchema,
   kycTier2DetailsSchema,
 } from "@/lib/validations/kyc";
@@ -43,6 +51,13 @@ import {
 type FilesBySlot = Partial<Record<KycDocumentType, File[]>>;
 
 const ID_TYPE_ITEMS: Record<string, string> = KYC_ID_TYPE_LABELS;
+const TIMELINE_ITEMS: Record<string, string> = EXPECTED_TIMELINE_LABELS;
+
+function isTimeline(value: string | null): value is ExpectedTimeline {
+  return (
+    value !== null && (EXPECTED_TIMELINES as readonly string[]).includes(value)
+  );
+}
 
 function isIdType(value: string | null): value is KycIdType {
   return value !== null && (KYC_ID_TYPES as readonly string[]).includes(value);
@@ -182,9 +197,23 @@ export function Tier1Form() {
   const [idNumber, setIdNumber] = React.useState("");
   const [phoneNumber, setPhoneNumber] = React.useState("");
   const [campaignPurpose, setCampaignPurpose] = React.useState("");
+  const [residenceCountry, setResidenceCountry] = React.useState(HOME_COUNTRY);
+  const [expectedAmount, setExpectedAmount] = React.useState("");
+  const [expectedTimeline, setExpectedTimeline] = React.useState<
+    ExpectedTimeline | ""
+  >("");
+  // null until they answer: a PEP question left blank is not a "no".
+  const [pepDeclared, setPepDeclared] = React.useState<boolean | null>(null);
+  const [pepDetails, setPepDetails] = React.useState("");
+  const [acknowledged, setAcknowledged] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
+  const countries = React.useMemo(() => countryOptions(), []);
+  const countryItems = React.useMemo(
+    () => Object.fromEntries(countries.map((c) => [c.code, c.name])),
+    [countries],
+  );
   const slots = React.useMemo(() => getKycDocumentSlots(1, idType), [idType]);
   const documents = useKycFiles(slots);
 
@@ -204,6 +233,16 @@ export function Tier1Form() {
       idNumber,
       phoneNumber,
       campaignPurpose,
+      residenceCountry,
+      // Commas and spaces are fine to type. Anything else becomes NaN, which
+      // the schema reports as a missing amount.
+      expectedAmountKes: expectedAmount.trim()
+        ? Number(expectedAmount.replace(/[,\s]/g, ""))
+        : Number.NaN,
+      expectedTimeline: expectedTimeline || undefined,
+      pepDeclared: pepDeclared ?? undefined,
+      pepDetails: pepDeclared ? pepDetails : undefined,
+      prohibitedActivitiesAcknowledged: acknowledged || undefined,
     });
     if (!parsed.success) {
       setError(
@@ -244,10 +283,12 @@ export function Tier1Form() {
       <fieldset disabled={submitting} className="min-w-0 space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle className="text-xl">Level 1: confirm who you are</CardTitle>
+            <CardTitle className="text-xl">
+              Level 1: confirm who you are
+            </CardTitle>
             <CardDescription>
-              Enter your details exactly as they appear on your ID. This lets
-              us pay out up to {formatKes(tierPayoutLimitKes(1))}.
+              Enter your details exactly as they appear on your ID. This lets us
+              pay out up to {formatKes(tierPayoutLimitKes(1))}.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
@@ -324,6 +365,153 @@ export function Tier1Form() {
                 maxLength={500}
                 required
               />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-xl">About you and the money</CardTitle>
+            <CardDescription>
+              The law asks us to know who we pay and roughly how much. We use
+              this to decide how closely to check, never to judge your cause.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div className="space-y-2">
+              <Label htmlFor="kyc-country">Where do you live?</Label>
+              <Select
+                items={countryItems}
+                value={residenceCountry}
+                onValueChange={(value) => value && setResidenceCountry(value)}
+              >
+                <SelectTrigger id="kyc-country" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent alignItemWithTrigger={false}>
+                  {countries.map((country) => (
+                    <SelectItem key={country.code} value={country.code}>
+                      {country.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {residenceCountry !== HOME_COUNTRY && (
+                <p className="text-xs text-muted-foreground">
+                  Fundraisers who live outside Kenya need an extra check by our
+                  compliance team, so it can take a little longer.
+                </p>
+              )}
+            </div>
+
+            <div className="grid gap-5 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="kyc-amount">
+                  How much do you expect to raise?
+                </Label>
+                <div className="relative">
+                  <span
+                    aria-hidden
+                    className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-muted-foreground"
+                  >
+                    KES
+                  </span>
+                  <Input
+                    id="kyc-amount"
+                    value={expectedAmount}
+                    onChange={(event) => setExpectedAmount(event.target.value)}
+                    inputMode="numeric"
+                    placeholder="50,000"
+                    autoComplete="off"
+                    className="pl-12"
+                    required
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  An estimate is fine. It doesn&apos;t limit your campaign.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="kyc-timeline">Over how long?</Label>
+                <Select
+                  items={TIMELINE_ITEMS}
+                  value={expectedTimeline || null}
+                  onValueChange={(value) =>
+                    isTimeline(value) && setExpectedTimeline(value)
+                  }
+                >
+                  <SelectTrigger id="kyc-timeline" className="w-full">
+                    <SelectValue placeholder="Choose" />
+                  </SelectTrigger>
+                  <SelectContent alignItemWithTrigger={false}>
+                    {EXPECTED_TIMELINES.map((timeline) => (
+                      <SelectItem key={timeline} value={timeline}>
+                        {EXPECTED_TIMELINE_LABELS[timeline]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <fieldset className="min-w-0 space-y-3">
+              <legend className="text-sm font-medium">
+                Do you hold, or have you held, a senior public position, or are
+                you a close relative or associate of someone who does?
+              </legend>
+              <p className="text-xs text-muted-foreground">
+                For example a minister, MP, county governor or assembly member,
+                a senior judge, military or police chief, a senior official of a
+                state corporation, or a political party leader, in Kenya or
+                abroad. Answering yes doesn&apos;t stop you fundraising. It just
+                means our compliance officer approves your account.
+              </p>
+              <RadioGroup
+                value={pepDeclared === null ? "" : pepDeclared ? "yes" : "no"}
+                onValueChange={(value) => setPepDeclared(value === "yes")}
+                className="gap-3"
+              >
+                <label className="flex cursor-pointer items-center gap-3 text-sm">
+                  <RadioGroupItem value="no" />
+                  No
+                </label>
+                <label className="flex cursor-pointer items-center gap-3 text-sm">
+                  <RadioGroupItem value="yes" />
+                  Yes
+                </label>
+              </RadioGroup>
+              {pepDeclared && (
+                <div className="space-y-2">
+                  <Label htmlFor="kyc-pep-details">
+                    Who is it, and what is their role?
+                  </Label>
+                  <Textarea
+                    id="kyc-pep-details"
+                    value={pepDetails}
+                    onChange={(event) => setPepDetails(event.target.value)}
+                    placeholder="e.g. Me: member of the county assembly, 2022 to now. Or: my uncle, a senior judge."
+                    className="min-h-20"
+                    maxLength={500}
+                  />
+                </div>
+              )}
+            </fieldset>
+
+            <div className="flex items-start gap-3">
+              <Checkbox
+                id="kyc-acknowledge"
+                checked={acknowledged}
+                onCheckedChange={(checked) => setAcknowledged(checked)}
+                className="mt-0.5"
+              />
+              <Label
+                htmlFor="kyc-acknowledge"
+                className="font-normal leading-snug"
+              >
+                I confirm the money is not for violence, terrorism, hate, human
+                trafficking, illegal weapons or drugs, illegal gambling, a
+                pyramid or Ponzi scheme, or anything else unlawful.
+              </Label>
             </div>
           </CardContent>
         </Card>
@@ -406,8 +594,8 @@ export function Tier2Form({ legalName }: { legalName: string | null }) {
               Level 2: back up your campaign
             </CardTitle>
             <CardDescription>
-              Show us what the money is for and where it should go. This lets
-              us pay out up to {formatKes(tierPayoutLimitKes(2))}.
+              Show us what the money is for and where it should go. This lets us
+              pay out up to {formatKes(tierPayoutLimitKes(2))}.
               {legalName &&
                 ` The KRA PIN and payout account must be in the name on your ID: ${legalName}.`}
             </CardDescription>

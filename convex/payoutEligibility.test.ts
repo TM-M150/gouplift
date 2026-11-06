@@ -5,6 +5,8 @@ import schema from "./schema";
 import { api } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { KycTier } from "../lib/kyc";
+import type { EddState } from "../lib/risk";
+import { insertRiskProfile } from "./risk.fixtures";
 import { PAYOUT_ACCOUNT_CHANGE_HOLD_MS } from "../lib/payout-accounts";
 import {
   assertPayoutEligible,
@@ -51,6 +53,7 @@ describe("evaluatePayoutEligibility", () => {
       creatorId,
     },
     ownerKycTier: 1 as KycTier,
+    ownerRisk: { eddReasons: [], eddCompletedAt: null } as EddState | null,
     organization: null,
     hasActiveHold: false,
     payoutAccount: {
@@ -73,6 +76,56 @@ describe("evaluatePayoutEligibility", () => {
 
   it("blocks an individual who hasn't been verified (tier 0)", () => {
     expect(codes({ ...base, ownerKycTier: 0 })).toEqual(["OWNER_NOT_VERIFIED"]);
+  });
+
+  describe("risk rating and enhanced due diligence", () => {
+    it("blocks a verified owner nobody has rated", () => {
+      expect(codes({ ...base, ownerRisk: null })).toEqual(["RISK_NOT_RATED"]);
+    });
+
+    it("doesn't also say 'not rated' about an owner who isn't verified", () => {
+      expect(codes({ ...base, ownerKycTier: 0, ownerRisk: null })).toEqual([
+        "OWNER_NOT_VERIFIED",
+      ]);
+    });
+
+    it("blocks while enhanced due diligence is needed and not recorded", () => {
+      expect(
+        codes({
+          ...base,
+          ownerRisk: { eddReasons: ["PEP", "HIGH_RISK"], eddCompletedAt: null },
+        }),
+      ).toEqual(["EDD_REQUIRED"]);
+    });
+
+    it("allows the owner once enhanced due diligence is recorded", () => {
+      expect(
+        codes({
+          ...base,
+          ownerRisk: { eddReasons: ["PEP", "HIGH_RISK"], eddCompletedAt: 1 },
+        }),
+      ).toEqual([]);
+    });
+
+    it("doesn't ask an organization's fundraiser for its creator's rating", () => {
+      expect(
+        codes({
+          ...base,
+          ownerRisk: null,
+          fundraiser: {
+            status: "ACTIVE",
+            organizationId: "org1" as Id<"organizations">,
+            creatorId,
+          },
+          payoutAccount: {
+            status: "VERIFIED",
+            userId: creatorId,
+            organizationId: "org1" as Id<"organizations">,
+          },
+          organization: { verificationStatus: "VERIFIED" },
+        }),
+      ).toEqual([]);
+    });
   });
 
   it("blocks while a hold is in place, even for a verified owner", () => {
@@ -263,6 +316,7 @@ describe("evaluatePayoutEligibility", () => {
       codes({
         fundraiser: { status: "PAUSED", organizationId: undefined, creatorId },
         ownerKycTier: 0 as KycTier,
+        ownerRisk: null,
         organization: null,
         hasActiveHold: true,
         payoutAccount: null,
@@ -297,7 +351,7 @@ async function setup() {
     const owner = await user("auth_owner", "USER");
     const verifiedOwner = await user("auth_verified_owner", "USER");
     // Verified means an approved KYC submission, not users.isVerified.
-    await ctx.db.insert("kycSubmissions", {
+    const verifiedKyc = await ctx.db.insert("kycSubmissions", {
       userId: verifiedOwner,
       requestedTier: 1,
       status: "APPROVED",
@@ -305,6 +359,12 @@ async function setup() {
     });
     const moderator = await user("auth_mod", "MODERATOR");
     const admin = await user("auth_admin", "ADMIN");
+    // And a Low risk rating, which payouts also need.
+    await insertRiskProfile(ctx, {
+      userId: verifiedOwner,
+      kycSubmissionId: verifiedKyc,
+      ratedBy: admin,
+    });
     const stranger = await user("auth_stranger", "USER");
 
     const fundraiser = (creatorId: Id<"users">) =>
@@ -347,6 +407,7 @@ async function setup() {
     return {
       owner,
       verifiedOwner,
+      verifiedKyc,
       moderator,
       admin,
       stranger,
