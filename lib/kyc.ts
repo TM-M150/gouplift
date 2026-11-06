@@ -158,6 +158,8 @@ export function getKycDocumentSlots(
 export const KYC_REVIEW_CHECKS = [
   "IDENTITY_MATCHES",
   "PHONE_IN_OWN_NAME",
+  "PEP_SCREENED",
+  "PURPOSE_NOT_PROHIBITED",
   "EVIDENCE_SUPPORTS_CAMPAIGN",
   "KRA_PIN_VALID",
   "PAYOUT_ACCOUNT_OWNERSHIP",
@@ -171,6 +173,10 @@ export const KYC_REVIEW_CHECK_LABELS: Record<KycReviewCheck, string> = {
     "The mobile number is registered in the fundraiser's own name",
   EVIDENCE_SUPPORTS_CAMPAIGN:
     "The evidence supports the campaign's story, purpose and amount",
+  PEP_SCREENED:
+    "Screened against PEP lists and adverse media, including family members and close associates",
+  PURPOSE_NOT_PROHIBITED:
+    "The stated purpose is not a prohibited activity (violence, terrorism, hate, trafficking, illegal weapons or drugs, illegal gambling, pyramid or Ponzi schemes, or any other unlawful purpose)",
   KRA_PIN_VALID: "The KRA PIN is valid and belongs to the fundraiser",
   PAYOUT_ACCOUNT_OWNERSHIP:
     "The payout account is in the fundraiser's name, or a verified beneficiary's",
@@ -181,7 +187,12 @@ export const REQUIRED_KYC_REVIEW_CHECKS: Record<
   RequestableKycTier,
   readonly KycReviewCheck[]
 > = {
-  1: ["IDENTITY_MATCHES", "PHONE_IN_OWN_NAME"],
+  1: [
+    "IDENTITY_MATCHES",
+    "PHONE_IN_OWN_NAME",
+    "PEP_SCREENED",
+    "PURPOSE_NOT_PROHIBITED",
+  ],
   2: [
     "EVIDENCE_SUPPORTS_CAMPAIGN",
     "KRA_PIN_VALID",

@@ -9,6 +9,7 @@ import {
   PAYOUT_ACCOUNT_CHANGE_HOLD_MS,
 } from "../lib/payout-accounts";
 import { assertPayoutEligible } from "./lib/payoutEligibility";
+import { insertRiskProfile } from "./risk.fixtures";
 
 // The real auth component needs a running Better Auth deployment. These tests
 // only need `safeGetAuthUser`, so it reads the identity convex-test attaches.
@@ -80,19 +81,30 @@ async function setup() {
     const mod = await user("auth_mod", "MODERATOR");
     const admin = await user("auth_admin", "ADMIN");
 
-    await approve(alice, 1, {
+    const aliceKyc = await approve(alice, 1, {
       legalName: "Wanjiru Kamau",
       idType: "NATIONAL_ID",
       idNumber: "12345678",
       phoneNumber: ALICE_PHONE,
     });
-    await approve(carol, 1, {
+    const carolKyc = await approve(carol, 1, {
       legalName: "Carol Otieno",
       idType: "NATIONAL_ID",
       idNumber: "23456789",
       phoneNumber: "+254733111222",
     });
     await approve(carol, 2, { kraPin: "A123456789Z" });
+    // Payouts also need a risk rating, which the rest of these tests aren't about.
+    await insertRiskProfile(ctx, {
+      userId: alice,
+      kycSubmissionId: aliceKyc,
+      ratedBy: admin,
+    });
+    await insertRiskProfile(ctx, {
+      userId: carol,
+      kycSubmissionId: carolKyc,
+      ratedBy: admin,
+    });
     // A staff member who is verified to Level 2 and can add their own account.
     await approve(mod, 1, {
       legalName: "Mo Derator",

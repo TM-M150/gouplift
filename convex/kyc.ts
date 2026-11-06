@@ -23,6 +23,7 @@ import {
   kycDocumentTypeValidator,
   kycIdTypeValidator,
 } from "./lib/kycValidators";
+import { expectedTimelineValidator } from "./lib/riskValidators";
 import { getCurrentUserDoc } from "./lib/staff";
 
 // Individual fundraisers are verified in tiers (AML policy 5.3). Each tier is
@@ -228,7 +229,9 @@ async function saveDocuments(
 }
 
 // Tier 1: who you are (policy 5.3). ID photo(s), the ID's details, a mobile
-// number in your own name, and what the money is for.
+// number in your own name, what the money is for, and the declarations the risk
+// rating starts from (policy 5.7, 7, 9): where you live, what you expect to
+// raise, whether you are a PEP, and that the purpose isn't a prohibited one.
 export const submitKycTier1 = mutation({
   args: {
     legalName: v.string(),
@@ -236,6 +239,12 @@ export const submitKycTier1 = mutation({
     idNumber: v.string(),
     phoneNumber: v.string(),
     campaignPurpose: v.string(),
+    residenceCountry: v.string(),
+    expectedAmountKes: v.number(),
+    expectedTimeline: expectedTimelineValidator,
+    pepDeclared: v.boolean(),
+    pepDetails: v.optional(v.string()),
+    prohibitedActivitiesAcknowledged: v.boolean(),
     documents: submittedDocumentsValidator,
   },
   handler: async (ctx, args) => {
@@ -271,6 +280,13 @@ export const submitKycTier1 = mutation({
       idNumber: details.idNumber,
       phoneNumber: details.phoneNumber,
       campaignPurpose: details.campaignPurpose,
+      residenceCountry: details.residenceCountry,
+      expectedAmountKes: details.expectedAmountKes,
+      expectedTimeline: details.expectedTimeline,
+      pepDeclared: details.pepDeclared,
+      // Details of a PEP only make sense for someone who said they are one.
+      pepDetails: details.pepDeclared ? details.pepDetails : undefined,
+      prohibitedActivitiesAcknowledged: details.prohibitedActivitiesAcknowledged,
       submittedAt: Date.now(),
     });
     await saveDocuments(ctx, submissionId, user._id, checked);

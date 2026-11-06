@@ -3,11 +3,13 @@ import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { KycTier } from "../../lib/kyc";
 import { payoutChangeHeldUntil } from "../../lib/payout-accounts";
+import { isEddOutstanding, type EddState } from "../../lib/risk";
 import { getKycTier } from "./kycTier";
 import {
   getFundraiserPayoutSelection,
   payoutAccountBelongsToFundraiser,
 } from "./payoutAccounts";
+import { getRiskProfile } from "./riskProfile";
 
 // AML policy 5.2 and 5.5: no money is released to a fundraiser who hasn't been
 // verified, and staff can hold payouts at any time. There is no payout flow in
@@ -17,7 +19,9 @@ import {
 // An individual must have an approved Tier 1 or higher (policy 5.3, see
 // lib/kycTier.ts). The money goes only to a verified payout account that
 // belongs to the fundraiser's owner (policy 5.5), and not for a while after
-// the account was changed. This only says whether money may move at all;
+// the account was changed. An individual must also have been rated for risk
+// (policy 4.3), and if the rating calls for enhanced due diligence (policy 7,
+// 8) the MLRO must have approved it and recorded it. This only says whether money may move at all;
 // holding a payout to the tier's cumulative limit needs the amounts, and
 // belongs to the payout flow.
 
@@ -27,6 +31,8 @@ export type PayoutBlockerCode =
   | "ON_HOLD"
   | "FUNDRAISER_STATUS"
   | "OWNER_NOT_VERIFIED"
+  | "RISK_NOT_RATED"
+  | "EDD_REQUIRED"
   | "ORGANIZATION_NOT_VERIFIED"
   | "PAYOUT_ACCOUNT_MISSING"
   | "PAYOUT_ACCOUNT_NOT_VERIFIED"
@@ -57,6 +63,9 @@ interface EligibilityInput {
   // The KYC tier of the fundraiser's owner. Not looked at for an organization's
   // fundraiser, which is checked through the organization instead.
   ownerKycTier: KycTier;
+  // The owner's risk profile, null if they haven't been rated. Not looked at
+  // for an organization's fundraiser (organizations are rated separately).
+  ownerRisk: EddState | null;
   organization: Pick<Doc<"organizations">, "verificationStatus"> | null;
   hasActiveHold: boolean;
   // The account the fundraiser is set to be paid to, null if none was chosen.
@@ -104,6 +113,19 @@ export function evaluatePayoutEligibility(
       code: "OWNER_NOT_VERIFIED",
       message: "The fundraiser's owner hasn't been verified.",
     });
+  } else if (!input.ownerRisk) {
+    // Verified, but nobody has rated them. Until then we don't know whether
+    // they need enhanced due diligence, so the answer is no.
+    blockers.push({
+      code: "RISK_NOT_RATED",
+      message: "The fundraiser's owner hasn't been risk rated.",
+    });
+  } else if (isEddOutstanding(input.ownerRisk)) {
+    blockers.push({
+      code: "EDD_REQUIRED",
+      message:
+        "The fundraiser's owner needs enhanced due diligence, approved by the MLRO.",
+    });
   }
 
   if (!input.payoutAccount) {
@@ -111,7 +133,9 @@ export function evaluatePayoutEligibility(
       code: "PAYOUT_ACCOUNT_MISSING",
       message: "No payout account has been chosen.",
     });
-  } else if (!payoutAccountBelongsToFundraiser(input.payoutAccount, input.fundraiser)) {
+  } else if (
+    !payoutAccountBelongsToFundraiser(input.payoutAccount, input.fundraiser)
+  ) {
     blockers.push({
       code: "PAYOUT_ACCOUNT_MISMATCH",
       message: "The payout account doesn't belong to the fundraiser's owner.",
@@ -160,13 +184,15 @@ export async function getPayoutBlockers(
   fundraiser: Doc<"fundraisers">,
   now: number | null,
 ): Promise<PayoutBlocker[]> {
-  const [ownerKycTier, organization, hold, selection] = await Promise.all([
-    // A missing creator has no approved submissions, so reads as tier 0.
-    getKycTier(ctx, fundraiser.creatorId),
-    fundraiser.organizationId ? ctx.db.get(fundraiser.organizationId) : null,
-    getActivePayoutHold(ctx, fundraiser._id),
-    getFundraiserPayoutSelection(ctx, fundraiser._id),
-  ]);
+  const [ownerKycTier, ownerRisk, organization, hold, selection] =
+    await Promise.all([
+      // A missing creator has no approved submissions, so reads as tier 0.
+      getKycTier(ctx, fundraiser.creatorId),
+      getRiskProfile(ctx, fundraiser.creatorId),
+      fundraiser.organizationId ? ctx.db.get(fundraiser.organizationId) : null,
+      getActivePayoutHold(ctx, fundraiser._id),
+      getFundraiserPayoutSelection(ctx, fundraiser._id),
+    ]);
   const payoutAccount = selection
     ? await ctx.db.get(selection.payoutAccountId)
     : null;
@@ -174,6 +200,7 @@ export async function getPayoutBlockers(
   return evaluatePayoutEligibility({
     fundraiser,
     ownerKycTier,
+    ownerRisk,
     organization,
     hasActiveHold: hold !== null,
     payoutAccount,

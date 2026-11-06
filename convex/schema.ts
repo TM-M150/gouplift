@@ -20,6 +20,13 @@ import {
   payoutVerifiedViaValidator,
 } from "./lib/payoutAccountValidators";
 import {
+  eddReasonValidator,
+  expectedTimelineValidator,
+  pepOutcomeValidator,
+  riskFactorsValidator,
+  riskLevelValidator,
+} from "./lib/riskValidators";
+import {
   webhookDeliveryStatusValidator,
   webhookErrorValidator,
   webhookEventTypeValidator,
@@ -373,6 +380,11 @@ export default defineSchema({
       v.literal("PAYOUT_ACCOUNT_APPROVED"),
       v.literal("PAYOUT_ACCOUNT_REJECTED"),
       v.literal("PAYOUT_ACCOUNT_CHANGED"),
+      v.literal("KYC_ESCALATED"),
+      v.literal("RISK_RATED"),
+      v.literal("RISK_OVERRIDDEN"),
+      v.literal("EDD_FLAGGED"),
+      v.literal("EDD_RECORDED"),
     ),
     organizationId: v.optional(v.id("organizations")),
     fundraiserId: v.optional(v.id("fundraisers")),
@@ -406,8 +418,18 @@ export default defineSchema({
     idNumber: v.optional(v.string()), // normalized: upper-case, no spaces
     phoneNumber: v.optional(v.string()), // +254...
     campaignPurpose: v.optional(v.string()),
+    // What a Tier 1 applicant declares about themselves and the money (policy
+    // 5.7, 7, 9). Applications made before these were asked have none.
+    residenceCountry: v.optional(v.string()), // ISO 3166-1 alpha-2
+    expectedAmountKes: v.optional(v.number()),
+    expectedTimeline: v.optional(expectedTimelineValidator),
+    pepDeclared: v.optional(v.boolean()),
+    pepDetails: v.optional(v.string()),
+    prohibitedActivitiesAcknowledged: v.optional(v.boolean()),
     kraPin: v.optional(v.string()),
     submittedAt: v.number(),
+    // Set when a reviewer passes it to the MLRO. Never shown to the applicant.
+    escalatedAt: v.optional(v.number()),
     reviewedBy: v.optional(v.id("users")),
     reviewedAt: v.optional(v.number()),
     // What the reviewer confirmed before approving.
@@ -425,6 +447,44 @@ export default defineSchema({
       "status",
     ])
     .index("by_phoneNumber_and_status", ["phoneNumber", "status"]),
+
+  // How risky an individual fundraiser is, and what enhanced due diligence has
+  // been done (policy 4.3, 7, 8). One row per person, made when their Level 1
+  // is approved and updated by the MLRO. The inputs are kept next to the result
+  // so the rating can be worked out again (lib/risk.ts) when something changes.
+  // Staff only: never return it to the person it is about (policy 12.3).
+  customerRiskProfiles: defineTable({
+    userId: v.id("users"),
+    // The Level 1 application it was first rated on.
+    kycSubmissionId: v.id("kycSubmissions"),
+
+    // Inputs.
+    residenceCountry: v.string(),
+    expectedAmountKes: v.number(),
+    pepOutcome: pepOutcomeValidator,
+    behaviour: riskLevelValidator,
+    mlroFlagged: v.boolean(),
+    overrideRating: v.optional(riskLevelValidator),
+    overrideReason: v.optional(v.string()),
+
+    // Result.
+    rating: riskLevelValidator,
+    computedRating: riskLevelValidator,
+    factors: riskFactorsValidator,
+    eddReasons: v.array(eddReasonValidator),
+    ratedAt: v.number(),
+    ratedBy: v.id("users"),
+    // When the customer is next reviewed (policy 5.10).
+    nextReviewDue: v.number(),
+
+    // The enhanced due diligence record, once done. Cleared when a new reason
+    // for it turns up, so it has to be done again.
+    eddCompletedAt: v.optional(v.number()),
+    eddCompletedBy: v.optional(v.id("users")),
+    sourceOfFunds: v.optional(v.string()),
+    sourceOfWealth: v.optional(v.string()),
+    eddNote: v.optional(v.string()),
+  }).index("by_userId", ["userId"]),
 
   kycDocuments: defineTable({
     submissionId: v.id("kycSubmissions"),
