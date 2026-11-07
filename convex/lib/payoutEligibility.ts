@@ -9,6 +9,7 @@ import {
   getFundraiserPayoutSelection,
   payoutAccountBelongsToFundraiser,
 } from "./payoutAccounts";
+import { getOrganizationRiskProfile } from "./organizationRisk";
 import { getRiskProfile } from "./riskProfile";
 
 // AML policy 5.2 and 5.5: no money is released to a fundraiser who hasn't been
@@ -19,9 +20,10 @@ import { getRiskProfile } from "./riskProfile";
 // An individual must have an approved Tier 1 or higher (policy 5.3, see
 // lib/kycTier.ts). The money goes only to a verified payout account that
 // belongs to the fundraiser's owner (policy 5.5), and not for a while after
-// the account was changed. An individual must also have been rated for risk
-// (policy 4.3), and if the rating calls for enhanced due diligence (policy 7,
-// 8) the MLRO must have approved it and recorded it. This only says whether money may move at all;
+// the account was changed. An individual, or an organization, must also have
+// been rated for risk (policy 4.3), and if the rating calls for enhanced due
+// diligence (policy 7, 8) the MLRO must have approved it and recorded it.
+// This only says whether money may move at all;
 // holding a payout to the tier's cumulative limit needs the amounts, and
 // belongs to the payout flow.
 
@@ -64,9 +66,12 @@ interface EligibilityInput {
   // fundraiser, which is checked through the organization instead.
   ownerKycTier: KycTier;
   // The owner's risk profile, null if they haven't been rated. Not looked at
-  // for an organization's fundraiser (organizations are rated separately).
+  // for an organization's fundraiser, which uses the organization's instead.
   ownerRisk: EddState | null;
   organization: Pick<Doc<"organizations">, "verificationStatus"> | null;
+  // The organization's risk profile, null if it hasn't been rated. Only looked
+  // at for an organization's fundraiser.
+  organizationRisk: EddState | null;
   hasActiveHold: boolean;
   // The account the fundraiser is set to be paid to, null if none was chosen.
   payoutAccount: Pick<
@@ -106,6 +111,17 @@ export function evaluatePayoutEligibility(
       blockers.push({
         code: "ORGANIZATION_NOT_VERIFIED",
         message: "The organization hasn't been verified.",
+      });
+    } else if (!input.organizationRisk) {
+      blockers.push({
+        code: "RISK_NOT_RATED",
+        message: "The organization hasn't been risk rated.",
+      });
+    } else if (isEddOutstanding(input.organizationRisk)) {
+      blockers.push({
+        code: "EDD_REQUIRED",
+        message:
+          "The organization needs enhanced due diligence, approved by the MLRO.",
       });
     }
   } else if (input.ownerKycTier < 1) {
@@ -184,15 +200,24 @@ export async function getPayoutBlockers(
   fundraiser: Doc<"fundraisers">,
   now: number | null,
 ): Promise<PayoutBlocker[]> {
-  const [ownerKycTier, ownerRisk, organization, hold, selection] =
-    await Promise.all([
-      // A missing creator has no approved submissions, so reads as tier 0.
-      getKycTier(ctx, fundraiser.creatorId),
-      getRiskProfile(ctx, fundraiser.creatorId),
-      fundraiser.organizationId ? ctx.db.get(fundraiser.organizationId) : null,
-      getActivePayoutHold(ctx, fundraiser._id),
-      getFundraiserPayoutSelection(ctx, fundraiser._id),
-    ]);
+  const [
+    ownerKycTier,
+    ownerRisk,
+    organization,
+    organizationRisk,
+    hold,
+    selection,
+  ] = await Promise.all([
+    // A missing creator has no approved submissions, so reads as tier 0.
+    getKycTier(ctx, fundraiser.creatorId),
+    getRiskProfile(ctx, fundraiser.creatorId),
+    fundraiser.organizationId ? ctx.db.get(fundraiser.organizationId) : null,
+    fundraiser.organizationId
+      ? getOrganizationRiskProfile(ctx, fundraiser.organizationId)
+      : null,
+    getActivePayoutHold(ctx, fundraiser._id),
+    getFundraiserPayoutSelection(ctx, fundraiser._id),
+  ]);
   const payoutAccount = selection
     ? await ctx.db.get(selection.payoutAccountId)
     : null;
@@ -202,6 +227,7 @@ export async function getPayoutBlockers(
     ownerKycTier,
     ownerRisk,
     organization,
+    organizationRisk,
     hasActiveHold: hold !== null,
     payoutAccount,
     payoutAccountChangedAt: selection?.changedAt ?? null,

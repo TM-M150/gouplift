@@ -27,6 +27,16 @@ import {
 } from "@/components/ui/select";
 import { DocumentUploadSlot } from "@/components/web/organization/document-upload-slot";
 import {
+  DeclarationsCard,
+  EMPTY_DECLARATIONS,
+  OwnersCard,
+  newOwnerDraft,
+  ownersToInput,
+  parseAmount,
+  type DeclarationsDraft,
+  type OwnerDraft,
+} from "@/components/web/organization/organization-declarations";
+import {
   ORGANIZATION_REQUIREMENTS,
   ORGANIZATION_TYPES,
   getDocumentSlots,
@@ -67,6 +77,11 @@ export function OrganizationForm() {
   const [website, setWebsite] = React.useState("");
   const [contactEmail, setContactEmail] = React.useState("");
   const [contactPhone, setContactPhone] = React.useState("");
+  const [declarations, setDeclarations] =
+    React.useState<DeclarationsDraft>(EMPTY_DECLARATIONS);
+  const [owners, setOwners] = React.useState<OwnerDraft[]>(() => [
+    newOwnerDraft(),
+  ]);
   const [files, setFiles] = React.useState<FilesBySlot>({});
   const [missing, setMissing] = React.useState<ReadonlySet<DocumentType>>(
     new Set(),
@@ -167,11 +182,25 @@ export function OrganizationForm() {
       website,
       contactEmail,
       contactPhone,
+      registeredCountry: declarations.registeredCountry,
+      expectedAmountKes: parseAmount(declarations.expectedAmount),
+      expectedTimeline: declarations.expectedTimeline || undefined,
+      pepDeclared: declarations.pepDeclared ?? undefined,
+      pepDetails: declarations.pepDeclared ? declarations.pepDetails : undefined,
+      prohibitedActivitiesAcknowledged: declarations.acknowledged || undefined,
+      beneficialOwners: ownersToInput(owners),
     });
     if (!parsed.success) {
+      const issue = parsed.error.issues[0];
+      // Say which person a problem is about.
+      const person =
+        issue?.path[0] === "beneficialOwners" && typeof issue.path[1] === "number"
+          ? `Person ${issue.path[1] + 1}: `
+          : "";
       setError(
-        parsed.error.issues[0]?.message ??
-          "Please check your details and try again.",
+        issue
+          ? `${person}${issue.message}`
+          : "Please check your details and try again.",
       );
       return;
     }
@@ -209,6 +238,13 @@ export function OrganizationForm() {
         website: details.website,
         contactEmail: details.contactEmail,
         contactPhone: details.contactPhone,
+        registeredCountry: details.registeredCountry,
+        expectedAmountKes: details.expectedAmountKes,
+        expectedTimeline: details.expectedTimeline,
+        beneficialOwners: details.beneficialOwners,
+        pepDeclared: details.pepDeclared,
+        pepDetails: details.pepDetails,
+        prohibitedActivitiesAcknowledged: details.prohibitedActivitiesAcknowledged,
         documents,
       });
 
@@ -354,6 +390,14 @@ export function OrganizationForm() {
             </div>
           </CardContent>
         </Card>
+
+        <DeclarationsCard
+          draft={declarations}
+          onChange={setDeclarations}
+          disabled={submitting}
+        />
+
+        <OwnersCard owners={owners} onChange={setOwners} disabled={submitting} />
 
         <Card>
           <CardHeader>

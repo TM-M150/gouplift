@@ -20,10 +20,12 @@ import {
   describeFileProblem,
   findPendingUpload,
 } from "./lib/documentFiles";
+import { beneficialOwnerInputValidator } from "./lib/beneficialOwnerValidators";
 import {
   documentTypeValidator,
   organizationTypeValidator,
 } from "./lib/organizationValidators";
+import { expectedTimelineValidator } from "./lib/riskValidators";
 import {
   isPubliclyVisible,
   loadPublicFundraisers,
@@ -109,6 +111,15 @@ export const createOrganization = mutation({
     website: v.optional(v.string()),
     contactEmail: v.optional(v.string()),
     contactPhone: v.optional(v.string()),
+    // What it declares about itself and who owns or controls it (policy 5.7,
+    // 5.8, 6, 7, 9). The reviewer checks all of it against the documents.
+    registeredCountry: v.string(),
+    expectedAmountKes: v.number(),
+    expectedTimeline: expectedTimelineValidator,
+    beneficialOwners: v.array(beneficialOwnerInputValidator),
+    pepDeclared: v.boolean(),
+    pepDetails: v.optional(v.string()),
+    prohibitedActivitiesAcknowledged: v.boolean(),
     documents: v.array(
       v.object({
         documentType: documentTypeValidator,
@@ -229,6 +240,13 @@ export const createOrganization = mutation({
       website: details.website,
       contactEmail: details.contactEmail,
       contactPhone: details.contactPhone,
+      registeredCountry: details.registeredCountry,
+      expectedAmountKes: details.expectedAmountKes,
+      expectedTimeline: details.expectedTimeline,
+      pepDeclared: details.pepDeclared,
+      // Details of a PEP only make sense for someone who said there is one.
+      pepDetails: details.pepDeclared ? details.pepDetails : undefined,
+      prohibitedActivitiesAcknowledged: details.prohibitedActivitiesAcknowledged,
       verificationStatus: "PENDING_REVIEW",
       verificationSubmittedAt: now,
       createdBy: user._id,
@@ -242,6 +260,15 @@ export const createOrganization = mutation({
       role: "OWNER",
       joinedAt: now,
     });
+
+    for (const owner of details.beneficialOwners) {
+      await ctx.db.insert("organizationBeneficialOwners", {
+        organizationId,
+        ...owner,
+        addedBy: user._id,
+        createdAt: now,
+      });
+    }
 
     for (const doc of verifiedDocuments) {
       await ctx.db.insert("organizationDocuments", {
@@ -412,6 +439,34 @@ export const acceptInvite = mutation({
   },
 });
 
+// Compliance fields of an organization (AML policy 5.7, 12.3). Staff see them
+// in the review screens; the organization's own members never do, above all
+// not the flag that a reviewer passed it to the MLRO, which must not tip them
+// off. Everything a member gets back goes through here.
+const STAFF_ONLY_ORGANIZATION_FIELDS = [
+  "escalatedAt",
+  "confirmedChecks",
+  "registeredCountry",
+  "expectedAmountKes",
+  "expectedTimeline",
+  "pepDeclared",
+  "pepDetails",
+  "prohibitedActivitiesAcknowledged",
+] as const;
+
+type MemberOrganization = Omit<
+  Doc<"organizations">,
+  (typeof STAFF_ONLY_ORGANIZATION_FIELDS)[number]
+>;
+
+export function toMemberOrganization(
+  org: Doc<"organizations">,
+): MemberOrganization {
+  const view: Partial<Doc<"organizations">> = { ...org };
+  for (const field of STAFF_ONLY_ORGANIZATION_FIELDS) delete view[field];
+  return view as MemberOrganization;
+}
+
 export const getOrganizationBySlug = query({
   args: { slug: v.string() },
   handler: async (ctx, args) => {
@@ -438,7 +493,7 @@ export const getOrganizationBySlug = query({
 
     if (!membership) return null;
 
-    return organization;
+    return toMemberOrganization(organization);
   },
 });
 
@@ -632,7 +687,7 @@ export const getMyOrganizations = query({
         const org = await ctx.db.get(membership.organizationId);
         if (!org) return null;
         return {
-          ...org,
+          ...toMemberOrganization(org),
           role: membership.role,
         };
       }),

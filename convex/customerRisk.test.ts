@@ -309,7 +309,7 @@ describe("approving Level 1 rates the applicant", () => {
         actorId: s.ids.admin,
         kycSubmissionId: submissionId,
         statusAfter: "MEDIUM",
-        note: "Medium risk. Enhanced due diligence: Lives outside Kenya.",
+        note: "Medium risk. Enhanced due diligence: Lives or is registered outside Kenya.",
       },
     ]);
   });
@@ -415,7 +415,7 @@ describe("applicants who need enhanced due diligence", () => {
     });
     await expect(
       s.asMod.mutation(api.kycReview.approveKyc, { submissionId, ...CLEAN }),
-    ).rejects.toThrow(/Lives outside Kenya/);
+    ).rejects.toThrow(/Lives or is registered outside Kenya/);
 
     await approveAsMlro(s, submissionId);
     expect((await profiles(s.t))[0]).toMatchObject({

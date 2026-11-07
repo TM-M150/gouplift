@@ -80,7 +80,7 @@ function isRiskLevel(value: unknown): value is RiskLevel {
   return (RISK_LEVELS as readonly unknown[]).includes(value);
 }
 
-function FactorList({ factors }: { factors: RiskFactors }) {
+export function FactorList({ factors }: { factors: RiskFactors }) {
   return (
     <dl className="grid gap-2 sm:grid-cols-2">
       {(Object.keys(FACTOR_LABELS) as Array<keyof RiskFactors>).map((key) => (
@@ -287,7 +287,7 @@ export function EddFields({
 
 // ---- After approving: the profile and the MLRO's tools ----------------------
 
-function Detail({ label, value }: { label: string; value: React.ReactNode }) {
+export function Detail({ label, value }: { label: string; value: React.ReactNode }) {
   if (value === null || value === undefined || value === "") return null;
   return (
     <div className="space-y-0.5">
@@ -295,6 +295,13 @@ function Detail({ label, value }: { label: string; value: React.ReactNode }) {
       <dd className="text-sm break-words whitespace-pre-line">{value}</dd>
     </div>
   );
+}
+
+/** What the MLRO can do to a rating. Individuals and organizations each have their own mutations. */
+export interface RiskProfileActions {
+  override: (rating: RiskLevel, reason: string) => Promise<unknown>;
+  flagForEdd: (reason: string) => Promise<unknown>;
+  recordEdd: (edd: ReturnType<typeof eddArgs>) => Promise<unknown>;
 }
 
 export function RiskProfileCard({
@@ -310,6 +317,38 @@ export function RiskProfileCard({
   const flagForEdd = useMutation(api.customerRisk.flagForEdd);
   const recordEdd = useMutation(api.customerRisk.recordEdd);
 
+  return (
+    <RiskProfileCardBase
+      profile={profile}
+      canManage={canManage}
+      actions={{
+        override: (rating, reason) =>
+          overrideRating({ submissionId, rating, reason }),
+        flagForEdd: (reason) => flagForEdd({ submissionId, reason }),
+        recordEdd: (edd) => recordEdd({ submissionId, edd }),
+      }}
+    />
+  );
+}
+
+export function RiskProfileCardBase({
+  profile,
+  canManage,
+  actions,
+  countryLabel = "Lives in",
+  customerNoun = "fundraiser",
+  extraDetails,
+}: {
+  profile: RiskProfileView;
+  canManage: boolean;
+  actions: RiskProfileActions;
+  /** "Lives in" for a person, "Registered in" for an organization. */
+  countryLabel?: string;
+  /** Who the warning says not to tell: "fundraiser" or "organization". */
+  customerNoun?: string;
+  /** More rows for the details grid, for what only this kind of customer has. */
+  extraDetails?: React.ReactNode;
+}) {
   const [overrideTo, setOverrideTo] = React.useState<RiskLevel | null>(null);
   const [flagOpen, setFlagOpen] = React.useState(false);
   const [draft, setDraft] = React.useState<EddDraft>(EMPTY_EDD);
@@ -332,7 +371,7 @@ export function RiskProfileCard({
     }
     setRecording(true);
     try {
-      await recordEdd({ submissionId, edd: eddArgs(draft, isPep) });
+      await actions.recordEdd(eddArgs(draft, isPep));
       setDraft(EMPTY_EDD);
       toast.success("Enhanced due diligence recorded.");
     } catch (err) {
@@ -354,8 +393,8 @@ export function RiskProfileCard({
           )}
         </div>
         <CardDescription>
-          Staff only. Never tell the fundraiser about their rating or any checks
-          made because of it.
+          Staff only. Never tell the {customerNoun} about their rating or any
+          checks made because of it.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6 text-sm">
@@ -363,7 +402,7 @@ export function RiskProfileCard({
 
         <dl className="grid gap-3 sm:grid-cols-2">
           <Detail
-            label="Lives in"
+            label={countryLabel}
             value={countryName(profile.residenceCountry)}
           />
           <Detail
@@ -378,6 +417,7 @@ export function RiskProfileCard({
             label="Next review due"
             value={formatDate(profile.nextReviewDue)}
           />
+          {extraDetails}
           {profile.overrideRating && (
             <Detail
               label={`Rating changed by the MLRO (from ${RISK_LEVEL_LABELS[profile.computedRating]})`}
@@ -481,7 +521,7 @@ export function RiskProfileCard({
         minNoteLength={10}
         onConfirm={async (reason) => {
           if (!overrideTo) return;
-          await overrideRating({ submissionId, rating: overrideTo, reason });
+          await actions.override(overrideTo, reason);
           toast.success("The rating was changed.");
         }}
       />
@@ -496,7 +536,7 @@ export function RiskProfileCard({
         notePlaceholder="e.g. Donations are coming from many unrelated accounts."
         minNoteLength={10}
         onConfirm={async (reason) => {
-          await flagForEdd({ submissionId, reason });
+          await actions.flagForEdd(reason);
           toast.success("Enhanced due diligence is now required.");
         }}
       />

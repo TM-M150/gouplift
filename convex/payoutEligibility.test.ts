@@ -6,6 +6,7 @@ import { api } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { KycTier } from "../lib/kyc";
 import type { EddState } from "../lib/risk";
+import { insertOrgRiskProfile } from "./org.fixtures";
 import { insertRiskProfile } from "./risk.fixtures";
 import { PAYOUT_ACCOUNT_CHANGE_HOLD_MS } from "../lib/payout-accounts";
 import {
@@ -55,6 +56,10 @@ describe("evaluatePayoutEligibility", () => {
     ownerKycTier: 1 as KycTier,
     ownerRisk: { eddReasons: [], eddCompletedAt: null } as EddState | null,
     organization: null,
+    organizationRisk: {
+      eddReasons: [],
+      eddCompletedAt: null,
+    } as EddState | null,
     hasActiveHold: false,
     payoutAccount: {
       status: "VERIFIED" as PayoutStatus,
@@ -105,6 +110,73 @@ describe("evaluatePayoutEligibility", () => {
           ownerRisk: { eddReasons: ["PEP", "HIGH_RISK"], eddCompletedAt: 1 },
         }),
       ).toEqual([]);
+    });
+
+    describe("for an organization's fundraiser", () => {
+      const orgBase = {
+        ...base,
+        ownerRisk: null,
+        fundraiser: {
+          status: "ACTIVE" as Status,
+          organizationId: "org1" as Id<"organizations">,
+          creatorId,
+        },
+        payoutAccount: {
+          status: "VERIFIED" as PayoutStatus,
+          userId: creatorId,
+          organizationId: "org1" as Id<"organizations">,
+        },
+        organization: { verificationStatus: "VERIFIED" as OrgStatus },
+      };
+
+      it("blocks a verified organization nobody has rated", () => {
+        expect(codes({ ...orgBase, organizationRisk: null })).toEqual([
+          "RISK_NOT_RATED",
+        ]);
+      });
+
+      it("doesn't also say 'not rated' about an organization that isn't verified", () => {
+        expect(
+          codes({
+            ...orgBase,
+            organization: { verificationStatus: "PENDING_REVIEW" },
+            organizationRisk: null,
+          }),
+        ).toEqual(["ORGANIZATION_NOT_VERIFIED"]);
+      });
+
+      it("blocks while the organization's enhanced due diligence isn't recorded", () => {
+        expect(
+          codes({
+            ...orgBase,
+            organizationRisk: {
+              eddReasons: ["NON_RESIDENT"],
+              eddCompletedAt: null,
+            },
+          }),
+        ).toEqual(["EDD_REQUIRED"]);
+      });
+
+      it("allows the organization once enhanced due diligence is recorded", () => {
+        expect(
+          codes({
+            ...orgBase,
+            organizationRisk: {
+              eddReasons: ["NON_RESIDENT"],
+              eddCompletedAt: 1,
+            },
+          }),
+        ).toEqual([]);
+      });
+
+      it("ignores an individual rating that is outstanding", () => {
+        expect(
+          codes({
+            ...orgBase,
+            ownerRisk: { eddReasons: ["PEP"], eddCompletedAt: null },
+          }),
+        ).toEqual([]);
+      });
     });
 
     it("doesn't ask an organization's fundraiser for its creator's rating", () => {
@@ -318,6 +390,7 @@ describe("evaluatePayoutEligibility", () => {
         ownerKycTier: 0 as KycTier,
         ownerRisk: null,
         organization: null,
+        organizationRisk: null,
         hasActiveHold: true,
         payoutAccount: null,
         payoutAccountChangedAt: null,
@@ -526,6 +599,30 @@ describe("payout eligibility against the database", () => {
     await t.run((ctx) =>
       ctx.db.patch(orgId, { verificationStatus: "VERIFIED" }),
     );
+    // Verified is not enough: it has to have been rated for risk too.
+    await expect(
+      t.run((ctx) => assertPayoutEligible(ctx, fundraiserId)),
+    ).rejects.toThrow(/organization hasn't been risk rated/);
+
+    // Registered abroad, so enhanced due diligence is needed.
+    const profileId = await t.run((ctx) =>
+      insertOrgRiskProfile(ctx, {
+        organizationId: orgId,
+        ratedBy: ids.owner,
+        residenceCountry: "GB",
+      }),
+    );
+    await t.run((ctx) =>
+      ctx.db.patch(profileId, {
+        eddCompletedAt: undefined,
+        eddCompletedBy: undefined,
+      }),
+    );
+    await expect(
+      t.run((ctx) => assertPayoutEligible(ctx, fundraiserId)),
+    ).rejects.toThrow(/organization needs enhanced due diligence/);
+
+    await t.run((ctx) => ctx.db.patch(profileId, { eddCompletedAt: Date.now() }));
     expect(await checkPayout(t, fundraiserId)).toBe("allowed");
   });
 

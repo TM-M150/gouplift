@@ -10,6 +10,7 @@
 
 import type * as admin from "../admin.js";
 import type * as auth from "../auth.js";
+import type * as beneficialOwners from "../beneficialOwners.js";
 import type * as crons from "../crons.js";
 import type * as documentUploads from "../documentUploads.js";
 import type * as donations from "../donations.js";
@@ -19,6 +20,7 @@ import type * as customerRisk from "../customerRisk.js";
 import type * as kyc from "../kyc.js";
 import type * as kycReview from "../kycReview.js";
 import type * as lib_adminAudit from "../lib/adminAudit.js";
+import type * as lib_beneficialOwnerValidators from "../lib/beneficialOwnerValidators.js";
 import type * as lib_constants from "../lib/constants.js";
 import type * as lib_documentFiles from "../lib/documentFiles.js";
 import type * as lib_donationGate from "../lib/donationGate.js";
@@ -28,6 +30,7 @@ import type * as lib_kycTier from "../lib/kycTier.js";
 import type * as lib_kycValidators from "../lib/kycValidators.js";
 import type * as lib_mlro from "../lib/mlro.js";
 import type * as lib_orgAccess from "../lib/orgAccess.js";
+import type * as lib_organizationRisk from "../lib/organizationRisk.js";
 import type * as lib_organizationValidators from "../lib/organizationValidators.js";
 import type * as lib_payoutAccountValidators from "../lib/payoutAccountValidators.js";
 import type * as lib_payoutAccounts from "../lib/payoutAccounts.js";
@@ -45,6 +48,7 @@ import type * as lib_webhookQueue from "../lib/webhookQueue.js";
 import type * as lib_webhookSend from "../lib/webhookSend.js";
 import type * as lib_webhookSignature from "../lib/webhookSignature.js";
 import type * as lib_webhookValidators from "../lib/webhookValidators.js";
+import type * as organizationRisk from "../organizationRisk.js";
 import type * as organizations from "../organizations.js";
 import type * as payoutAccountReview from "../payoutAccountReview.js";
 import type * as payoutAccounts from "../payoutAccounts.js";
@@ -64,6 +68,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   admin: typeof admin;
   auth: typeof auth;
+  beneficialOwners: typeof beneficialOwners;
   crons: typeof crons;
   documentUploads: typeof documentUploads;
   donations: typeof donations;
@@ -73,6 +78,7 @@ declare const fullApi: ApiFromModules<{
   kyc: typeof kyc;
   kycReview: typeof kycReview;
   "lib/adminAudit": typeof lib_adminAudit;
+  "lib/beneficialOwnerValidators": typeof lib_beneficialOwnerValidators;
   "lib/constants": typeof lib_constants;
   "lib/documentFiles": typeof lib_documentFiles;
   "lib/donationGate": typeof lib_donationGate;
@@ -82,6 +88,7 @@ declare const fullApi: ApiFromModules<{
   "lib/kycValidators": typeof lib_kycValidators;
   "lib/mlro": typeof lib_mlro;
   "lib/orgAccess": typeof lib_orgAccess;
+  "lib/organizationRisk": typeof lib_organizationRisk;
   "lib/organizationValidators": typeof lib_organizationValidators;
   "lib/payoutAccountValidators": typeof lib_payoutAccountValidators;
   "lib/payoutAccounts": typeof lib_payoutAccounts;
@@ -99,6 +106,7 @@ declare const fullApi: ApiFromModules<{
   "lib/webhookSend": typeof lib_webhookSend;
   "lib/webhookSignature": typeof lib_webhookSignature;
   "lib/webhookValidators": typeof lib_webhookValidators;
+  organizationRisk: typeof organizationRisk;
   organizations: typeof organizations;
   payoutAccountReview: typeof payoutAccountReview;
   payoutAccounts: typeof payoutAccounts;

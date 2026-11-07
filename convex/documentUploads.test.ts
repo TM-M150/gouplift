@@ -2,6 +2,7 @@
 import { convexTest, type TestConvex } from "convex-test";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import schema from "./schema";
+import { ORG_DECLARATIONS } from "./org.fixtures";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 
@@ -392,6 +393,7 @@ describe("createOrganization with uploaded files", () => {
     name: "Nakuru Youth Trust",
     organizationType: "OTHER" as const,
     registrationNumber: "CPR/2020/1234",
+    ...ORG_DECLARATIONS,
   };
 
   async function registered(
@@ -434,6 +436,104 @@ describe("createOrganization with uploaded files", () => {
     for (const doc of documents) {
       expect(await inStorage(t, doc.storageId)).toBe(true);
     }
+  });
+
+  it("keeps what the organization declared and the owners it named", async () => {
+    const { t, asAlice } = await setup();
+    const documents = [];
+    for (const type of REQUIRED) documents.push(await registered(t, asAlice, type));
+
+    const { organizationId } = await asAlice.mutation(
+      api.organizations.createOrganization,
+      {
+        ...details,
+        registeredCountry: "ke",
+        pepDeclared: true,
+        pepDetails: "The treasurer is a county assembly member",
+        beneficialOwners: [
+          { ...ORG_DECLARATIONS.beneficialOwners[0], idNumber: " 2345 6789 ", pepDeclared: true },
+          ORG_DECLARATIONS.beneficialOwners[1],
+        ],
+        documents,
+      },
+    );
+
+    const org = await t.run((ctx) => ctx.db.get(organizationId));
+    expect(org).toMatchObject({
+      registeredCountry: "KE",
+      expectedAmountKes: 500_000,
+      expectedTimeline: "SIX_TO_12_MONTHS",
+      pepDeclared: true,
+      pepDetails: "The treasurer is a county assembly member",
+      prohibitedActivitiesAcknowledged: true,
+      verificationStatus: "PENDING_REVIEW",
+    });
+    expect(org?.escalatedAt).toBeUndefined();
+
+    const owners = await t.run((ctx) =>
+      ctx.db
+        .query("organizationBeneficialOwners")
+        .withIndex("by_organizationId", (q) => q.eq("organizationId", organizationId))
+        .collect(),
+    );
+    expect(owners.map((o) => [o.fullName, o.idNumber, o.pepDeclared])).toEqual([
+      ["Wanjiru Kamau", "23456789", true],
+      ["Otieno Odhiambo", "34567890", false],
+    ]);
+  });
+
+  it("drops PEP details from an organization that says it has no PEP", async () => {
+    const { t, asAlice } = await setup();
+    const documents = [];
+    for (const type of REQUIRED) documents.push(await registered(t, asAlice, type));
+
+    const { organizationId } = await asAlice.mutation(
+      api.organizations.createOrganization,
+      { ...details, pepDetails: "left over from an earlier answer", documents },
+    );
+    expect((await t.run((ctx) => ctx.db.get(organizationId)))?.pepDetails).toBeUndefined();
+  });
+
+  it.each([
+    ["no owners", { beneficialOwners: [] }, /senior managing official/],
+    [
+      "shares above 100%",
+      {
+        beneficialOwners: [
+          ORG_DECLARATIONS.beneficialOwners[0],
+          { ...ORG_DECLARATIONS.beneficialOwners[1], ownershipPercent: 50 },
+        ],
+      },
+      /more than 100%/,
+    ],
+    [
+      "an owner who is a PEP under an answer of no",
+      {
+        beneficialOwners: [
+          { ...ORG_DECLARATIONS.beneficialOwners[0], pepDeclared: true },
+          ORG_DECLARATIONS.beneficialOwners[1],
+        ],
+      },
+      /senior public position/,
+    ],
+    ["an unknown country", { registeredCountry: "ZZ" }, /country it is registered in/],
+    ["no purpose confirmation", { prohibitedActivitiesAcknowledged: false }, /confirm this/],
+  ])("refuses %s and creates nothing", async (_name, change, message) => {
+    const { t, asAlice } = await setup();
+    const documents = [];
+    for (const type of REQUIRED) documents.push(await registered(t, asAlice, type));
+
+    await expect(
+      asAlice.mutation(api.organizations.createOrganization, {
+        ...details,
+        ...change,
+        documents,
+      } as never),
+    ).rejects.toThrow(message);
+    expect(await t.run((ctx) => ctx.db.query("organizations").collect())).toHaveLength(0);
+    expect(
+      await t.run((ctx) => ctx.db.query("organizationBeneficialOwners").collect()),
+    ).toHaveLength(0);
   });
 
   it("rejects a file that was never registered", async () => {

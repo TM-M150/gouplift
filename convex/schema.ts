@@ -9,6 +9,10 @@ import {
   kycSubmissionStatusValidator,
 } from "./lib/kycValidators";
 import {
+  beneficialOwnerBasisValidator,
+  organizationReviewCheckValidator,
+} from "./lib/beneficialOwnerValidators";
+import {
   documentTypeValidator,
   organizationTypeValidator,
 } from "./lib/organizationValidators";
@@ -318,6 +322,19 @@ export default defineSchema({
     rejectionReason: v.optional(v.string()),
     verifiedAt: v.optional(v.number()),
     verifiedBy: v.optional(v.string()),
+    // What it declared when it applied (policy 5.7, 5.8, 7, 9). Organizations
+    // created before these were asked have none. The owners it named are in
+    // organizationBeneficialOwners.
+    registeredCountry: v.optional(v.string()), // ISO 3166-1 alpha-2
+    expectedAmountKes: v.optional(v.number()),
+    expectedTimeline: v.optional(expectedTimelineValidator),
+    pepDeclared: v.optional(v.boolean()),
+    pepDetails: v.optional(v.string()),
+    prohibitedActivitiesAcknowledged: v.optional(v.boolean()),
+    // Set when a reviewer passes it to the MLRO. Never shown to the owner.
+    escalatedAt: v.optional(v.number()),
+    // What the reviewer confirmed before verifying.
+    confirmedChecks: v.optional(v.array(organizationReviewCheckValidator)),
     createdBy: v.id("users"),
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -325,6 +342,63 @@ export default defineSchema({
     .index("by_verificationStatus", ["verificationStatus"])
     .index("by_slug", ["slug"])
     .searchIndex("search_name", { searchField: "name" }),
+
+  // Who owns or controls an organization (policy 5.4, 6): every natural person
+  // with 10% or more or who otherwise controls it, or its senior managing
+  // official where nobody does. Staff only: it holds ID numbers, so never
+  // return a row to the organization or the public.
+  organizationBeneficialOwners: defineTable({
+    organizationId: v.id("organizations"),
+    fullName: v.string(),
+    idType: kycIdTypeValidator,
+    idNumber: v.string(), // normalized: upper-case, no spaces
+    basis: beneficialOwnerBasisValidator,
+    ownershipPercent: v.optional(v.number()),
+    role: v.optional(v.string()),
+    residenceCountry: v.string(),
+    pepDeclared: v.boolean(),
+    addedBy: v.id("users"),
+    createdAt: v.number(),
+  }).index("by_organizationId", ["organizationId"]),
+
+  // How risky an organization is, and what enhanced due diligence has been
+  // done (policy 4.3, 7, 8). The organization's counterpart to
+  // customerRiskProfiles: one row per organization, made when it is verified
+  // and updated by the MLRO, with the inputs kept next to the result so the
+  // rating can be worked out again (lib/risk.ts). Staff only: never return it
+  // to the organization (policy 12.3).
+  organizationRiskProfiles: defineTable({
+    organizationId: v.id("organizations"),
+
+    // Inputs.
+    residenceCountry: v.string(), // where it is registered
+    expectedAmountKes: v.number(),
+    pepOutcome: pepOutcomeValidator,
+    behaviour: riskLevelValidator,
+    complexStructure: v.boolean(),
+    highRiskSector: v.boolean(),
+    noOwnerIdentified: v.boolean(),
+    mlroFlagged: v.boolean(),
+    overrideRating: v.optional(riskLevelValidator),
+    overrideReason: v.optional(v.string()),
+
+    // Result.
+    rating: riskLevelValidator,
+    computedRating: riskLevelValidator,
+    factors: riskFactorsValidator,
+    eddReasons: v.array(eddReasonValidator),
+    ratedAt: v.number(),
+    ratedBy: v.id("users"),
+    nextReviewDue: v.number(),
+
+    // The enhanced due diligence record, once done. Cleared when a new reason
+    // for it turns up, so it has to be done again.
+    eddCompletedAt: v.optional(v.number()),
+    eddCompletedBy: v.optional(v.id("users")),
+    sourceOfFunds: v.optional(v.string()),
+    sourceOfWealth: v.optional(v.string()),
+    eddNote: v.optional(v.string()),
+  }).index("by_organizationId", ["organizationId"]),
 
   // Verification files an organization uploads when it is created. One row per
   // file (a slot like OFFICIAL_IDS can hold several). Reviewed per document so
@@ -385,6 +459,9 @@ export default defineSchema({
       v.literal("RISK_OVERRIDDEN"),
       v.literal("EDD_FLAGGED"),
       v.literal("EDD_RECORDED"),
+      v.literal("ORGANIZATION_ESCALATED"),
+      v.literal("BENEFICIAL_OWNER_ADDED"),
+      v.literal("BENEFICIAL_OWNER_REMOVED"),
     ),
     organizationId: v.optional(v.id("organizations")),
     fundraiserId: v.optional(v.id("fundraisers")),

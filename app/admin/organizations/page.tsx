@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -71,7 +72,19 @@ function OrganizationQueue({
         <TableBody>
           {organizations.map((org) => (
             <TableRow key={org._id}>
-              <TableCell className="font-medium">{org.name}</TableCell>
+              <TableCell className="font-medium">
+                <div className="flex flex-wrap items-center gap-2">
+                  {org.name}
+                  {status === "PENDING_REVIEW" && org.escalated && (
+                    <Badge variant="outline">With the MLRO</Badge>
+                  )}
+                  {status === "PENDING_REVIEW" &&
+                    !org.escalated &&
+                    org.needsMlro && (
+                      <Badge variant="outline">Needs the MLRO</Badge>
+                    )}
+                </div>
+              </TableCell>
               <TableCell>
                 {org.organizationType
                   ? ORGANIZATION_REQUIREMENTS[org.organizationType].label
