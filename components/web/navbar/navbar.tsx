@@ -50,7 +50,7 @@ export function Navbar() {
             <div className="flex w-full justify-between lg:w-auto">
               <Link
                 href="/"
-                aria-label="GoUpLift home"
+                aria-label="GoUplift home"
                 className="flex items-center gap-2"
               >
                 <Logo size={40} className="h-10 w-10 shrink-0" />

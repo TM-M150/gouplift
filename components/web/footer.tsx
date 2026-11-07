@@ -125,7 +125,7 @@ export function Footer() {
         {/* Copyright Footer Line */}
         <div className="mt-16 border-t border-border/40 pt-8">
           <span className="text-muted-foreground text-sm">
-            &copy; GoupLift {new Date().getFullYear()}
+            &copy; GoUplift {new Date().getFullYear()}
           </span>
         </div>
       </div>
