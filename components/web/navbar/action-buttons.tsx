@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import {
   ChevronDown,
   LogOut,
+  ShieldCheck,
   User,
+  Wallet,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery } from "convex/react";
@@ -92,6 +94,20 @@ export function ActionButtons({ onNavigate, className = "" }: ActionButtonsProps
             >
               <User className="mr-2 size-4" />
               <span>Create Fundraiser</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => handleNavigate("/verification")}
+              className="cursor-pointer h-4"
+            >
+              <ShieldCheck className="mr-2 size-4" />
+              <span>Verification</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => handleNavigate("/payouts")}
+              className="cursor-pointer h-4"
+            >
+              <Wallet className="mr-2 size-4" />
+              <span>Payouts</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem

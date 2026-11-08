@@ -1,3 +1,4 @@
+import { cache } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { fetchQuery } from "convex/nextjs";
@@ -12,13 +13,16 @@ type Props = {
   params: Promise<{ slug: string }>;
 };
 
+// generateMetadata and the page both need the organization; cache() makes
+// them share one query per request.
+const getOrganization = cache((slug: string) =>
+  fetchQuery(api.organizations.getPublicOrganization, { slug }),
+);
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
 
-  const organization = await fetchQuery(
-    api.organizations.getPublicOrganizationBySlug,
-    { slug },
-  );
+  const organization = await getOrganization(slug);
 
   if (!organization) {
     return {
@@ -38,10 +42,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function OrganizationPage({ params }: Props) {
   const { slug } = await params;
 
-  const organization = await fetchQuery(
-    api.organizations.getPublicOrganizationBySlug,
-    { slug },
-  );
+  const organization = await getOrganization(slug);
 
   if (!organization) {
     notFound();
