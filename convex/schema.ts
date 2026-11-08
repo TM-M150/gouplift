@@ -174,6 +174,10 @@ export default defineSchema({
     exchangeRate: v.optional(v.number()), // USD->KES rate used at capture time
 
     message: v.optional(v.string()),
+    // The donor ticked "share my message as a testimonial". Only ever set for
+    // a signed-in donor with a message, and only a request: the testimonials
+    // table decides whether it is queued, and staff decide whether it is shown.
+    shareAsTestimonial: v.optional(v.boolean()),
 
     // Where the donation was started. Missing on every donation made before
     // this field existed, and treated as "WEB".
@@ -441,6 +445,35 @@ export default defineSchema({
 
   // Who did what in the admin area. Written by every staff decision so a
   // verification (which later unlocks payouts) can always be traced.
+  // A donor's message, offered as a public testimonial. One row per donation,
+  // created only when the donor opted in and was an approved-KYC person at the
+  // time. Nothing is shown until staff approve it, and the public list checks
+  // again that the donation still stands and the author is still verified.
+  // message and authorName are snapshots, so later edits to a profile or
+  // donation can't change what staff approved.
+  testimonials: defineTable({
+    donationId: v.id("donations"),
+    authorUserId: v.id("users"),
+    fundraiserId: v.id("fundraisers"),
+    authorName: v.string(), // first name and last initial only
+    message: v.string(),
+    status: v.union(
+      v.literal("PENDING"),
+      v.literal("APPROVED"),
+      v.literal("REJECTED"),
+      v.literal("WITHDRAWN"),
+    ),
+    reviewedBy: v.optional(v.id("users")),
+    reviewedAt: v.optional(v.number()),
+    reviewNote: v.optional(v.string()), // the reason, when rejected
+    approvedAt: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index("by_donationId", ["donationId"])
+    .index("by_status_and_createdAt", ["status", "createdAt"])
+    .index("by_status_and_approvedAt", ["status", "approvedAt"])
+    .index("by_authorUserId", ["authorUserId"]),
+
   adminAuditLog: defineTable({
     actorId: v.id("users"),
     action: v.union(
@@ -462,9 +495,12 @@ export default defineSchema({
       v.literal("ORGANIZATION_ESCALATED"),
       v.literal("BENEFICIAL_OWNER_ADDED"),
       v.literal("BENEFICIAL_OWNER_REMOVED"),
+      v.literal("TESTIMONIAL_APPROVED"),
+      v.literal("TESTIMONIAL_REJECTED"),
     ),
     organizationId: v.optional(v.id("organizations")),
     fundraiserId: v.optional(v.id("fundraisers")),
+    testimonialId: v.optional(v.id("testimonials")),
     kycSubmissionId: v.optional(v.id("kycSubmissions")),
     payoutAccountId: v.optional(v.id("payoutAccounts")),
     documentId: v.optional(v.id("organizationDocuments")),
