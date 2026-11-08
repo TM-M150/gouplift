@@ -188,7 +188,7 @@ export default async function FundraiserPage({
                 </div>
                 <p className="text-sm text-muted-foreground">
                   {fundraiser.donorCount}{" "}
-                  {fundraiser.donorCount === 1 ? "donor" : "donors"} ·{" "}
+                  {fundraiser.donorCount === 1 ? "donation" : "donations"} ·{" "}
                   {progress}% funded
                 </p>
               </div>

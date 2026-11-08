@@ -10,6 +10,7 @@ import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { authComponent } from "./auth";
 import { PLATFORM_FEE_RATE, resolveReturnOrigin } from "./lib/constants";
+import { creditCompletedDonation } from "./lib/fundraiserTotals";
 
 function roundToCents(amount: number): number {
   return Math.round(amount * 100) / 100;
@@ -388,14 +389,12 @@ export const markDonationCompleted = internalMutation({
       updatedAt: now,
     });
 
-    const fundraiser = await ctx.db.get(donation.fundraiserId);
-    if (fundraiser) {
-      await ctx.db.patch(donation.fundraiserId, {
-        amountRaised: fundraiser.amountRaised + donation.grossAmount,
-        donorCount: fundraiser.donorCount + 1,
-        updatedAt: now,
-      });
-    }
+    await creditCompletedDonation(
+      ctx,
+      donation.fundraiserId,
+      donation.grossAmount,
+      now,
+    );
   },
 });
 

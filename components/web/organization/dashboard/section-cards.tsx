@@ -81,10 +81,10 @@ export function SectionCards({ organizationId }: SectionCardsProps) {
         </CardFooter>
       </Card>
 
-      {/* Total Donors */}
+      {/* Total Donations */}
       <Card className="@container/card">
         <CardHeader>
-          <CardDescription>Total Donors</CardDescription>
+          <CardDescription>Total Donations</CardDescription>
           <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
             {isLoading ? "—" : totalDonors.toLocaleString()}
           </CardTitle>
@@ -94,9 +94,11 @@ export function SectionCards({ organizationId }: SectionCardsProps) {
         </CardHeader>
         <CardFooter className="flex-col items-start gap-1.5 text-sm">
           <div className="line-clamp-1 flex gap-2 font-medium">
-            Supporters across campaigns
+            Gifts across campaigns
           </div>
-          <div className="text-muted-foreground">Sum of fundraiser donors</div>
+          <div className="text-muted-foreground">
+            Completed donations, all fundraisers
+          </div>
         </CardFooter>
       </Card>
 

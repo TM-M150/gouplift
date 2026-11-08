@@ -250,7 +250,7 @@ const columns = columnHelper.columns([
     },
   }),
   columnHelper.accessor("donorCount", {
-    header: () => <div className="text-right">Donors</div>,
+    header: () => <div className="text-right">Donations</div>,
     cell: ({ row }) => (
       <div className="text-right tabular-nums">
         {row.original.donorCount.toLocaleString()}

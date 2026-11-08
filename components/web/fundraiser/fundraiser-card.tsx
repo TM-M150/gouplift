@@ -81,7 +81,7 @@ export function FundraiserCard({
 
           <p className="text-xs text-muted-foreground">
             {fundraiser.donorCount}{" "}
-            {fundraiser.donorCount === 1 ? "donor" : "donors"}
+            {fundraiser.donorCount === 1 ? "donation" : "donations"}
           </p>
         </CardContent>
       </Card>
