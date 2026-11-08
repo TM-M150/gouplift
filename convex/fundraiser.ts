@@ -7,12 +7,6 @@ import {
   fundraiserUpdateSchema,
 } from "../lib/validations/fundraiser";
 
-function requireModerator(user: Doc<"users">) {
-  if (user.role !== "ADMIN" && user.role !== "MODERATOR") {
-    throw new ConvexError("You don't have permission to do that.");
-  }
-}
-
 function requireOwner(user: Doc<"users">, fundraiser: Doc<"fundraisers">) {
   if (fundraiser.creatorId !== user._id && user.role !== "ADMIN") {
     throw new ConvexError(
@@ -84,13 +78,16 @@ export const createFundraiser = mutation({
       if (!organization) {
         throw new ConvexError("Organization not found.");
       }
+      if (organization.verificationStatus === "REJECTED") {
+        throw new ConvexError("This organization can't run fundraisers.");
+      }
 
       // Denormalized cache for display without a join — the real linked
       // org's actual name wins over whatever free-text name was passed.
       organizationName = organization.name;
     }
 
-    const parsed = fundraiserSchema.safeParse(args);
+    const parsed = fundraiserSchema.safeParse({ ...args, organizationName });
     if (!parsed.success) {
       throw new ConvexError(
         parsed.error.issues[0]?.message ?? "Invalid profile data",

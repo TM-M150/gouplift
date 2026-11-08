@@ -10,6 +10,11 @@ import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { authComponent } from "./auth";
 import { PLATFORM_FEE_RATE, resolveReturnOrigin } from "./lib/constants";
+import { assertAcceptsDonations } from "./lib/donationGate";
+import {
+  clientDonationSourceValidator,
+  donationSourceValidator,
+} from "./lib/donationSource";
 
 function roundToCents(amount: number): number {
   return Math.round(amount * 100) / 100;
@@ -111,6 +116,8 @@ export const startDonationCheckout = action({
     // Pass window.location.origin from the client — validated against
     // ALLOWED_APP_ORIGINS below, not trusted as-is.
     origin: v.string(),
+    // Attribution only. Omit for a normal GoUplift checkout.
+    source: v.optional(clientDonationSourceValidator),
   },
   handler: async (
     ctx,
@@ -160,6 +167,7 @@ export const startDonationCheckout = action({
         donorName: args.donorName,
         donorEmail: args.donorEmail,
         donorPhone: args.donorPhone,
+        source: args.source,
       },
     );
 
@@ -282,6 +290,7 @@ export const createPendingDonation = internalMutation({
     donorName: v.optional(v.string()),
     donorEmail: v.optional(v.string()),
     donorPhone: v.optional(v.string()),
+    source: v.optional(donationSourceValidator),
     // paymentMethod is NOT collected here — with the hosted Checkout API,
     // the donor picks their method on SasaPay's page, so it's only known
     // once the callback reports it. See markDonationCompleted below.
@@ -290,6 +299,10 @@ export const createPendingDonation = internalMutation({
     if (args.grossAmount <= 0) {
       throw new Error("Donation amount must be greater than 0.");
     }
+
+    // Refuse a missing or closed fundraiser here, in the transaction that
+    // creates the donation, before anything is sent to SasaPay.
+    await assertAcceptsDonations(ctx, args.fundraiserId);
 
     const platformFeeAmount = roundToCents(
       args.grossAmount * PLATFORM_FEE_RATE,
@@ -307,6 +320,7 @@ export const createPendingDonation = internalMutation({
       grossAmount: args.grossAmount,
       currency: args.currency,
       message: args.message,
+      source: args.source,
       platformFeeRate: PLATFORM_FEE_RATE,
       platformFeeAmount,
       netAmount,
@@ -396,6 +410,16 @@ export const markDonationCompleted = internalMutation({
         updatedAt: now,
       });
     }
+
+    // Tell the organization's webhooks, if it has any. Scheduled rather than
+    // called so that nothing about webhooks can hold up or undo recording a
+    // payment; the early return above keeps a redelivered callback from
+    // queueing a second event.
+    await ctx.scheduler.runAfter(
+      0,
+      internal.webhookDelivery.enqueueDonationCompleted,
+      { donationId: args.donationId },
+    );
   },
 });
 

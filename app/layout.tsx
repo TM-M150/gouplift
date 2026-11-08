@@ -66,9 +66,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <ConvexClientProvider>
-          <TooltipProvider>
-            {children}
-          </TooltipProvider>
+          <TooltipProvider>{children}</TooltipProvider>
           <Toaster position="bottom-right" richColors />
           <Analytics />
           <SpeedInsights />

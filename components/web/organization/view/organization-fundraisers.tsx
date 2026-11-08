@@ -16,10 +16,9 @@ interface OrganizationFundraisersProps {
 export function OrganizationFundraisers({
   organizationId,
 }: OrganizationFundraisersProps) {
-  const fundraisers = useQuery(
-    api.organizations.getPublicFundraisersByOrganization,
-    { organizationId },
-  );
+  const fundraisers = useQuery(api.organizations.listOrganizationFundraisers, {
+    organizationId,
+  });
 
   if (!fundraisers || fundraisers.length === 0) {
     return null;
@@ -58,7 +57,7 @@ export function OrganizationFundraisers({
               <div className="relative mb-6 flex h-full min-h-[340px] flex-col sm:mb-0">
                 <div className="relative h-full w-full overflow-hidden rounded-2xl bg-gradient-to-b from-zinc-300 to-transparent p-px dark:from-zinc-700">
                   <Image
-                    src={fundraiser.coverImage || defaultCover}
+                    src={fundraiser.coverImageUrl || defaultCover}
                     className="object-cover rounded-2xl"
                     alt={fundraiser.title}
                     fill
@@ -86,7 +85,7 @@ export function OrganizationFundraisers({
                 {/* Story Snippet */}
                 <div className="border-l-4 border-primary/40 pl-4 py-1">
                   <p className="text-muted-foreground line-clamp-3 leading-relaxed">
-                    {fundraiser.story}
+                    {fundraiser.storySnippet}
                   </p>
                 </div>
 

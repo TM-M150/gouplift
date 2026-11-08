@@ -10,8 +10,33 @@ import type { QueryCtx, MutationCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { authComponent } from "./auth";
+import {
+  getDocumentSlots,
+  type DocumentType,
+} from "../lib/organization-verification";
+import { organizationDetailsSchema } from "../lib/validations/organization";
+import {
+  checkStoredDocument,
+  describeFileProblem,
+  findPendingUpload,
+} from "./lib/documentFiles";
+import { beneficialOwnerInputValidator } from "./lib/beneficialOwnerValidators";
+import {
+  documentTypeValidator,
+  organizationTypeValidator,
+} from "./lib/organizationValidators";
+import { expectedTimelineValidator } from "./lib/riskValidators";
+import {
+  isPubliclyVisible,
+  loadPublicFundraisers,
+  loadPublicOrganizationBySlug,
+  toPublicOrganizationSummary,
+} from "./lib/publicOrganizations";
+import { generateUniqueOrganizationSlug } from "./lib/slug";
 
 const INVITE_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+const DASHBOARD_FUNDRAISER_LIST_LIMIT = 200;
+const MAX_DOCUMENT_FILE_NAME_LENGTH = 200;
 
 function resolveReturnOrigin(requestedOrigin: string): string {
   const allowed = (process.env.ALLOWED_APP_ORIGINS ?? "")
@@ -23,15 +48,6 @@ function resolveReturnOrigin(requestedOrigin: string): string {
     return requestedOrigin;
   }
   return allowed[0] ?? requestedOrigin;
-}
-
-function slugify(text: string) {
-  return text
-    .toLowerCase()
-    .trim()
-    .replace(/[^\w\s-]/g, "")
-    .replace(/[\s_-]+/g, "-")
-    .replace(/^-+|-+$/g, "");
 }
 
 async function getMembership(
@@ -47,27 +63,6 @@ async function getMembership(
     .unique();
 }
 
-export const getPublicOrganizationBySlug = query({
-  args: { slug: v.string() },
-  handler: async (ctx, args) => {
-    const organization = await ctx.db
-      .query("organizations")
-      .withIndex("by_slug", (q) => q.eq("slug", args.slug))
-      .unique();
-
-    if (!organization) return null;
-
-    return {
-      _id: organization._id,
-      name: organization.name,
-      description: organization.description,
-      logoUrl: organization.logoUrl,
-      heroVideoUrl: organization.heroVideoUrl,
-      heroImageUrl: organization.heroImageUrl,
-    };
-  },
-});
-
 export const getUserByAuthUserId = internalQuery({
   args: { authUserId: v.string() },
   handler: async (ctx, args) => {
@@ -75,43 +70,6 @@ export const getUserByAuthUserId = internalQuery({
       .query("users")
       .withIndex("by_authUserId", (q) => q.eq("authUserId", args.authUserId))
       .unique();
-  },
-});
-
-export const getPublicFundraisersByOrganization = query({
-  args: {
-    organizationId: v.id("organizations"),
-  },
-  handler: async (ctx, args) => {
-    const allFundraisers = await ctx.db
-      .query("fundraisers")
-      .withIndex("by_organizationId", (q) =>
-        q.eq("organizationId", args.organizationId),
-      )
-      .collect();
-
-    const active = allFundraisers.filter(
-      (f) => f.status === "ACTIVE" && !f.isPrivate,
-    );
-
-    return await Promise.all(
-      active.map(async (f) => ({
-        _id: f._id,
-        title: f.title,
-        tagline: f.tagline,
-        story: f.story,
-        coverImage:
-          f.coverImage ??
-          (f.coverImageStorageId
-            ? await ctx.storage.getUrl(f.coverImageStorageId)
-            : undefined),
-        goalAmount: f.goalAmount,
-        amountRaised: f.amountRaised,
-        donorCount: f.donorCount,
-        currency: f.currency,
-        type: f.type,
-      })),
-    );
   },
 });
 
@@ -139,13 +97,36 @@ export const getMyMembershipRole = query({
   },
 });
 
+// An organization is created together with the documents that prove it exists.
+// The files are uploaded to Convex storage first and registered (see
+// documentUploads.ts), then referenced here by storageId. Only files this user
+// registered can be attached, and everything else about a file (type, size) is
+// read from storage rather than trusted from the client.
 export const createOrganization = mutation({
   args: {
     name: v.string(),
+    organizationType: organizationTypeValidator,
+    registrationNumber: v.string(),
     description: v.optional(v.string()),
     website: v.optional(v.string()),
     contactEmail: v.optional(v.string()),
     contactPhone: v.optional(v.string()),
+    // What it declares about itself and who owns or controls it (policy 5.7,
+    // 5.8, 6, 7, 9). The reviewer checks all of it against the documents.
+    registeredCountry: v.string(),
+    expectedAmountKes: v.number(),
+    expectedTimeline: expectedTimelineValidator,
+    beneficialOwners: v.array(beneficialOwnerInputValidator),
+    pepDeclared: v.boolean(),
+    pepDetails: v.optional(v.string()),
+    prohibitedActivitiesAcknowledged: v.boolean(),
+    documents: v.array(
+      v.object({
+        documentType: documentTypeValidator,
+        storageId: v.id("_storage"),
+        fileName: v.string(),
+      }),
+    ),
   },
   handler: async (ctx, args) => {
     const authUser = await authComponent.safeGetAuthUser(ctx);
@@ -161,32 +142,113 @@ export const createOrganization = mutation({
       throw new ConvexError("User profile not found.");
     }
 
-    const name = args.name.trim();
-    if (!name) {
-      throw new ConvexError("Organization name is required.");
+    const parsed = organizationDetailsSchema.safeParse(args);
+    if (!parsed.success) {
+      throw new ConvexError(
+        parsed.error.issues[0]?.message ?? "Invalid organization details.",
+      );
+    }
+    const details = parsed.data;
+    const name = details.name;
+
+    // 1. Shape check: only documents this type of organization is asked for,
+    //    within each slot's file limit, with every required slot filled.
+    const slots = getDocumentSlots(details.organizationType);
+    const slotByType = new Map(slots.map((slot) => [slot.documentType, slot]));
+    const countByType = new Map<DocumentType, number>();
+    const seenStorageIds = new Set<string>();
+
+    for (const doc of args.documents) {
+      const slot = slotByType.get(doc.documentType);
+      if (!slot) {
+        throw new ConvexError(
+          "A document was attached that isn't needed for this type of organization.",
+        );
+      }
+
+      const count = (countByType.get(doc.documentType) ?? 0) + 1;
+      if (count > slot.maxFiles) {
+        throw new ConvexError(
+          `${slot.label}: you can upload at most ${slot.maxFiles} file${slot.maxFiles === 1 ? "" : "s"}.`,
+        );
+      }
+      countByType.set(doc.documentType, count);
+
+      if (seenStorageIds.has(doc.storageId)) {
+        throw new ConvexError("The same file was attached more than once.");
+      }
+      seenStorageIds.add(doc.storageId);
     }
 
-    // Generate unique slug base
-    let slug = slugify(name);
-    const existing = await ctx.db
-      .query("organizations")
-      .withIndex("by_slug", (q) => q.eq("slug", slug))
-      .unique();
-
-    // Append a short random suffix if a duplicate slug exists
-    if (existing) {
-      slug = `${slug}-${Math.random().toString(36).substring(2, 7)}`;
+    const missing = slots.filter(
+      (slot) => slot.required && !countByType.has(slot.documentType),
+    );
+    if (missing.length > 0) {
+      throw new ConvexError(
+        `Missing required documents: ${missing.map((slot) => slot.label).join(", ")}.`,
+      );
     }
+
+    // 2. File check: every file must be one this user registered (which also
+    //    means it can't be attached twice, or by someone else), and it is
+    //    checked against storage again so what is saved is what was approved.
+    const verifiedDocuments: Array<{
+      documentType: DocumentType;
+      storageId: Id<"_storage">;
+      fileName: string;
+      contentType: string;
+      size: number;
+    }> = [];
+    const claimedUploads: Array<Id<"pendingUploads">> = [];
+
+    for (const doc of args.documents) {
+      const fileName =
+        doc.fileName.trim().slice(0, MAX_DOCUMENT_FILE_NAME_LENGTH) ||
+        "document";
+
+      const pending = await findPendingUpload(ctx, doc.storageId);
+      if (!pending || pending.userId !== user._id) {
+        throw new ConvexError(describeFileProblem("MISSING", fileName));
+      }
+
+      const check = await checkStoredDocument(ctx, doc.storageId);
+      if (!check.ok) {
+        throw new ConvexError(describeFileProblem(check.reason, fileName));
+      }
+
+      verifiedDocuments.push({
+        documentType: doc.documentType,
+        storageId: doc.storageId,
+        fileName,
+        contentType: check.contentType,
+        size: check.size,
+      });
+      claimedUploads.push(pending._id);
+    }
+
+    const slug = await generateUniqueOrganizationSlug(ctx, name);
 
     const now = Date.now();
+    // Submitting the documents is part of creating the organization, so it
+    // starts out waiting for an admin to review it.
     const organizationId = await ctx.db.insert("organizations", {
       name,
       slug,
-      description: args.description,
-      website: args.website,
-      contactEmail: args.contactEmail,
-      contactPhone: args.contactPhone,
-      verificationStatus: "UNVERIFIED",
+      organizationType: details.organizationType,
+      registrationNumber: details.registrationNumber,
+      description: details.description,
+      website: details.website,
+      contactEmail: details.contactEmail,
+      contactPhone: details.contactPhone,
+      registeredCountry: details.registeredCountry,
+      expectedAmountKes: details.expectedAmountKes,
+      expectedTimeline: details.expectedTimeline,
+      pepDeclared: details.pepDeclared,
+      // Details of a PEP only make sense for someone who said there is one.
+      pepDetails: details.pepDeclared ? details.pepDetails : undefined,
+      prohibitedActivitiesAcknowledged: details.prohibitedActivitiesAcknowledged,
+      verificationStatus: "PENDING_REVIEW",
+      verificationSubmittedAt: now,
       createdBy: user._id,
       createdAt: now,
       updatedAt: now,
@@ -198,6 +260,31 @@ export const createOrganization = mutation({
       role: "OWNER",
       joinedAt: now,
     });
+
+    for (const owner of details.beneficialOwners) {
+      await ctx.db.insert("organizationBeneficialOwners", {
+        organizationId,
+        ...owner,
+        addedBy: user._id,
+        createdAt: now,
+      });
+    }
+
+    for (const doc of verifiedDocuments) {
+      await ctx.db.insert("organizationDocuments", {
+        organizationId,
+        ...doc,
+        uploadedBy: user._id,
+        reviewStatus: "PENDING",
+        createdAt: now,
+      });
+    }
+
+    // The files belong to the organization now, so they stop being "pending"
+    // and the clean-up of old uploads leaves them alone.
+    for (const pendingId of claimedUploads) {
+      await ctx.db.delete(pendingId);
+    }
 
     return { organizationId, slug };
   },
@@ -352,6 +439,34 @@ export const acceptInvite = mutation({
   },
 });
 
+// Compliance fields of an organization (AML policy 5.7, 12.3). Staff see them
+// in the review screens; the organization's own members never do, above all
+// not the flag that a reviewer passed it to the MLRO, which must not tip them
+// off. Everything a member gets back goes through here.
+const STAFF_ONLY_ORGANIZATION_FIELDS = [
+  "escalatedAt",
+  "confirmedChecks",
+  "registeredCountry",
+  "expectedAmountKes",
+  "expectedTimeline",
+  "pepDeclared",
+  "pepDetails",
+  "prohibitedActivitiesAcknowledged",
+] as const;
+
+type MemberOrganization = Omit<
+  Doc<"organizations">,
+  (typeof STAFF_ONLY_ORGANIZATION_FIELDS)[number]
+>;
+
+export function toMemberOrganization(
+  org: Doc<"organizations">,
+): MemberOrganization {
+  const view: Partial<Doc<"organizations">> = { ...org };
+  for (const field of STAFF_ONLY_ORGANIZATION_FIELDS) delete view[field];
+  return view as MemberOrganization;
+}
+
 export const getOrganizationBySlug = query({
   args: { slug: v.string() },
   handler: async (ctx, args) => {
@@ -378,9 +493,28 @@ export const getOrganizationBySlug = query({
 
     if (!membership) return null;
 
-    return organization;
+    return toMemberOrganization(organization);
   },
 });
+
+// Every fundraiser an organization has, read through by_organizationId so the
+// cost follows the organization's own fundraisers rather than every
+// fundraiser on the platform. Iterated rather than .take()n because the
+// dashboard totals must include all of them; a silent cap would under-report.
+async function readOrganizationFundraisers(
+  ctx: QueryCtx,
+  organizationId: Id<"organizations">,
+) {
+  const fundraisers: Doc<"fundraisers">[] = [];
+  for await (const fundraiser of ctx.db
+    .query("fundraisers")
+    .withIndex("by_organizationId", (q) =>
+      q.eq("organizationId", organizationId),
+    )) {
+    fundraisers.push(fundraiser);
+  }
+  return fundraisers;
+}
 
 export const getDonationStats = query({
   args: {
@@ -400,11 +534,9 @@ export const getDonationStats = query({
     const membership = await getMembership(ctx, args.organizationId, user._id);
     if (!membership) return [];
 
-    // Get all fundraisers belonging to this organization
-    // NOTE: Add .index("by_organizationId", ["organizationId"]) on fundraisers for better performance
-    const allFundraisers = await ctx.db.query("fundraisers").collect();
-    const orgFundraisers = allFundraisers.filter(
-      (f) => f.organizationId === args.organizationId,
+    const orgFundraisers = await readOrganizationFundraisers(
+      ctx,
+      args.organizationId,
     );
 
     if (orgFundraisers.length === 0) return [];
@@ -416,15 +548,14 @@ export const getDonationStats = query({
     const dailyTotals = new Map<string, number>();
 
     for (const fundraiser of orgFundraisers) {
-      const donations = await ctx.db
+      // Only COMPLETED donations are read at all, not filtered afterwards.
+      const completedDonations = ctx.db
         .query("donations")
-        .withIndex("by_fundraiserId", (q) =>
-          q.eq("fundraiserId", fundraiser._id),
-        )
-        .collect();
+        .withIndex("by_fundraiserId_and_status", (q) =>
+          q.eq("fundraiserId", fundraiser._id).eq("status", "COMPLETED"),
+        );
 
-      for (const donation of donations) {
-        if (donation.status !== "COMPLETED") continue;
+      for await (const donation of completedDonations) {
         if (donation.completedAt === undefined) continue;
         if (donation.completedAt < startTime) continue;
 
@@ -486,9 +617,9 @@ export const getOrganizationDashboardStats = query({
       };
     }
 
-    const allFundraisers = await ctx.db.query("fundraisers").collect();
-    const orgFundraisers = allFundraisers.filter(
-      (f) => f.organizationId === args.organizationId,
+    const orgFundraisers = await readOrganizationFundraisers(
+      ctx,
+      args.organizationId,
     );
 
     let totalRaised = 0;
@@ -507,15 +638,13 @@ export const getOrganizationDashboardStats = query({
     let completedTotal = 0;
 
     for (const fundraiser of orgFundraisers) {
-      const donations = await ctx.db
+      const completed = ctx.db
         .query("donations")
-        .withIndex("by_fundraiserId", (q) =>
-          q.eq("fundraiserId", fundraiser._id),
-        )
-        .collect();
+        .withIndex("by_fundraiserId_and_status", (q) =>
+          q.eq("fundraiserId", fundraiser._id).eq("status", "COMPLETED"),
+        );
 
-      for (const d of donations) {
-        if (d.status !== "COMPLETED") continue;
+      for await (const d of completed) {
         completedDonations += 1;
         completedTotal += d.netAmount ?? 0;
       }
@@ -546,11 +675,11 @@ export const getMyOrganizations = query({
       .unique();
     if (!user) return [];
 
-    // Get all memberships for this user
+    // Get this user's memberships (by_userId, same bound as listMyOrganizations)
     const memberships = await ctx.db
       .query("organizationMembers")
-      .filter((q) => q.eq(q.field("userId"), user._id))
-      .collect();
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .take(50);
 
     // Fetch the organization details for each membership
     const orgs = await Promise.all(
@@ -558,7 +687,7 @@ export const getMyOrganizations = query({
         const org = await ctx.db.get(membership.organizationId);
         if (!org) return null;
         return {
-          ...org,
+          ...toMemberOrganization(org),
           role: membership.role,
         };
       }),
@@ -585,62 +714,35 @@ export const listFundraisersByOrganization = query({
     const membership = await getMembership(ctx, args.organizationId, user._id);
     if (!membership) return [];
 
-    const allFundraisers = await ctx.db.query("fundraisers").collect();
-    const orgFundraisers = allFundraisers.filter(
-      (f) => f.organizationId === args.organizationId,
-    );
+    // Newest first. This is a list the dashboard renders, so it is capped
+    // (the stats above iterate every fundraiser; this one only displays them).
+    const orgFundraisers = await ctx.db
+      .query("fundraisers")
+      .withIndex("by_organizationId", (q) =>
+        q.eq("organizationId", args.organizationId),
+      )
+      .order("desc")
+      .take(DASHBOARD_FUNDRAISER_LIST_LIMIT);
 
-    return orgFundraisers
-      .map((f) => ({
-        id: f._id,
-        title: f.title,
-        type: f.type,
-        status: f.status,
-        goalAmount: f.goalAmount,
-        amountRaised: f.amountRaised,
-        donorCount: f.donorCount,
-        currency: f.currency,
-      }))
-      .sort((a, b) => b.id.localeCompare(a.id));
+    return orgFundraisers.map((f) => ({
+      id: f._id,
+      title: f.title,
+      type: f.type,
+      status: f.status,
+      goalAmount: f.goalAmount,
+      amountRaised: f.amountRaised,
+      donorCount: f.donorCount,
+      currency: f.currency,
+    }));
   },
 });
 
 const BROWSE_SCAN_LIMIT = 60;
 const BROWSE_LIMIT = 24;
 const SEARCH_LIMIT = 20;
-const FUNDRAISER_LIMIT = 24;
-
-function isPubliclyVisible(org: Doc<"organizations">) {
-  return org.verificationStatus !== "REJECTED";
-}
 
 function verifiedRank(org: Doc<"organizations">) {
   return org.verificationStatus === "VERIFIED" ? 0 : 1;
-}
-
-function safeWebsite(website?: string): string | null {
-  if (!website) return null;
-  try {
-    const url = new URL(website);
-    return url.protocol === "https:" || url.protocol === "http:"
-      ? url.href
-      : null;
-  } catch {
-    return null;
-  }
-}
-
-async function toPublicSummary(ctx: QueryCtx, org: Doc<"organizations">) {
-  return {
-    _id: org._id,
-    slug: org.slug,
-    name: org.name,
-    description: org.description ?? null,
-    isVerified: org.verificationStatus === "VERIFIED",
-    logoUrl: org.logoStorageId
-      ? await ctx.storage.getUrl(org.logoStorageId)
-      : (org.logoUrl ?? null),
-  };
 }
 
 export const listOrganizations = query({
@@ -656,7 +758,9 @@ export const listOrganizations = query({
       .sort((a, b) => verifiedRank(a) - verifiedRank(b)) // stable: verified first, newest within each group
       .slice(0, BROWSE_LIMIT);
 
-    return Promise.all(visible.map((org) => toPublicSummary(ctx, org)));
+    return Promise.all(
+      visible.map((org) => toPublicOrganizationSummary(ctx, org)),
+    );
   },
 });
 
@@ -672,7 +776,9 @@ export const searchOrganizations = query({
       .take(SEARCH_LIMIT);
 
     return Promise.all(
-      matches.filter(isPubliclyVisible).map((org) => toPublicSummary(ctx, org)),
+      matches
+        .filter(isPubliclyVisible)
+        .map((org) => toPublicOrganizationSummary(ctx, org)),
     );
   },
 });
@@ -680,49 +786,49 @@ export const searchOrganizations = query({
 export const getPublicOrganization = query({
   args: { slug: v.string() },
   handler: async (ctx, args) => {
-    const org = await ctx.db
-      .query("organizations")
-      .withIndex("by_slug", (q) => q.eq("slug", args.slug))
-      .unique();
-    if (!org || !isPubliclyVisible(org)) return null;
-
-    return {
-      ...(await toPublicSummary(ctx, org)),
-      website: safeWebsite(org.website),
-      createdAt: org.createdAt,
-    };
+    return await loadPublicOrganizationBySlug(ctx, args.slug);
   },
 });
 
 export const listOrganizationFundraisers = query({
   args: { organizationId: v.id("organizations") },
   handler: async (ctx, args) => {
-    const org = await ctx.db.get(args.organizationId);
-    if (!org || !isPubliclyVisible(org)) return [];
+    return await loadPublicFundraisers(ctx, args.organizationId);
+  },
+});
 
-    const fundraisers = await ctx.db
-      .query("fundraisers")
-      .withIndex("by_organizationId_and_status_and_isPrivate", (q) =>
-        q
-          .eq("organizationId", args.organizationId)
-          .eq("status", "ACTIVE")
-          .eq("isPrivate", false),
-      )
-      .order("desc")
-      .take(FUNDRAISER_LIMIT);
+export const listMyOrganizations = query({
+  args: {},
+  handler: async (ctx) => {
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+    if (!authUser) return [];
 
-    return Promise.all(
-      fundraisers.map(async (fundraiser) => ({
-        _id: fundraiser._id,
-        title: fundraiser.title,
-        goalAmount: fundraiser.goalAmount,
-        amountRaised: fundraiser.amountRaised,
-        donorCount: fundraiser.donorCount,
-        location: fundraiser.location,
-        coverImageUrl: fundraiser.coverImageStorageId
-          ? await ctx.storage.getUrl(fundraiser.coverImageStorageId)
-          : (fundraiser.coverImage ?? null),
-      })),
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authUserId", (q) => q.eq("authUserId", authUser._id))
+      .unique();
+    if (!user) return [];
+
+    const memberships = await ctx.db
+      .query("organizationMembers")
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .take(50);
+
+    const organizations = await Promise.all(
+      memberships.map(async (membership) => {
+        const org = await ctx.db.get(membership.organizationId);
+        // Rejected orgs 404 on their public page, so a fundraiser linked to
+        // one would be orphaned. Keep them out of the picker.
+        if (!org || org.verificationStatus === "REJECTED") return null;
+        return {
+          _id: org._id,
+          name: org.name,
+          isVerified: org.verificationStatus === "VERIFIED",
+          role: membership.role,
+        };
+      }),
     );
+
+    return organizations.filter((org) => org !== null);
   },
 });

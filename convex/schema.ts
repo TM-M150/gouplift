@@ -1,5 +1,40 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { donationSourceValidator } from "./lib/donationSource";
+import {
+  kycDocumentTypeValidator,
+  kycIdTypeValidator,
+  kycRequestedTierValidator,
+  kycReviewCheckValidator,
+  kycSubmissionStatusValidator,
+} from "./lib/kycValidators";
+import {
+  beneficialOwnerBasisValidator,
+  organizationReviewCheckValidator,
+} from "./lib/beneficialOwnerValidators";
+import {
+  documentTypeValidator,
+  organizationTypeValidator,
+} from "./lib/organizationValidators";
+import {
+  payoutAccountReviewCheckValidator,
+  payoutAccountStatusValidator,
+  payoutHolderValidator,
+  payoutMethodValidator,
+  payoutVerifiedViaValidator,
+} from "./lib/payoutAccountValidators";
+import {
+  eddReasonValidator,
+  expectedTimelineValidator,
+  pepOutcomeValidator,
+  riskFactorsValidator,
+  riskLevelValidator,
+} from "./lib/riskValidators";
+import {
+  webhookDeliveryStatusValidator,
+  webhookErrorValidator,
+  webhookEventTypeValidator,
+} from "./lib/webhookValidators";
 
 export default defineSchema({
   users: defineTable({
@@ -90,7 +125,7 @@ export default defineSchema({
     isVerified: v.boolean(),
     verifiedAt: v.optional(v.number()),
     verifiedBy: v.optional(v.string()),
-    rejectionReason: v.optional(v.id("users")),
+    rejectionReason: v.optional(v.string()),
     startDate: v.optional(v.number()),
     endDate: v.optional(v.number()),
     publishedAt: v.optional(v.number()),
@@ -139,6 +174,11 @@ export default defineSchema({
     exchangeRate: v.optional(v.number()), // USD->KES rate used at capture time
 
     message: v.optional(v.string()),
+
+    // Where the donation was started. Missing on every donation made before
+    // this field existed, and treated as "WEB".
+    source: v.optional(donationSourceValidator),
+
     platformFeeRate: v.number(),
     platformFeeAmount: v.number(),
     netAmount: v.number(),
@@ -270,14 +310,31 @@ export default defineSchema({
     contactEmail: v.optional(v.string()),
     contactPhone: v.optional(v.string()),
     registrationNumber: v.optional(v.string()),
+    // Optional so organizations created before document verification still validate.
+    organizationType: v.optional(organizationTypeValidator),
     verificationStatus: v.union(
       v.literal("UNVERIFIED"),
       v.literal("PENDING_REVIEW"),
       v.literal("VERIFIED"),
       v.literal("REJECTED"),
     ),
+    verificationSubmittedAt: v.optional(v.number()),
+    rejectionReason: v.optional(v.string()),
     verifiedAt: v.optional(v.number()),
     verifiedBy: v.optional(v.string()),
+    // What it declared when it applied (policy 5.7, 5.8, 7, 9). Organizations
+    // created before these were asked have none. The owners it named are in
+    // organizationBeneficialOwners.
+    registeredCountry: v.optional(v.string()), // ISO 3166-1 alpha-2
+    expectedAmountKes: v.optional(v.number()),
+    expectedTimeline: v.optional(expectedTimelineValidator),
+    pepDeclared: v.optional(v.boolean()),
+    pepDetails: v.optional(v.string()),
+    prohibitedActivitiesAcknowledged: v.optional(v.boolean()),
+    // Set when a reviewer passes it to the MLRO. Never shown to the owner.
+    escalatedAt: v.optional(v.number()),
+    // What the reviewer confirmed before verifying.
+    confirmedChecks: v.optional(v.array(organizationReviewCheckValidator)),
     createdBy: v.id("users"),
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -285,6 +342,313 @@ export default defineSchema({
     .index("by_verificationStatus", ["verificationStatus"])
     .index("by_slug", ["slug"])
     .searchIndex("search_name", { searchField: "name" }),
+
+  // Who owns or controls an organization (policy 5.4, 6): every natural person
+  // with 10% or more or who otherwise controls it, or its senior managing
+  // official where nobody does. Staff only: it holds ID numbers, so never
+  // return a row to the organization or the public.
+  organizationBeneficialOwners: defineTable({
+    organizationId: v.id("organizations"),
+    fullName: v.string(),
+    idType: kycIdTypeValidator,
+    idNumber: v.string(), // normalized: upper-case, no spaces
+    basis: beneficialOwnerBasisValidator,
+    ownershipPercent: v.optional(v.number()),
+    role: v.optional(v.string()),
+    residenceCountry: v.string(),
+    pepDeclared: v.boolean(),
+    addedBy: v.id("users"),
+    createdAt: v.number(),
+  }).index("by_organizationId", ["organizationId"]),
+
+  // How risky an organization is, and what enhanced due diligence has been
+  // done (policy 4.3, 7, 8). The organization's counterpart to
+  // customerRiskProfiles: one row per organization, made when it is verified
+  // and updated by the MLRO, with the inputs kept next to the result so the
+  // rating can be worked out again (lib/risk.ts). Staff only: never return it
+  // to the organization (policy 12.3).
+  organizationRiskProfiles: defineTable({
+    organizationId: v.id("organizations"),
+
+    // Inputs.
+    residenceCountry: v.string(), // where it is registered
+    expectedAmountKes: v.number(),
+    pepOutcome: pepOutcomeValidator,
+    behaviour: riskLevelValidator,
+    complexStructure: v.boolean(),
+    highRiskSector: v.boolean(),
+    noOwnerIdentified: v.boolean(),
+    mlroFlagged: v.boolean(),
+    overrideRating: v.optional(riskLevelValidator),
+    overrideReason: v.optional(v.string()),
+
+    // Result.
+    rating: riskLevelValidator,
+    computedRating: riskLevelValidator,
+    factors: riskFactorsValidator,
+    eddReasons: v.array(eddReasonValidator),
+    ratedAt: v.number(),
+    ratedBy: v.id("users"),
+    nextReviewDue: v.number(),
+
+    // The enhanced due diligence record, once done. Cleared when a new reason
+    // for it turns up, so it has to be done again.
+    eddCompletedAt: v.optional(v.number()),
+    eddCompletedBy: v.optional(v.id("users")),
+    sourceOfFunds: v.optional(v.string()),
+    sourceOfWealth: v.optional(v.string()),
+    eddNote: v.optional(v.string()),
+  }).index("by_organizationId", ["organizationId"]),
+
+  // Verification files an organization uploads when it is created. One row per
+  // file (a slot like OFFICIAL_IDS can hold several). Reviewed per document so
+  // an admin can ask for a single file to be replaced.
+  organizationDocuments: defineTable({
+    organizationId: v.id("organizations"),
+    documentType: documentTypeValidator,
+    storageId: v.id("_storage"),
+    fileName: v.string(),
+    contentType: v.string(),
+    size: v.number(),
+    uploadedBy: v.id("users"),
+    reviewStatus: v.union(
+      v.literal("PENDING"),
+      v.literal("APPROVED"),
+      v.literal("REJECTED"),
+    ),
+    reviewNote: v.optional(v.string()),
+    reviewedAt: v.optional(v.number()),
+    reviewedBy: v.optional(v.id("users")),
+    createdAt: v.number(),
+  })
+    .index("by_organizationId", ["organizationId"])
+    .index("by_organizationId_and_documentType", [
+      "organizationId",
+      "documentType",
+    ])
+    .index("by_storageId", ["storageId"]),
+
+  // Verification files someone has uploaded and registered but not yet
+  // submitted. createOrganization claims (deletes) the rows for the files it
+  // attaches; the sweep in documentUploads.ts deletes the rest, and their files,
+  // once they are a day old. See documentUploads.ts for the whole lifecycle.
+  pendingUploads: defineTable({
+    storageId: v.id("_storage"),
+    userId: v.id("users"),
+  })
+    .index("by_storageId", ["storageId"])
+    .index("by_userId", ["userId"]),
+
+  // Who did what in the admin area. Written by every staff decision so a
+  // verification (which later unlocks payouts) can always be traced.
+  adminAuditLog: defineTable({
+    actorId: v.id("users"),
+    action: v.union(
+      v.literal("DOCUMENT_REVIEWED"),
+      v.literal("ORGANIZATION_VERIFIED"),
+      v.literal("ORGANIZATION_REJECTED"),
+      v.literal("PAYOUT_HOLD_PLACED"),
+      v.literal("PAYOUT_HOLD_RELEASED"),
+      v.literal("KYC_APPROVED"),
+      v.literal("KYC_REJECTED"),
+      v.literal("PAYOUT_ACCOUNT_APPROVED"),
+      v.literal("PAYOUT_ACCOUNT_REJECTED"),
+      v.literal("PAYOUT_ACCOUNT_CHANGED"),
+      v.literal("KYC_ESCALATED"),
+      v.literal("RISK_RATED"),
+      v.literal("RISK_OVERRIDDEN"),
+      v.literal("EDD_FLAGGED"),
+      v.literal("EDD_RECORDED"),
+      v.literal("ORGANIZATION_ESCALATED"),
+      v.literal("BENEFICIAL_OWNER_ADDED"),
+      v.literal("BENEFICIAL_OWNER_REMOVED"),
+    ),
+    organizationId: v.optional(v.id("organizations")),
+    fundraiserId: v.optional(v.id("fundraisers")),
+    kycSubmissionId: v.optional(v.id("kycSubmissions")),
+    payoutAccountId: v.optional(v.id("payoutAccounts")),
+    documentId: v.optional(v.id("organizationDocuments")),
+    statusBefore: v.optional(v.string()),
+    statusAfter: v.optional(v.string()),
+    note: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_organizationId", ["organizationId"])
+    .index("by_fundraiserId", ["fundraiserId"])
+    .index("by_kycSubmissionId", ["kycSubmissionId"])
+    .index("by_payoutAccountId", ["payoutAccountId"])
+    .index("by_actorId", ["actorId"]),
+
+  // An individual fundraiser's application for a verification tier (policy
+  // 5.3). Every application is kept, approved or not, as the record of who was
+  // checked, by whom and against what (policy 15). A user's tier is the
+  // highest one with an APPROVED submission; see lib/kycTier.ts.
+  //
+  // Tier 1 submissions carry the identity fields, Tier 2 ones the KRA PIN.
+  // Never return a whole row to the client: it holds an ID number.
+  kycSubmissions: defineTable({
+    userId: v.id("users"),
+    requestedTier: kycRequestedTierValidator,
+    status: kycSubmissionStatusValidator,
+    legalName: v.optional(v.string()),
+    idType: v.optional(kycIdTypeValidator),
+    idNumber: v.optional(v.string()), // normalized: upper-case, no spaces
+    phoneNumber: v.optional(v.string()), // +254...
+    campaignPurpose: v.optional(v.string()),
+    // What a Tier 1 applicant declares about themselves and the money (policy
+    // 5.7, 7, 9). Applications made before these were asked have none.
+    residenceCountry: v.optional(v.string()), // ISO 3166-1 alpha-2
+    expectedAmountKes: v.optional(v.number()),
+    expectedTimeline: v.optional(expectedTimelineValidator),
+    pepDeclared: v.optional(v.boolean()),
+    pepDetails: v.optional(v.string()),
+    prohibitedActivitiesAcknowledged: v.optional(v.boolean()),
+    kraPin: v.optional(v.string()),
+    submittedAt: v.number(),
+    // Set when a reviewer passes it to the MLRO. Never shown to the applicant.
+    escalatedAt: v.optional(v.number()),
+    reviewedBy: v.optional(v.id("users")),
+    reviewedAt: v.optional(v.number()),
+    // What the reviewer confirmed before approving.
+    confirmedChecks: v.optional(v.array(kycReviewCheckValidator)),
+    // Shown to the fundraiser, so it must never hint at a suspicion.
+    rejectionReason: v.optional(v.string()),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_userId_and_status", ["userId", "status"])
+    .index("by_status_and_submittedAt", ["status", "submittedAt"])
+    // Finds the same ID, or the same phone number, on more than one account.
+    .index("by_idType_and_idNumber_and_status", [
+      "idType",
+      "idNumber",
+      "status",
+    ])
+    .index("by_phoneNumber_and_status", ["phoneNumber", "status"]),
+
+  // How risky an individual fundraiser is, and what enhanced due diligence has
+  // been done (policy 4.3, 7, 8). One row per person, made when their Level 1
+  // is approved and updated by the MLRO. The inputs are kept next to the result
+  // so the rating can be worked out again (lib/risk.ts) when something changes.
+  // Staff only: never return it to the person it is about (policy 12.3).
+  customerRiskProfiles: defineTable({
+    userId: v.id("users"),
+    // The Level 1 application it was first rated on.
+    kycSubmissionId: v.id("kycSubmissions"),
+
+    // Inputs.
+    residenceCountry: v.string(),
+    expectedAmountKes: v.number(),
+    pepOutcome: pepOutcomeValidator,
+    behaviour: riskLevelValidator,
+    mlroFlagged: v.boolean(),
+    overrideRating: v.optional(riskLevelValidator),
+    overrideReason: v.optional(v.string()),
+
+    // Result.
+    rating: riskLevelValidator,
+    computedRating: riskLevelValidator,
+    factors: riskFactorsValidator,
+    eddReasons: v.array(eddReasonValidator),
+    ratedAt: v.number(),
+    ratedBy: v.id("users"),
+    // When the customer is next reviewed (policy 5.10).
+    nextReviewDue: v.number(),
+
+    // The enhanced due diligence record, once done. Cleared when a new reason
+    // for it turns up, so it has to be done again.
+    eddCompletedAt: v.optional(v.number()),
+    eddCompletedBy: v.optional(v.id("users")),
+    sourceOfFunds: v.optional(v.string()),
+    sourceOfWealth: v.optional(v.string()),
+    eddNote: v.optional(v.string()),
+  }).index("by_userId", ["userId"]),
+
+  kycDocuments: defineTable({
+    submissionId: v.id("kycSubmissions"),
+    userId: v.id("users"),
+    documentType: kycDocumentTypeValidator,
+    storageId: v.id("_storage"),
+    fileName: v.string(),
+    contentType: v.string(),
+    size: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_submissionId", ["submissionId"])
+    .index("by_storageId", ["storageId"]),
+
+  // Where a verified fundraiser or organization can be paid (policy 5.5).
+  // Details never change once saved: to change where money goes, add another
+  // account and choose it (see fundraiserPayoutAccounts), so every change is a
+  // new row to verify and a record of what was used when.
+  //
+  // Whoever registered it is userId; organizationId is set when the account
+  // belongs to an organization. Never return a whole row to the client: it
+  // holds a full account number.
+  payoutAccounts: defineTable({
+    userId: v.id("users"),
+    organizationId: v.optional(v.id("organizations")),
+    method: payoutMethodValidator,
+    // OWN: in the fundraiser's or organization's name. THIRD_PARTY: a verified
+    // beneficiary's (a hospital, a school), which needs a justification.
+    holder: payoutHolderValidator,
+    accountName: v.string(),
+    mpesaNumber: v.optional(v.string()), // +254...
+    bankName: v.optional(v.string()),
+    bankAccountNumber: v.optional(v.string()), // digits only
+    justification: v.optional(v.string()),
+    // The file that shows the account is what it says. Not needed when the
+    // account is the mobile number already verified at Level 1.
+    proofStorageId: v.optional(v.id("_storage")),
+    proofFileName: v.optional(v.string()),
+    proofContentType: v.optional(v.string()),
+    proofSize: v.optional(v.number()),
+    status: payoutAccountStatusValidator,
+    verifiedVia: v.optional(payoutVerifiedViaValidator),
+    createdAt: v.number(),
+    reviewedBy: v.optional(v.id("users")),
+    reviewedAt: v.optional(v.number()),
+    confirmedChecks: v.optional(v.array(payoutAccountReviewCheckValidator)),
+    // Shown to the owner, so it must never hint at a suspicion.
+    rejectionReason: v.optional(v.string()),
+    closedAt: v.optional(v.number()),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_organizationId", ["organizationId"])
+    .index("by_status_and_createdAt", ["status", "createdAt"])
+    .index("by_proofStorageId", ["proofStorageId"])
+    // Find the same number or account behind more than one owner (policy 10).
+    .index("by_mpesaNumber_and_status", ["mpesaNumber", "status"])
+    .index("by_bankAccountNumber_and_status", ["bankAccountNumber", "status"]),
+
+  // Which payout account a fundraiser is paid to. One row per fundraiser, kept
+  // out of the fundraiser document because public queries return that whole
+  // document. changedAt is set only when an account was replaced by another,
+  // and starts the temporary hold in policy 5.5.
+  fundraiserPayoutAccounts: defineTable({
+    fundraiserId: v.id("fundraisers"),
+    payoutAccountId: v.id("payoutAccounts"),
+    selectedBy: v.id("users"),
+    selectedAt: v.number(),
+    changedAt: v.optional(v.number()),
+  })
+    .index("by_fundraiserId", ["fundraiserId"])
+    .index("by_payoutAccountId", ["payoutAccountId"]),
+
+  // Staff holds on releasing a fundraiser's money (policy 3.3: the MLRO can
+  // block payouts). Kept in a table of their own rather than on the
+  // fundraiser: public queries return fundraiser documents, and the reason for
+  // a hold must never reach the fundraiser (policy 12.3, no tipping off). A
+  // released hold stays as a row, so the history is a record (policy 15).
+  fundraiserPayoutHolds: defineTable({
+    fundraiserId: v.id("fundraisers"),
+    status: v.union(v.literal("ACTIVE"), v.literal("RELEASED")),
+    reason: v.string(),
+    placedBy: v.id("users"),
+    placedAt: v.number(),
+    releasedBy: v.optional(v.id("users")),
+    releasedAt: v.optional(v.number()),
+    releaseNote: v.optional(v.string()),
+  }).index("by_fundraiserId_and_status", ["fundraiserId", "status"]),
 
   organizationMembers: defineTable({
     organizationId: v.id("organizations"),
@@ -328,4 +692,44 @@ export default defineSchema({
     count: v.number(),
     windowStart: v.number(), // timestamp
   }).index("by_key", ["key"]),
+
+  // Where an organization wants to be told about things that happen to it.
+  // Kept small and rarely written: nothing that changes on every delivery
+  // lives here (that is what webhookDeliveries is for), so busy periods can't
+  // make writers fight over one endpoint document.
+  webhookEndpoints: defineTable({
+    organizationId: v.id("organizations"),
+    url: v.string(), // validated by lib/validations/webhook.ts
+    // Signs every request. Needed in the clear to compute the signature, so it
+    // is never returned by a query: only shown to the owner when it is created
+    // or rolled.
+    secret: v.string(),
+    isActive: v.boolean(),
+    createdBy: v.id("users"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_organizationId", ["organizationId"]),
+
+  // One row per event per endpoint, written in the same step that decides the
+  // event happened (so a delivery can't be lost between "donation completed"
+  // and "told the organization"), then worked through by the delivery action.
+  webhookDeliveries: defineTable({
+    endpointId: v.id("webhookEndpoints"),
+    organizationId: v.id("organizations"),
+    eventId: v.string(), // stable across retries; receivers dedupe on it
+    eventType: webhookEventTypeValidator,
+    payload: v.string(), // the exact JSON body that is signed and sent
+    status: webhookDeliveryStatusValidator,
+    attempts: v.number(),
+    lastAttemptAt: v.optional(v.number()),
+    nextAttemptAt: v.optional(v.number()),
+    lastStatusCode: v.optional(v.number()),
+    lastError: v.optional(webhookErrorValidator),
+    deliveredAt: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    // Newest first for the delivery log, and cleanup by endpoint.
+    .index("by_endpointId", ["endpointId"])
+    // "Have we already queued this event for this endpoint?"
+    .index("by_endpointId_and_eventId", ["endpointId", "eventId"]),
 });

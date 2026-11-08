@@ -8,8 +8,14 @@ import {
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
+import { authComponent } from "./auth";
 import { getUsdToKesRate } from "./lib/fx";
 import { PLATFORM_FEE_RATE, resolveReturnOrigin } from "./lib/constants";
+import { assertAcceptsDonations } from "./lib/donationGate";
+import {
+  clientDonationSourceValidator,
+  donationSourceValidator,
+} from "./lib/donationSource";
 
 const PAYPAL_BASE_URL = "https://api-m.sandbox.paypal.com"; // Switch to https://api-m.paypal.com for production
 
@@ -64,9 +70,14 @@ export const createPendingPayPalDonation = internalMutation({
     netAmountKes: v.number(),
     platformFeeRate: v.number(),
     message: v.optional(v.string()),
+    source: v.optional(donationSourceValidator),
   },
   returns: v.id("donations"),
   handler: async (ctx, args) => {
+    // Refuse a missing or closed fundraiser here, in the transaction that
+    // creates the donation, before anything is sent to PayPal.
+    await assertAcceptsDonations(ctx, args.fundraiserId);
+
     return await ctx.db.insert("donations", {
       fundraiserId: args.fundraiserId,
       donorUserId: args.donorUserId,
@@ -79,6 +90,7 @@ export const createPendingPayPalDonation = internalMutation({
       platformFeeAmount: args.platformFeeAmountKes,
       netAmount: args.netAmountKes,
       message: args.message,
+      source: args.source,
       currency: "KES",
       provider: "PAYPAL",
       paymentMethod: "PAYPAL",
@@ -93,7 +105,8 @@ export const createPendingPayPalDonation = internalMutation({
 export const startPayPalCheckout = action({
   args: {
     fundraiserId: v.id("fundraisers"),
-    donorUserId: v.optional(v.id("users")),
+    // No donorUserId here on purpose: who the donor is comes from their
+    // session below, never from an argument the caller could set to anyone.
     donorName: v.optional(v.string()),
     donorEmail: v.optional(v.string()),
     donorPhone: v.optional(v.string()),
@@ -101,6 +114,8 @@ export const startPayPalCheckout = action({
     amountUsd: v.number(),
     message: v.optional(v.string()),
     origin: v.string(), // window.location.origin from the client
+    // Attribution only. Omit for a normal GoUplift checkout.
+    source: v.optional(clientDonationSourceValidator),
   },
   returns: v.object({
     checkoutUrl: v.string(),
@@ -131,6 +146,17 @@ export const startPayPalCheckout = action({
       );
     }
 
+    // Link the donation to the signed-in donor, if there is one — resolved
+    // the same way startDonationCheckout does it. Guests donate with no user.
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+    let donorUserId: Id<"users"> | undefined;
+    if (authUser) {
+      const user = await ctx.runQuery(internal.donations.getUserByAuthUserId, {
+        authUserId: authUser._id,
+      });
+      donorUserId = user?._id;
+    }
+
     const fxRate = await getUsdToKesRate(ctx);
     const grossAmountKes = Math.round(args.amountUsd * fxRate);
     const platformFeeAmountKes = Math.round(grossAmountKes * PLATFORM_FEE_RATE);
@@ -142,7 +168,7 @@ export const startPayPalCheckout = action({
       internal.paypal.createPendingPayPalDonation,
       {
         fundraiserId: args.fundraiserId,
-        donorUserId: args.donorUserId,
+        donorUserId,
         donorName: args.donorName,
         donorEmail: args.donorEmail,
         donorPhone: args.donorPhone,
@@ -152,6 +178,7 @@ export const startPayPalCheckout = action({
         netAmountKes,
         platformFeeRate: PLATFORM_FEE_RATE,
         message: args.message,
+        source: args.source,
       },
     );
 
@@ -310,6 +337,14 @@ export const completePayPalDonation = internalMutation({
         updatedAt: Date.now(),
       });
     }
+
+    // See markDonationCompleted: scheduled so webhooks can't affect payment
+    // recording, and skipped on a repeat callback by the guard above.
+    await ctx.scheduler.runAfter(
+      0,
+      internal.webhookDelivery.enqueueDonationCompleted,
+      { donationId: args.donationId },
+    );
 
     return null;
   },
@@ -693,7 +728,9 @@ export const recordSubscriptionPayment = internalMutation({
       Math.round((grossAmountKes - platformFeeAmount) * 100) / 100;
 
     const now = Date.now();
-    await ctx.db.insert("donations", {
+    // This path creates the donation already completed (a recurring payment
+    // arrives as one event), so the id is needed to tell webhooks about it.
+    const donationId = await ctx.db.insert("donations", {
       fundraiserId: subscription.fundraiserId,
       donorUserId: subscription.donorUserId,
       donorName: subscription.donorName,
@@ -728,5 +765,13 @@ export const recordSubscriptionPayment = internalMutation({
         updatedAt: now,
       });
     }
+
+    // The early return on an existing capture id above is what keeps a
+    // repeated PayPal notification from queueing a second event.
+    await ctx.scheduler.runAfter(
+      0,
+      internal.webhookDelivery.enqueueDonationCompleted,
+      { donationId },
+    );
   },
 });
