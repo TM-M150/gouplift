@@ -10,7 +10,10 @@
 
 import type * as admin from "../admin.js";
 import type * as auth from "../auth.js";
+import type * as beneficialOwners from "../beneficialOwners.js";
 import type * as crons from "../crons.js";
+import type * as customerRisk from "../customerRisk.js";
+import type * as documentUploads from "../documentUploads.js";
 import type * as donations from "../donations.js";
 import type * as fundraiser from "../fundraiser.js";
 import type * as http from "../http.js";
@@ -19,6 +22,9 @@ import type * as kycReview from "../kycReview.js";
 import type * as lib_adminAudit from "../lib/adminAudit.js";
 import type * as lib_beneficialOwnerValidators from "../lib/beneficialOwnerValidators.js";
 import type * as lib_constants from "../lib/constants.js";
+import type * as lib_documentFiles from "../lib/documentFiles.js";
+import type * as lib_donationGate from "../lib/donationGate.js";
+import type * as lib_donationSource from "../lib/donationSource.js";
 import type * as lib_fundraiserTotals from "../lib/fundraiserTotals.js";
 import type * as lib_fx from "../lib/fx.js";
 import type * as lib_kycTier from "../lib/kycTier.js";
@@ -49,6 +55,7 @@ import type * as payoutAccountReview from "../payoutAccountReview.js";
 import type * as payoutAccounts from "../payoutAccounts.js";
 import type * as paypal from "../paypal.js";
 import type * as platformStats from "../platformStats.js";
+import type * as publicApi from "../publicApi.js";
 import type * as reconcileTotals from "../reconcileTotals.js";
 import type * as sasapay from "../sasapay.js";
 import type * as users from "../users.js";
@@ -64,7 +71,10 @@ import type {
 declare const fullApi: ApiFromModules<{
   admin: typeof admin;
   auth: typeof auth;
+  beneficialOwners: typeof beneficialOwners;
   crons: typeof crons;
+  customerRisk: typeof customerRisk;
+  documentUploads: typeof documentUploads;
   donations: typeof donations;
   fundraiser: typeof fundraiser;
   http: typeof http;
@@ -73,6 +83,9 @@ declare const fullApi: ApiFromModules<{
   "lib/adminAudit": typeof lib_adminAudit;
   "lib/beneficialOwnerValidators": typeof lib_beneficialOwnerValidators;
   "lib/constants": typeof lib_constants;
+  "lib/documentFiles": typeof lib_documentFiles;
+  "lib/donationGate": typeof lib_donationGate;
+  "lib/donationSource": typeof lib_donationSource;
   "lib/fundraiserTotals": typeof lib_fundraiserTotals;
   "lib/fx": typeof lib_fx;
   "lib/kycTier": typeof lib_kycTier;
@@ -103,6 +116,7 @@ declare const fullApi: ApiFromModules<{
   payoutAccounts: typeof payoutAccounts;
   paypal: typeof paypal;
   platformStats: typeof platformStats;
+  publicApi: typeof publicApi;
   reconcileTotals: typeof reconcileTotals;
   sasapay: typeof sasapay;
   users: typeof users;

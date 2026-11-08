@@ -11,6 +11,11 @@ import { Id } from "./_generated/dataModel";
 import { authComponent } from "./auth";
 import { getUsdToKesRate } from "./lib/fx";
 import { PLATFORM_FEE_RATE, resolveReturnOrigin } from "./lib/constants";
+import { assertAcceptsDonations } from "./lib/donationGate";
+import {
+  clientDonationSourceValidator,
+  donationSourceValidator,
+} from "./lib/donationSource";
 import { creditCompletedDonation } from "./lib/fundraiserTotals";
 
 const PAYPAL_BASE_URL = "https://api-m.sandbox.paypal.com"; // Switch to https://api-m.paypal.com for production
@@ -756,6 +761,14 @@ export const recordSubscriptionPayment = internalMutation({
       subscription.fundraiserId,
       grossAmountKes,
       now,
+    );
+
+    // The early return on an existing capture id above is what keeps a
+    // repeated PayPal notification from queueing a second event.
+    await ctx.scheduler.runAfter(
+      0,
+      internal.webhookDelivery.enqueueDonationCompleted,
+      { donationId },
     );
   },
 });
