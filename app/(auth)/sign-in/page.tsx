@@ -170,7 +170,7 @@ export default function SignInForm() {
                       </FieldLegend>
                       <FieldDescription>
                         <span className="text-balance text-muted-foreground">
-                          Sign in to your GoupLift account
+                          Sign in to your GoUplift account
                         </span>
                       </FieldDescription>
                     </div>
