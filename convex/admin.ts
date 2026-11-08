@@ -1,7 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { internalMutation, mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { getStaffUser, requireAdmin, requireStaff } from "./lib/staff";
 import {
   cleanNote,
@@ -9,8 +9,25 @@ import {
   MIN_REJECTION_REASON_LENGTH,
 } from "./lib/adminAudit";
 import { getActivePayoutHold } from "./lib/payoutEligibility";
-import { getVerificationBlockers } from "../lib/organization-verification";
+import {
+  getVerificationBlockers,
+  ORGANIZATION_REVIEW_CHECK_LABELS,
+  ORGANIZATION_REVIEW_CHECKS,
+} from "../lib/organization-verification";
+import { assessOrganizationRisk, isEddOutstanding } from "../lib/risk";
+import { hasNoIdentifiedOwner, ownershipProblem } from "../lib/beneficial-ownership";
 import { DAY_MS, EAT_OFFSET_MS } from "@/lib/time";
+import { organizationReviewCheckValidator } from "./lib/beneficialOwnerValidators";
+import { isMlro } from "./lib/mlro";
+import {
+  anyPepDeclared,
+  createOrganizationRiskProfile,
+  getOrganizationRiskProfile,
+  listBeneficialOwners,
+  ownersLockedReason,
+  readOrganizationDeclarations,
+} from "./lib/organizationRisk";
+import { eddRecordValidator, pepOutcomeValidator, riskLevelValidator } from "./lib/riskValidators";
 
 const LIST_LIMIT = 100;
 const DOCUMENTS_LIMIT = 50;
@@ -48,6 +65,24 @@ export const getStaffAccess = query({
   },
 });
 
+async function previewOrganizationNeedsMlro(
+  ctx: QueryCtx | MutationCtx,
+  org: Doc<"organizations">,
+): Promise<boolean> {
+  const declared = readOrganizationDeclarations(org);
+  if (!declared) return false;
+  const owners = await listBeneficialOwners(ctx, org._id);
+  return assessOrganizationRisk({
+    expectedAmountKes: declared.expectedAmountKes,
+    residenceCountry: declared.registeredCountry,
+    pepOutcome: anyPepDeclared(declared, owners) ? "PEP" : "NOT_PEP",
+    behaviour: "LOW",
+    complexStructure: false,
+    highRiskSector: false,
+    noOwnerIdentified: hasNoIdentifiedOwner(owners),
+  }).requiresEdd;
+}
+
 export const listOrganizationsForReview = query({
   args: { status: reviewableStatusValidator },
   handler: async (ctx, args) => {
@@ -84,6 +119,12 @@ export const listOrganizationsForReview = query({
           replacementCount: documents.filter(
             (d) => d.reviewStatus === "REJECTED",
           ).length,
+          escalated: org.escalatedAt !== undefined,
+          // From what it declared alone: a reviewer's own findings can still
+          // add to this.
+          needsMlro:
+            args.status === "PENDING_REVIEW" &&
+            (await previewOrganizationNeedsMlro(ctx, org)),
         };
       }),
     );
@@ -107,15 +148,20 @@ export const getOrganizationForReview = query({
     const org = await ctx.db.get(organizationId);
     if (!org) return null;
 
-    const [owner, documents, history] = await Promise.all([
-      ctx.db.get(org.createdBy),
-      listDocuments(ctx, org._id),
-      ctx.db
-        .query("adminAuditLog")
-        .withIndex("by_organizationId", (q) => q.eq("organizationId", org._id))
-        .order("desc")
-        .take(HISTORY_LIMIT),
-    ]);
+    const [owner, documents, history, beneficialOwners, riskProfile] =
+      await Promise.all([
+        ctx.db.get(org.createdBy),
+        listDocuments(ctx, org._id),
+        ctx.db
+          .query("adminAuditLog")
+          .withIndex("by_organizationId", (q) =>
+            q.eq("organizationId", org._id),
+          )
+          .order("desc")
+          .take(HISTORY_LIMIT),
+        listBeneficialOwners(ctx, org._id),
+        getOrganizationRiskProfile(ctx, org._id),
+      ]);
 
     // Reviewer / actor names, looked up once per person.
     const names = new Map<Id<"users">, string>();
@@ -164,6 +210,16 @@ export const getOrganizationForReview = query({
         )
       : ["The organization type is missing"];
 
+    const declarations = readOrganizationDeclarations(org);
+    const isOwnOrganization = org.createdBy === staff._id;
+    // Reasons it can't be verified that no one can fix from the review page.
+    const verifyBlocked = isOwnOrganization
+      ? "You can't review an organization you created."
+      : declarations === null
+        ? "This application was made before we asked where the organization is registered, what it expects to raise and who owns it. Reject it and ask the owner to apply again."
+        : null;
+    const viewerIsMlro = isMlro(staff);
+
     return {
       _id: org._id,
       name: org.name,
@@ -188,7 +244,64 @@ export const getOrganizationForReview = query({
       documents: reviewDocuments,
       blockers,
       canVerify:
-        org.verificationStatus === "PENDING_REVIEW" && blockers.length === 0,
+        org.verificationStatus === "PENDING_REVIEW" &&
+        blockers.length === 0 &&
+        verifyBlocked === null,
+      verifyBlocked,
+      escalatedAt: org.escalatedAt ?? null,
+      viewerIsMlro,
+      declarations,
+      anyPepDeclared: anyPepDeclared(declarations, beneficialOwners),
+      // Staff only: this is the one place the register's ID numbers are shown.
+      owners: beneficialOwners.map((o) => ({
+        _id: o._id,
+        fullName: o.fullName,
+        idType: o.idType,
+        idNumber: o.idNumber,
+        basis: o.basis,
+        ownershipPercent: o.ownershipPercent ?? null,
+        role: o.role ?? null,
+        residenceCountry: o.residenceCountry,
+        pepDeclared: o.pepDeclared,
+      })),
+      ownersProblem: ownershipProblem(beneficialOwners),
+      ownersLocked: ownersLockedReason(org, staff, riskProfile !== null),
+      requiredChecks: ORGANIZATION_REVIEW_CHECKS,
+      confirmedChecks: org.confirmedChecks ?? [],
+      riskProfile: riskProfile
+        ? {
+            rating: riskProfile.rating,
+            computedRating: riskProfile.computedRating,
+            factors: riskProfile.factors,
+            eddReasons: riskProfile.eddReasons,
+            eddOutstanding: isEddOutstanding(riskProfile),
+            pepOutcome: riskProfile.pepOutcome,
+            behaviour: riskProfile.behaviour,
+            residenceCountry: riskProfile.residenceCountry,
+            expectedAmountKes: riskProfile.expectedAmountKes,
+            mlroFlagged: riskProfile.mlroFlagged,
+            overrideRating: riskProfile.overrideRating ?? null,
+            overrideReason: riskProfile.overrideReason ?? null,
+            ratedAt: riskProfile.ratedAt,
+            ratedByName: await nameOf(riskProfile.ratedBy),
+            nextReviewDue: riskProfile.nextReviewDue,
+            eddCompletedAt: riskProfile.eddCompletedAt ?? null,
+            eddCompletedByName: await nameOf(riskProfile.eddCompletedBy),
+            sourceOfFunds: riskProfile.sourceOfFunds ?? null,
+            sourceOfWealth: riskProfile.sourceOfWealth ?? null,
+            eddNote: riskProfile.eddNote ?? null,
+            complexStructure: riskProfile.complexStructure,
+            highRiskSector: riskProfile.highRiskSector,
+            noOwnerIdentified: riskProfile.noOwnerIdentified,
+          }
+        : null,
+      // The MLRO can change any rating, but not that of their own organization.
+      canManageRisk: viewerIsMlro && !isOwnOrganization,
+      canRate:
+        viewerIsMlro &&
+        !isOwnOrganization &&
+        riskProfile === null &&
+        org.verificationStatus === "VERIFIED",
       history: reviewHistory,
     };
   },
@@ -245,7 +358,21 @@ export const reviewDocument = mutation({
 });
 
 export const verifyOrganization = mutation({
-  args: { organizationId: v.id("organizations") },
+  args: {
+    organizationId: v.id("organizations"),
+    // What the reviewer confirmed beyond the documents. Every check has to be
+    // among them, and they are stored with the verification.
+    confirmedChecks: v.array(organizationReviewCheckValidator),
+    // What the reviewer found when screening (policy 4.3, 6, 7.1), which with
+    // what the organization declared sets its risk rating.
+    pepOutcome: pepOutcomeValidator,
+    behaviour: riskLevelValidator,
+    complexStructure: v.boolean(),
+    highRiskSector: v.boolean(),
+    // Only the MLRO's: the enhanced due diligence record (policy 7.2, 8.2),
+    // needed when the rating calls for it.
+    edd: v.optional(eddRecordValidator),
+  },
   handler: async (ctx, args) => {
     const staff = await requireStaff(ctx);
 
@@ -255,6 +382,11 @@ export const verifyOrganization = mutation({
       throw new ConvexError(
         "This organization is no longer waiting for review.",
       );
+    }
+    // Someone with staff access can still register an organization. They must
+    // not be the one to verify it.
+    if (org.createdBy === staff._id) {
+      throw new ConvexError("You can't review an organization you created.");
     }
     if (!org.organizationType) {
       throw new ConvexError("This organization has no type set.");
@@ -268,11 +400,52 @@ export const verifyOrganization = mutation({
       );
     }
 
+    const unconfirmed = ORGANIZATION_REVIEW_CHECKS.filter(
+      (check) => !args.confirmedChecks.includes(check),
+    );
+    if (unconfirmed.length > 0) {
+      throw new ConvexError(
+        `Confirm each check before verifying: ${unconfirmed
+          .map((check) => ORGANIZATION_REVIEW_CHECK_LABELS[check])
+          .join("; ")}.`,
+      );
+    }
+
+    const declared = readOrganizationDeclarations(org);
+    if (!declared) {
+      throw new ConvexError(
+        "This application doesn't say where the organization is registered, what it expects to raise or who owns it. Reject it and ask the owner to apply again.",
+      );
+    }
+    // Someone it names as a PEP is one. Only the MLRO deals with that, and by
+    // recording EDD, not by clearing the declaration.
+    const owners = await listBeneficialOwners(ctx, org._id);
+    if (anyPepDeclared(declared, owners) && args.pepOutcome === "NOT_PEP") {
+      throw new ConvexError(
+        "The organization named someone who holds a senior public position, so the screening result has to say so.",
+      );
+    }
+
+    // Checks the register (policy 6) and the rating, and needs the MLRO and an
+    // EDD record if the rating calls for them.
+    await createOrganizationRiskProfile(ctx, {
+      staff,
+      organizationId: org._id,
+      registeredCountry: declared.registeredCountry,
+      expectedAmountKes: declared.expectedAmountKes,
+      pepOutcome: args.pepOutcome,
+      behaviour: args.behaviour,
+      complexStructure: args.complexStructure,
+      highRiskSector: args.highRiskSector,
+      edd: args.edd,
+    });
+
     const now = Date.now();
     await ctx.db.patch(org._id, {
       verificationStatus: "VERIFIED",
       verifiedAt: now,
       verifiedBy: staff._id,
+      confirmedChecks: [...ORGANIZATION_REVIEW_CHECKS],
       rejectionReason: undefined,
       updatedAt: now,
     });
@@ -283,6 +456,45 @@ export const verifyOrganization = mutation({
       organizationId: org._id,
       statusBefore: org.verificationStatus,
       statusAfter: "VERIFIED",
+    });
+  },
+});
+
+// A reviewer who can't verify an organization, because it needs the MLRO (a
+// PEP, a non-resident, high risk) or because something about it worries them,
+// passes it on. Nothing changes for the owner, whose application stays "being
+// reviewed" (policy 12.3).
+export const escalateOrganization = mutation({
+  args: { organizationId: v.id("organizations"), note: v.string() },
+  handler: async (ctx, args) => {
+    const staff = await requireStaff(ctx);
+
+    const org = await ctx.db.get(args.organizationId);
+    if (!org) throw new ConvexError("Organization not found.");
+    if (org.verificationStatus !== "PENDING_REVIEW") {
+      throw new ConvexError(
+        "This organization is no longer waiting for review.",
+      );
+    }
+    if (org.createdBy === staff._id) {
+      throw new ConvexError("You can't review an organization you created.");
+    }
+
+    const note = cleanNote(args.note);
+    if (!note || note.length < MIN_REJECTION_REASON_LENGTH) {
+      throw new ConvexError("Tell the MLRO why (at least 10 characters).");
+    }
+    if (org.escalatedAt !== undefined) {
+      throw new ConvexError("This has already been passed to the MLRO.");
+    }
+
+    await ctx.db.patch(org._id, { escalatedAt: Date.now() });
+
+    await logAction(ctx, {
+      actorId: staff._id,
+      action: "ORGANIZATION_ESCALATED",
+      organizationId: org._id,
+      note,
     });
   },
 });

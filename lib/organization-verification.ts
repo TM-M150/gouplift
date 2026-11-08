@@ -23,6 +23,7 @@ export const DOCUMENT_TYPES = [
   "TAX_EXEMPTION",
   "ANNUAL_ACCOUNTS",
   "REGULATOR_LETTER",
+  "BENEFICIAL_OWNER_IDS",
 ] as const;
 export type DocumentType = (typeof DOCUMENT_TYPES)[number];
 
@@ -100,6 +101,12 @@ const DOCUMENT_INFO: Record<DocumentType, DocumentInfo> = {
       "A letter from your regulator (e.g. Ministry of Education) confirming you are in good standing.",
     maxFiles: 1,
   },
+  BENEFICIAL_OWNER_IDS: {
+    label: "IDs of owners and controllers",
+    description:
+      "National ID or passport (front and back) for each person you list as owning or controlling the organization, unless they are already in the IDs above.",
+    maxFiles: 20,
+  },
 };
 
 interface TypeRequirements {
@@ -132,7 +139,11 @@ export const ORGANIZATION_REQUIREMENTS: Record<
       "KRA_PIN",
       ...ALWAYS_REQUIRED,
     ],
-    optional: ["GOVERNING_DOCUMENT", "ANNUAL_ACCOUNTS"],
+    optional: [
+      "GOVERNING_DOCUMENT",
+      "ANNUAL_ACCOUNTS",
+      "BENEFICIAL_OWNER_IDS",
+    ],
     overrides: {
       REGISTRATION_CERTIFICATE: {
         label: "Certificate of Incorporation",
@@ -153,7 +164,7 @@ export const ORGANIZATION_REQUIREMENTS: Record<
       "KRA_PIN",
       ...ALWAYS_REQUIRED,
     ],
-    optional: ["TAX_EXEMPTION", "ANNUAL_ACCOUNTS"],
+    optional: ["TAX_EXEMPTION", "ANNUAL_ACCOUNTS", "BENEFICIAL_OWNER_IDS"],
     overrides: {
       REGISTRATION_CERTIFICATE: {
         label: "PBO / NGO registration certificate",
@@ -171,7 +182,7 @@ export const ORGANIZATION_REQUIREMENTS: Record<
       "KRA_PIN",
       ...ALWAYS_REQUIRED,
     ],
-    optional: ["ANNUAL_ACCOUNTS"],
+    optional: ["ANNUAL_ACCOUNTS", "BENEFICIAL_OWNER_IDS"],
     overrides: {
       REGISTRATION_CERTIFICATE: {
         label: "Certificate of Registration",
@@ -189,7 +200,7 @@ export const ORGANIZATION_REQUIREMENTS: Record<
       "KRA_PIN",
       ...ALWAYS_REQUIRED,
     ],
-    optional: ["TAX_EXEMPTION", "ANNUAL_ACCOUNTS"],
+    optional: ["TAX_EXEMPTION", "ANNUAL_ACCOUNTS", "BENEFICIAL_OWNER_IDS"],
     overrides: {
       REGISTRATION_CERTIFICATE: {
         label: "Trust registration certificate",
@@ -209,7 +220,7 @@ export const ORGANIZATION_REQUIREMENTS: Record<
       "GOVERNING_DOCUMENT",
       ...ALWAYS_REQUIRED,
     ],
-    optional: ["KRA_PIN", "ANNUAL_ACCOUNTS"],
+    optional: ["KRA_PIN", "ANNUAL_ACCOUNTS", "BENEFICIAL_OWNER_IDS"],
     overrides: {
       REGISTRATION_CERTIFICATE: {
         label: "Group registration certificate",
@@ -235,6 +246,7 @@ export const ORGANIZATION_REQUIREMENTS: Record<
       "GOVERNING_DOCUMENT",
       "KRA_PIN",
       "REGULATOR_LETTER",
+      "BENEFICIAL_OWNER_IDS",
     ],
     overrides: {
       REGISTRATION_CERTIFICATE: {
@@ -304,3 +316,27 @@ export function validateDocumentFile(file: File): string | null {
   }
   return null;
 }
+
+// ---- What the reviewer confirms before verifying (policy 5.4, 6, 7, 9) ----
+
+// Beyond approving each document, the reviewer confirms the things no single
+// document shows. All of them are stored with the verification.
+export const ORGANIZATION_REVIEW_CHECKS = [
+  "BENEFICIAL_OWNERS_VERIFIED",
+  "OWNERS_PEP_SCREENED",
+  "PURPOSE_LAWFUL",
+] as const;
+export type OrganizationReviewCheck =
+  (typeof ORGANIZATION_REVIEW_CHECKS)[number];
+
+export const ORGANIZATION_REVIEW_CHECK_LABELS: Record<
+  OrganizationReviewCheck,
+  string
+> = {
+  BENEFICIAL_OWNERS_VERIFIED:
+    "Each person listed as owning or controlling it was checked against their ID, and the list matches the registry documents (or no one does, and the senior managing official is right)",
+  OWNERS_PEP_SCREENED:
+    "The officials, signatories and beneficial owners were screened against PEP lists and adverse media, including family members and close associates",
+  PURPOSE_LAWFUL:
+    "Its stated purpose and activities are not a prohibited activity (violence, terrorism, hate, trafficking, illegal weapons or drugs, illegal gambling, pyramid or Ponzi schemes, or any other unlawful purpose)",
+};

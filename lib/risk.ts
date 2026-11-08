@@ -4,8 +4,9 @@
 // by the staff review screen, to preview the same decision, so the two can
 // never drift apart.
 //
-// This covers individual fundraisers. Organizations add their own factors
-// (structure, sector, beneficial owners) in a later step.
+// Individuals are rated by assessRisk, organizations by assessOrganizationRisk.
+// Both give the same shape of answer, so everything downstream (EDD, the review
+// cycle, payout checks, the review screens) treats them alike.
 
 import { HOME_COUNTRY } from "./countries";
 import { tierPayoutLimitKes, type RequestableKycTier } from "./kyc";
@@ -132,7 +133,7 @@ export type EddReason = (typeof EDD_REASONS)[number];
 export const EDD_REASON_LABELS: Record<EddReason, string> = {
   HIGH_RISK: "Rated High risk",
   PEP: "Politically exposed person (or family or close associate)",
-  NON_RESIDENT: "Lives outside Kenya",
+  NON_RESIDENT: "Lives or is registered outside Kenya",
   HIGH_RISK_JURISDICTION: "Connected to a high-risk jurisdiction",
   MLRO_FLAGGED: "Flagged by the MLRO",
 };
@@ -166,17 +167,22 @@ export interface RiskAssessment {
   requiresEdd: boolean;
 }
 
-export function assessRisk(input: RiskInputs): RiskAssessment {
+interface Finish {
+  residenceCountry: string | null;
+  pepOutcome: PepOutcome;
+  mlroFlagged?: boolean;
+  overrideRating?: RiskLevel | null;
+}
+
+// What follows from the four factors, the same for every kind of customer:
+// the highest one is the rating (policy 4.3), a PEP is always High (7.2), and
+// the reasons that call for enhanced due diligence (8.1, 5.8).
+function finishAssessment(
+  factors: RiskFactors,
+  input: Finish,
+): RiskAssessment {
   const isPep = input.pepOutcome === "PEP";
   const nonResident = input.residenceCountry !== HOME_COUNTRY;
-
-  const factors: RiskFactors = {
-    // Policy 4.3: a PEP is High. Other individuals are Low.
-    customerType: isPep ? "HIGH" : "LOW",
-    expectedValue: expectedValueRisk(input.expectedAmountKes, input.tier),
-    geography: geographyRisk(input.residenceCountry),
-    behaviour: input.behaviour,
-  };
   const computedRating = maxRisk(
     factors.customerType,
     factors.expectedValue,
@@ -203,6 +209,80 @@ export function assessRisk(input: RiskInputs): RiskAssessment {
     eddReasons,
     requiresEdd: eddReasons.length > 0,
   };
+}
+
+export function assessRisk(input: RiskInputs): RiskAssessment {
+  const isPep = input.pepOutcome === "PEP";
+  return finishAssessment(
+    {
+      // Policy 4.3: a PEP is High. Other individuals are Low.
+      customerType: isPep ? "HIGH" : "LOW",
+      expectedValue: expectedValueRisk(input.expectedAmountKes, input.tier),
+      geography: geographyRisk(input.residenceCountry),
+      behaviour: input.behaviour,
+    },
+    input,
+  );
+}
+
+// ---- Organizations (policy 4.3, 5.4, 6, 7) --------------------------------
+
+export interface OrganizationRiskInputs {
+  /** What the organization expects to raise, as declared; null if nothing was. */
+  expectedAmountKes: number | null;
+  /** The country it is registered in; null if nothing was declared. */
+  residenceCountry: string | null;
+  /** The reviewer's PEP screening over its officials and beneficial owners. */
+  pepOutcome: PepOutcome;
+  /** The reviewer's view of how it has dealt with us. */
+  behaviour: RiskLevel;
+  /** Layered, trust-held or nominee ownership: a "complex structure". */
+  complexStructure: boolean;
+  /** A sector the MLRO treats as high risk. */
+  highRiskSector: boolean;
+  /** Nobody was found to own or control it (policy 6.2). */
+  noOwnerIdentified: boolean;
+  mlroFlagged?: boolean;
+  overrideRating?: RiskLevel | null;
+}
+
+/**
+ * Policy 4.3, customer type: a registered NGO, CBO, faith body or other
+ * organization is Medium. Complex structures, high-risk sectors and PEPs are
+ * High. Policy 6.2: with no identified owner it is no lower than Medium, which
+ * a registered body already is, so that floor is kept here explicitly in case
+ * the base level for registered bodies is ever lowered.
+ */
+export function organizationCustomerTypeRisk(
+  input: Pick<
+    OrganizationRiskInputs,
+    "pepOutcome" | "complexStructure" | "highRiskSector" | "noOwnerIdentified"
+  >,
+): RiskLevel {
+  if (
+    input.pepOutcome === "PEP" ||
+    input.complexStructure ||
+    input.highRiskSector
+  ) {
+    return "HIGH";
+  }
+  const base: RiskLevel = "MEDIUM";
+  return input.noOwnerIdentified ? maxRisk(base, "MEDIUM") : base;
+}
+
+export function assessOrganizationRisk(
+  input: OrganizationRiskInputs,
+): RiskAssessment {
+  return finishAssessment(
+    {
+      customerType: organizationCustomerTypeRisk(input),
+      // Organizations have no verification tier, so no tier floor.
+      expectedValue: expectedValueRisk(input.expectedAmountKes, 1),
+      geography: geographyRisk(input.residenceCountry),
+      behaviour: input.behaviour,
+    },
+    input,
+  );
 }
 
 export const FACTOR_LABELS: Record<keyof RiskFactors, string> = {
