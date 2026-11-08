@@ -693,43 +693,20 @@ export default defineSchema({
     windowStart: v.number(), // timestamp
   }).index("by_key", ["key"]),
 
-  // Where an organization wants to be told about things that happen to it.
-  // Kept small and rarely written: nothing that changes on every delivery
-  // lives here (that is what webhookDeliveries is for), so busy periods can't
-  // make writers fight over one endpoint document.
-  webhookEndpoints: defineTable({
-    organizationId: v.id("organizations"),
-    url: v.string(), // validated by lib/validations/webhook.ts
-    // Signs every request. Needed in the clear to compute the signature, so it
-    // is never returned by a query: only shown to the owner when it is created
-    // or rolled.
-    secret: v.string(),
-    isActive: v.boolean(),
-    createdBy: v.id("users"),
-    createdAt: v.number(),
+  // One row (key "global") of public, homepage-facing totals. Rebuilt on a
+  // schedule by internal.platformStats.refresh, so the homepage never scans
+  // fundraisers at request time.
+  platformStats: defineTable({
+    key: v.literal("global"),
+    // Sum of amountRaised over KES fundraisers that went live.
+    totalRaisedKes: v.number(),
+    // Sum of donorCount. That counter goes up once per completed donation,
+    // so it counts donations, not unique donors.
+    totalDonations: v.number(),
+    fundraisersLaunched: v.number(),
+    activeFundraisers: v.number(),
+    // ACTIVE, public fundraisers per type. Bounded by the number of types.
+    categories: v.array(v.object({ type: v.string(), count: v.number() })),
     updatedAt: v.number(),
-  }).index("by_organizationId", ["organizationId"]),
-
-  // One row per event per endpoint, written in the same step that decides the
-  // event happened (so a delivery can't be lost between "donation completed"
-  // and "told the organization"), then worked through by the delivery action.
-  webhookDeliveries: defineTable({
-    endpointId: v.id("webhookEndpoints"),
-    organizationId: v.id("organizations"),
-    eventId: v.string(), // stable across retries; receivers dedupe on it
-    eventType: webhookEventTypeValidator,
-    payload: v.string(), // the exact JSON body that is signed and sent
-    status: webhookDeliveryStatusValidator,
-    attempts: v.number(),
-    lastAttemptAt: v.optional(v.number()),
-    nextAttemptAt: v.optional(v.number()),
-    lastStatusCode: v.optional(v.number()),
-    lastError: v.optional(webhookErrorValidator),
-    deliveredAt: v.optional(v.number()),
-    createdAt: v.number(),
-  })
-    // Newest first for the delivery log, and cleanup by endpoint.
-    .index("by_endpointId", ["endpointId"])
-    // "Have we already queued this event for this endpoint?"
-    .index("by_endpointId_and_eventId", ["endpointId", "eventId"]),
+  }).index("by_key", ["key"]),
 });

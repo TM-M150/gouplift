@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { fetchQuery } from "convex/nextjs";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -14,13 +15,21 @@ import {
 } from "lucide-react";
 
 import Logo from "@/components/icons/logo";
+import { CategoryChips } from "@/components/web/home/category-chips";
+import { FeaturedFundraisers } from "@/components/web/home/featured-fundraisers";
+import { PlatformStats } from "@/components/web/home/platform-stats";
 import { StartFundraiserLink } from "@/components/web/home/start-fundraiser-link";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { api } from "@/convex/_generated/api";
 import { PLATFORM_FEE_RATE } from "@/convex/lib/constants";
 import { SITE_DESCRIPTION, SITE_NAME, SITE_TITLE, SITE_URL } from "@/lib/site";
 import { cn } from "@/lib/utils";
+
+// Statically rendered and refreshed in the background, like /fundraisers.
+export const dynamic = "force-static";
+export const revalidate = 60;
 
 export const metadata: Metadata = {
   title: SITE_TITLE,
@@ -105,7 +114,30 @@ const CampaignFeatures: Features[] = [
   },
 ];
 
-export default function Home() {
+const FIVE_MINUTES = 5 * 60 * 1000;
+
+/**
+ * Live homepage data. Every piece is optional: if Convex is unreachable, or
+ * there is nothing to show yet, the page renders without that section
+ * instead of failing or showing placeholders.
+ */
+async function loadHomepageData() {
+  // Rounded so repeated renders share one cached query result.
+  const now = Math.floor(Date.now() / FIVE_MINUTES) * FIVE_MINUTES;
+
+  const [featured, stats] = await Promise.all([
+    fetchQuery(api.fundraiser.listFeaturedFundraisers, { now }).catch(
+      () => [],
+    ),
+    fetchQuery(api.platformStats.get, {}).catch(() => null),
+  ]);
+
+  return { featured, stats };
+}
+
+export default async function Home() {
+  const { featured, stats } = await loadHomepageData();
+
   return (
     <div className="overflow-hidden">
       <section>
@@ -256,6 +288,7 @@ export default function Home() {
               supporters give through SasaPay or PayPal.
             </p>
           </div>
+          <PlatformStats stats={stats} />
         </div>
       </section>
 
@@ -354,6 +387,9 @@ export default function Home() {
               Browse fundraisers
             </Link>
           </div>
+
+          <CategoryChips categories={stats?.categories ?? []} />
+          <FeaturedFundraisers fundraisers={featured} />
 
           <div className="grid gap-3 lg:grid-cols-5">
             <div className="after:border-foreground/10 relative overflow-hidden rounded-xl bg-stone-100 p-8 after:pointer-events-none after:absolute after:inset-0 after:rounded-xl after:border lg:col-span-3 lg:row-span-2">

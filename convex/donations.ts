@@ -10,11 +10,7 @@ import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { authComponent } from "./auth";
 import { PLATFORM_FEE_RATE, resolveReturnOrigin } from "./lib/constants";
-import { assertAcceptsDonations } from "./lib/donationGate";
-import {
-  clientDonationSourceValidator,
-  donationSourceValidator,
-} from "./lib/donationSource";
+import { creditCompletedDonation } from "./lib/fundraiserTotals";
 
 function roundToCents(amount: number): number {
   return Math.round(amount * 100) / 100;
@@ -402,23 +398,11 @@ export const markDonationCompleted = internalMutation({
       updatedAt: now,
     });
 
-    const fundraiser = await ctx.db.get(donation.fundraiserId);
-    if (fundraiser) {
-      await ctx.db.patch(donation.fundraiserId, {
-        amountRaised: fundraiser.amountRaised + donation.grossAmount,
-        donorCount: fundraiser.donorCount + 1,
-        updatedAt: now,
-      });
-    }
-
-    // Tell the organization's webhooks, if it has any. Scheduled rather than
-    // called so that nothing about webhooks can hold up or undo recording a
-    // payment; the early return above keeps a redelivered callback from
-    // queueing a second event.
-    await ctx.scheduler.runAfter(
-      0,
-      internal.webhookDelivery.enqueueDonationCompleted,
-      { donationId: args.donationId },
+    await creditCompletedDonation(
+      ctx,
+      donation.fundraiserId,
+      donation.grossAmount,
+      now,
     );
   },
 });

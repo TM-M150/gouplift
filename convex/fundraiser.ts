@@ -273,6 +273,64 @@ export const listFundraisersByType = query({
   },
 });
 
+const FEATURED_CANDIDATES = 60;
+
+const FEATURED_LIMIT = 6;
+
+/**
+ * Fundraisers for the homepage. There is no staff "pin" yet, so this ranks
+ * the most recent public, active ones: with a photo first, then by how many
+ * donations they have, then newest.
+ *
+ * Queries must not read the clock, so the caller passes `now` (rounded, so
+ * the result stays cacheable) to drop fundraisers that have ended or not
+ * started yet.
+ */
+export const listFeaturedFundraisers = query({
+  args: { now: v.number() },
+  handler: async (ctx, args) => {
+    const candidates = await ctx.db
+      .query("fundraisers")
+      .withIndex("by_status", (q) => q.eq("status", "ACTIVE"))
+      .filter((q) => q.eq(q.field("isPrivate"), false))
+      .order("desc")
+      .take(FEATURED_CANDIDATES);
+
+    const hasCover = (f: Doc<"fundraisers">) =>
+      Boolean(f.coverImageStorageId || f.coverImage);
+
+    const featured = candidates
+      .filter(
+        (f) =>
+          f.isFlagged !== true &&
+          (f.startDate === undefined || f.startDate <= args.now) &&
+          (f.endDate === undefined || f.endDate > args.now),
+      )
+      .sort(
+        (a, b) =>
+          Number(hasCover(b)) - Number(hasCover(a)) ||
+          b.donorCount - a.donorCount ||
+          b._creationTime - a._creationTime,
+      )
+      .slice(0, FEATURED_LIMIT);
+
+    return Promise.all(
+      featured.map(async (fundraiser) => ({
+        _id: fundraiser._id,
+        title: fundraiser.title,
+        goalAmount: fundraiser.goalAmount,
+        amountRaised: fundraiser.amountRaised,
+        currency: fundraiser.currency,
+        donorCount: fundraiser.donorCount,
+        location: fundraiser.location,
+        coverImageUrl: fundraiser.coverImageStorageId
+          ? await ctx.storage.getUrl(fundraiser.coverImageStorageId)
+          : (fundraiser.coverImage ?? null),
+      })),
+    );
+  },
+});
+
 export const searchFundraisers = query({
   args: { searchTerm: v.string() },
   handler: async (ctx, args) => {

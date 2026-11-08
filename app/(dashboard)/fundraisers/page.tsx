@@ -5,6 +5,10 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { FundraiserSearch } from "@/components/web/fundraiser/fundraiser-search";
 import { FundraiserCard } from "@/components/web/fundraiser/fundraiser-card";
+import {
+  formatFundraiserType,
+  fundraiserTypeAnchor,
+} from "@/lib/fundraiser-type";
 
 export const dynamic = "force-static";
 export const revalidate = 30;
@@ -13,14 +17,6 @@ export const metadata: Metadata = {
   title: "Browse Fundraisers",
   description: "Explore fundraisers by category.",
 };
-
-function formatType(type: string) {
-  return type
-    .toLowerCase()
-    .split("_")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
-}
 
 export default function FundraisersPage() {
   return (
@@ -57,9 +53,13 @@ async function FundraiserGroups() {
   return (
     <div className="space-y-12">
       {groups.map((group) => (
-        <section key={group.type}>
+        <section
+          key={group.type}
+          id={fundraiserTypeAnchor(group.type)}
+          className="scroll-mt-24"
+        >
           <h2 className="mb-4 text-2xl font-semibold">
-            {formatType(group.type)}
+            {formatFundraiserType(group.type)}
           </h2>
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {group.fundraisers.map((fundraiser) => (

@@ -3,11 +3,11 @@ import { internal } from "./_generated/api";
 
 const crons = cronJobs();
 
-// Verification documents that were uploaded but never submitted.
+// Homepage totals only need to be roughly current.
 crons.interval(
-  "delete stale document uploads",
-  { hours: 6 },
-  internal.documentUploads.sweepStaleDocumentUploads,
+  "refresh platform stats",
+  { minutes: 30 },
+  internal.platformStats.refresh,
   {},
 );
 

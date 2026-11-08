@@ -107,7 +107,10 @@ export function OrganizationFundraisers({
 
                   <div className="flex items-center gap-2 text-xs text-muted-foreground pt-1">
                     <Users className="size-4" />
-                    <span>{fundraiser.donorCount} Donors</span>
+                    <span>
+                      {fundraiser.donorCount}{" "}
+                      {fundraiser.donorCount === 1 ? "Donation" : "Donations"}
+                    </span>
                   </div>
                 </div>
 
