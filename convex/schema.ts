@@ -328,4 +328,21 @@ export default defineSchema({
     count: v.number(),
     windowStart: v.number(), // timestamp
   }).index("by_key", ["key"]),
+
+  // One row (key "global") of public, homepage-facing totals. Rebuilt on a
+  // schedule by internal.platformStats.refresh, so the homepage never scans
+  // fundraisers at request time.
+  platformStats: defineTable({
+    key: v.literal("global"),
+    // Sum of amountRaised over KES fundraisers that went live.
+    totalRaisedKes: v.number(),
+    // Sum of donorCount. That counter goes up once per completed donation,
+    // so it counts donations, not unique donors.
+    totalDonations: v.number(),
+    fundraisersLaunched: v.number(),
+    activeFundraisers: v.number(),
+    // ACTIVE, public fundraisers per type. Bounded by the number of types.
+    categories: v.array(v.object({ type: v.string(), count: v.number() })),
+    updatedAt: v.number(),
+  }).index("by_key", ["key"]),
 });

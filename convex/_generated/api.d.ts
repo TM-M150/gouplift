@@ -9,6 +9,7 @@
  */
 
 import type * as auth from "../auth.js";
+import type * as crons from "../crons.js";
 import type * as donations from "../donations.js";
 import type * as fundraiser from "../fundraiser.js";
 import type * as http from "../http.js";
@@ -18,6 +19,7 @@ import type * as lib_rateLimit from "../lib/rateLimit.js";
 import type * as lib_turnstile from "../lib/turnstile.js";
 import type * as organizations from "../organizations.js";
 import type * as paypal from "../paypal.js";
+import type * as platformStats from "../platformStats.js";
 import type * as sasapay from "../sasapay.js";
 import type * as users from "../users.js";
 
@@ -29,6 +31,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
+  crons: typeof crons;
   donations: typeof donations;
   fundraiser: typeof fundraiser;
   http: typeof http;
@@ -38,6 +41,7 @@ declare const fullApi: ApiFromModules<{
   "lib/turnstile": typeof lib_turnstile;
   organizations: typeof organizations;
   paypal: typeof paypal;
+  platformStats: typeof platformStats;
   sasapay: typeof sasapay;
   users: typeof users;
 }>;
