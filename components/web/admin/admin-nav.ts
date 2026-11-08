@@ -3,6 +3,7 @@ import {
   Heart,
   Landmark,
   LayoutDashboard,
+  Quote,
   ShieldCheck,
   Users,
   Wallet,
@@ -34,6 +35,12 @@ export const adminNav: AdminNavItem[] = [
     title: "Payout accounts",
     href: "/admin/payout-accounts",
     icon: Landmark,
+    ready: true,
+  },
+  {
+    title: "Testimonials",
+    href: "/admin/testimonials",
+    icon: Quote,
     ready: true,
   },
   {

@@ -58,6 +58,7 @@ import type * as platformStats from "../platformStats.js";
 import type * as publicApi from "../publicApi.js";
 import type * as reconcileTotals from "../reconcileTotals.js";
 import type * as sasapay from "../sasapay.js";
+import type * as testimonials from "../testimonials.js";
 import type * as users from "../users.js";
 import type * as webhookDelivery from "../webhookDelivery.js";
 import type * as webhooks from "../webhooks.js";
@@ -119,6 +120,7 @@ declare const fullApi: ApiFromModules<{
   publicApi: typeof publicApi;
   reconcileTotals: typeof reconcileTotals;
   sasapay: typeof sasapay;
+  testimonials: typeof testimonials;
   users: typeof users;
   webhookDelivery: typeof webhookDelivery;
   webhooks: typeof webhooks;

@@ -16,6 +16,7 @@ import {
   donationSourceValidator,
 } from "./lib/donationSource";
 import { creditCompletedDonation } from "./lib/fundraiserTotals";
+import { resolveTestimonialOptIn } from "../lib/testimonials";
 
 function roundToCents(amount: number): number {
   return Math.round(amount * 100) / 100;
@@ -110,6 +111,9 @@ export const startDonationCheckout = action({
     fundraiserId: v.id("fundraisers"),
     grossAmount: v.number(),
     message: v.optional(v.string()),
+    // The donor asked for their message to be considered as a testimonial.
+    // Only honoured for a signed-in donor; see resolveTestimonialOptIn.
+    shareAsTestimonial: v.optional(v.boolean()),
     isAnonymous: v.boolean(),
     donorName: v.optional(v.string()),
     donorEmail: v.optional(v.string()),
@@ -163,6 +167,12 @@ export const startDonationCheckout = action({
         grossAmount: args.grossAmount,
         currency: "KES",
         message: args.message,
+        shareAsTestimonial: resolveTestimonialOptIn({
+          requested: args.shareAsTestimonial,
+          signedIn: donorUserId !== undefined,
+          isAnonymous: args.isAnonymous,
+          message: args.message,
+        }),
         isAnonymous: args.isAnonymous,
         donorUserId,
         donorName: args.donorName,
@@ -286,6 +296,7 @@ export const createPendingDonation = internalMutation({
     grossAmount: v.number(),
     currency: v.union(v.literal("KES")),
     message: v.optional(v.string()),
+    shareAsTestimonial: v.optional(v.boolean()),
     isAnonymous: v.boolean(),
     donorUserId: v.optional(v.id("users")),
     donorName: v.optional(v.string()),
@@ -321,6 +332,7 @@ export const createPendingDonation = internalMutation({
       grossAmount: args.grossAmount,
       currency: args.currency,
       message: args.message,
+      shareAsTestimonial: args.shareAsTestimonial,
       source: args.source,
       platformFeeRate: PLATFORM_FEE_RATE,
       platformFeeAmount,
@@ -419,6 +431,14 @@ export const markDonationCompleted = internalMutation({
       internal.webhookDelivery.enqueueDonationCompleted,
       { donationId: args.donationId },
     );
+
+    // Same reasoning for testimonials: a separate, scheduled step, so a
+    // problem with one can never touch the payment.
+    if (donation.shareAsTestimonial === true) {
+      await ctx.scheduler.runAfter(0, internal.testimonials.queueFromDonation, {
+        donationId: args.donationId,
+      });
+    }
   },
 });
 

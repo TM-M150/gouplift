@@ -19,6 +19,7 @@ import { CategoryChips } from "@/components/web/home/category-chips";
 import { FeaturedFundraisers } from "@/components/web/home/featured-fundraisers";
 import { PlatformStats } from "@/components/web/home/platform-stats";
 import { StartFundraiserLink } from "@/components/web/home/start-fundraiser-link";
+import { Testimonials } from "@/components/web/home/testimonials";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -125,18 +126,19 @@ async function loadHomepageData() {
   // Rounded so repeated renders share one cached query result.
   const now = Math.floor(Date.now() / FIVE_MINUTES) * FIVE_MINUTES;
 
-  const [featured, stats] = await Promise.all([
+  const [featured, stats, testimonials] = await Promise.all([
     fetchQuery(api.fundraiser.listFeaturedFundraisers, { now }).catch(
       () => [],
     ),
     fetchQuery(api.platformStats.get, {}).catch(() => null),
+    fetchQuery(api.testimonials.listPublic, {}).catch(() => []),
   ]);
 
-  return { featured, stats };
+  return { featured, stats, testimonials };
 }
 
 export default async function Home() {
-  const { featured, stats } = await loadHomepageData();
+  const { featured, stats, testimonials } = await loadHomepageData();
 
   return (
     <div className="overflow-hidden">
@@ -439,6 +441,8 @@ export default async function Home() {
           </div>
         </div>
       </section>
+
+      <Testimonials testimonials={testimonials} />
 
       <section className="py-16 md:py-20">
         <div className="mx-auto max-w-7xl px-6">
