@@ -47,8 +47,8 @@ export default function PricingPage() {
     >
       <InfoSection title="The platform fee">
         <p>
-          GoUplift charges a <strong>{feePercent}% platform fee</strong> on each
-          donation. The fee comes out of the donation, so the fundraiser
+          GoUplift charges a <strong>{feePercent}% platform fee</strong>{" "}
+          on each donation. The fee comes out of the donation, so the fundraiser
           receives the rest and supporters aren&apos;t charged anything extra
           by GoUplift.
         </p>

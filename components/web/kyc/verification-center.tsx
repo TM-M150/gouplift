@@ -154,8 +154,8 @@ export function VerificationCenter() {
               className="space-y-1 rounded-xl border border-destructive/50 p-4 text-sm"
             >
               <p className="font-medium">
-                Your last Level {kyc.rejection.requestedTier} application
-                wasn&apos;t approved.
+                Your last Level {kyc.rejection.requestedTier}{" "}
+                application wasn&apos;t approved.
               </p>
               {kyc.rejection.reason && (
                 <p className="text-muted-foreground">{kyc.rejection.reason}</p>

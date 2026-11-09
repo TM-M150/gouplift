@@ -16,6 +16,7 @@ import type * as customerRisk from "../customerRisk.js";
 import type * as documentUploads from "../documentUploads.js";
 import type * as donations from "../donations.js";
 import type * as fundraiser from "../fundraiser.js";
+import type * as fundraiserExpiry from "../fundraiserExpiry.js";
 import type * as http from "../http.js";
 import type * as kyc from "../kyc.js";
 import type * as kycReview from "../kycReview.js";
@@ -79,6 +80,7 @@ declare const fullApi: ApiFromModules<{
   documentUploads: typeof documentUploads;
   donations: typeof donations;
   fundraiser: typeof fundraiser;
+  fundraiserExpiry: typeof fundraiserExpiry;
   http: typeof http;
   kyc: typeof kyc;
   kycReview: typeof kycReview;

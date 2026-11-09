@@ -41,9 +41,10 @@ export default function HowItWorksPage() {
             fundraiser goes live as soon as you publish it.
           </li>
           <li>
-            <strong>Share it.</strong> Every fundraiser has its own page and
-            link. Send it to the people who might want to help. Supporters
-            don&apos;t need an account to give.
+            <strong>Share it.</strong>{" "}
+            Every fundraiser has its own page and link. Send it to the people
+            who might want to help. Supporters don&apos;t need an account to
+            give.
           </li>
           <li>
             <strong>Supporters give.</strong> They can pay in Kenyan shillings

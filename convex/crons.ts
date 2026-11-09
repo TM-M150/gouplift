@@ -19,4 +19,13 @@ crons.interval(
   {},
 );
 
+// Closes fundraisers whose end date has passed. Donations already stop at the
+// end date itself, so this only needs to run now and then.
+crons.interval(
+  "expire ended fundraisers",
+  { hours: 1 },
+  internal.fundraiserExpiry.expireEnded,
+  {},
+);
+
 export default crons;
