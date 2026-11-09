@@ -275,7 +275,8 @@ export const listFundraisersByType = query({
 
 const FEATURED_CANDIDATES = 60;
 
-const FEATURED_LIMIT = 6;
+// One for the spotlight in the hero and six for the grid below it.
+const FEATURED_LIMIT = 7;
 
 /**
  * Fundraisers for the homepage. There is no staff "pin" yet, so this ranks

@@ -723,6 +723,16 @@ export default defineSchema({
     fetchedAt: v.number(),
   }).index("by_pair", ["pair"]),
 
+  // People who asked, in the footer, to hear from GoUplift. Nothing is sent
+  // from here yet: this is the list to send from once there is something to
+  // send. One row per address, stored in lower case. consentedAt is when they
+  // ticked the box that says what the address will be used for.
+  newsletterSignups: defineTable({
+    email: v.string(),
+    consentedAt: v.number(),
+    source: v.literal("footer"),
+  }).index("by_email", ["email"]),
+
   rateLimits: defineTable({
     key: v.string(), // e.g. "donate:email:user@example.com" or "donate:ip:1.2.3.4"
     count: v.number(),
