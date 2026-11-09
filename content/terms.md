@@ -1,5 +1,7 @@
 # Terms of Use and Conditions
 
+**Last Updated: 10 November 2026**
+
 These Terms of Use contain an arbitration provision which requires, except in certain limited circumstances, that any disputes or claims you bring against us must be resolved through final and binding arbitration.
 
 By agreeing to this arbitration provision, you acknowledge that:
@@ -27,13 +29,19 @@ Unless the context requires otherwise, the following terms and expressions shall
 
 **“Balance”** means the amount of E-Value available and credited to your Account at any particular time.
 
+**“Campaign”** or **“Fundraiser”** means any fundraising initiative, campaign, or activity created by a Customer on the Service for the purpose of collecting contributions.
+
 **“Customer”** means you and any other individual who accesses, registers for, or uses the Go-Uplift LTD Service.
+
+**“Donor”** or **“Contributor”** means any person who makes a contribution or payment towards a Campaign.
 
 **“E-Value”** means the electronic value recorded in a Customer’s Account, representing that Customer’s entitlement to an equivalent cash amount maintained through the applicable payment account.
 
-**“Fees”** means all transaction fees, service charges, and other applicable charges payable in connection with the Go-Uplift LTD Services under this Agreement.
+**“Fees”** means all transaction fees, service charges, Platform Fees, and other applicable charges payable in connection with the Go-Uplift LTD Services under this Agreement.
 
 **“Fundraising”** means any campaign, activity, or initiative established for the purpose of collecting money, contributions, or donations from individuals or groups of people for a specific cause, purpose, or need.
+
+**“KYC”** means Know Your Customer identity verification procedures required by the Company or by applicable law.
 
 **“Mobile Phone”** means any mobile handset, smartphone, or mobile device used to access or operate the Service.
 
@@ -47,6 +55,8 @@ Unless the context requires otherwise, the following terms and expressions shall
 
 **“PAYBILL Account”** means the account assigned to the Company by an authorised mobile money provider through its mobile money platform for receiving and managing payments made through the Service.
 
+**“Platform Fee”** means the fee charged by the Company for use of the Service, as published on the Go-Uplift LTD website or within the application from time to time.
+
 **“Product”**, **“Service”**, or **“Services”** means all products, features, applications, software, websites, and related services provided through Go-Uplift LTD, including its website and mobile applications.
 
 **“SIM Card”** means the subscriber identity module which, when used with compatible mobile equipment, allows access to mobile communication and mobile money services.
@@ -59,27 +69,38 @@ Unless the context requires otherwise, the following terms and expressions shall
 
 **“you”** or **“your”** means the Customer accessing or using the Service.
 
-**xxxxx** means the USSD code used to access and operate the Go-Uplift LTD Service.
-
 ## 3.0 TERMS AND CONDITIONS
 
-### 3.1 USE OF Go-Uplift LTD
+### 3.1 Eligibility and Account Registration
+
+To use the Service you must:
+
+- Be at least eighteen (18) years of age;
+- Have the legal capacity to enter into a binding contract under the laws of Kenya;
+- Provide accurate, complete, current, and truthful information during registration and keep that information updated; and
+- Not be prohibited from using the Service under applicable law.
+
+By registering or using the Service you represent and warrant that you meet these requirements.
+
+If you choose to register for the Service, you agree to provide information that is accurate, complete, current, and truthful through the applicable registration process (including USSD, website, or mobile application). You are responsible for ensuring that your account information remains accurate, updated, and complete.
+
+The Company reserves the right to refuse registration, require additional verification, or suspend or terminate any Account at its sole discretion where eligibility requirements are not met or where information provided is false or incomplete.
+
+### 3.2 Use of Go-Uplift LTD
 
 These Terms of Use govern your access to and use of Go-Uplift LTD. By accessing, registering for, or using the Service, you confirm your acceptance of these Terms, which creates a legally binding agreement between you and Go-Uplift LTD.
 
 You acknowledge that your decision to use the Go-Uplift LTD Service is made voluntarily and that you have not been forced, pressured, or otherwise compelled to access or use the Service.
 
-You agree to comply with these Terms of Use when using Go-Uplift LTD and any additional products, features, or services that may be made available by us from time to time, including payment services such as PAYPAL, third-party merchant services, social networking platforms, and other related services.
+You agree to comply with these Terms of Use when using Go-Uplift LTD and any additional products, features, or services that may be made available by us from time to time, including payment services such as M-Pesa, Airtel Money, PayPal, Stripe, third-party merchant services, social networking platforms, and other related services.
 
 Go-Uplift LTD reserves the right to establish reasonable procedures, restrictions, and limitations regarding the operation and use of the Service. These may include limits relating to the period for which information, data, or other content may be stored and the maximum storage capacity allocated to users on the Company’s systems.
 
 You acknowledge and agree that Go-Uplift LTD shall not be responsible or liable for any deletion, loss, corruption, or failure to store any data or content maintained, uploaded, or transmitted through the Service.
 
-You acknowledge that Go-Uplift LTD reserves the right to suspend or terminate accounts that remain inactive for an extended period. You also acknowledge that we also reserve the right to modify, update, or change our general practices, limits, and operational procedures at any time, whether with or without prior notice.
+You acknowledge that Go-Uplift LTD reserves the right to suspend or terminate accounts that remain inactive for an extended period. You also acknowledge that we reserve the right to modify, update, or change our general practices, limits, and operational procedures at any time, whether with or without prior notice.
 
-If you choose to register for the Service, you agree to provide information that is accurate, complete, current, and truthful through the USSD code or through the applicable online registration process. You are responsible for ensuring that your account information remains accurate, updated, and complete.
-
-You are responsible for maintaining the confidentiality and security of your Account details, including your password, M-PESA PIN, Airtel Money PIN, or any other mobile money security credentials or identification numbers associated with your Account.
+You are responsible for maintaining the confidentiality and security of your Account details, including your password, M-Pesa PIN, Airtel Money PIN, or any other mobile money security credentials or identification numbers associated with your Account.
 
 You accept full responsibility for all activities carried out through your Account or through the use of your security credentials.
 
@@ -95,7 +116,7 @@ You further acknowledge that Go-Uplift LTD shall not be liable for any unauthori
 
 You also acknowledge that Go-Uplift LTD shall not be responsible for withdrawals made from your Account without the required approvals where you failed to activate or properly use the multiple treasurer security feature provided through the Product.
 
-Upon completing the registration process or accessing the Go-Uplift LTD Service through your Mobile Phone, you are granted a limited, non-exclusive, non-transferable, non-assignable, non-sublicensable, and revocable licence to use the Service on your Mobile Phone.
+Upon completing the registration process or accessing the Go-Uplift LTD Service, you are granted a limited, non-exclusive, non-transferable, non-assignable, non-sublicensable, and revocable licence to use the Service.
 
 Your use of the Service is subject to these Terms of Use and is undertaken at your own risk. You agree that Go-Uplift LTD shall not be responsible for any failure, malfunction, or technical issue arising from your Mobile Phone hardware, software, or your Network Service Provider.
 
@@ -105,7 +126,7 @@ By accessing the Service through a Mobile Phone, you consent to receiving commun
 
 If you change, deactivate, or replace your mobile phone number, you agree to promptly update your Account details to prevent communications from being sent to another person who may later receive your previous number.
 
-Although we aim to provide a reliable and accessible Service, Go-Uplift LTD does not guarantee that Go-Uplift LTD will always be available, uninterrupted, secure, or free from errors. We shall not be liable for any loss, damage, or inconvenience arising from the temporary unavailability or interruption of the Service.
+Although we aim to provide a reliable and accessible Service, Go-Uplift LTD does not guarantee that the Service will always be available, uninterrupted, secure, or free from errors. We shall not be liable for any loss, damage, or inconvenience arising from the temporary unavailability or interruption of the Service.
 
 By accepting these Terms of Use, you acknowledge that Go-Uplift LTD may experience technical limitations and that the availability and quality of the Service may be affected by circumstances beyond our control, including but not limited to natural events, mobile network failures, maintenance activities, technical faults, or issues affecting mobile operators.
 
@@ -115,15 +136,30 @@ Go-Uplift LTD shall not accept responsibility for any direct, indirect, incident
 
 By using Go-Uplift LTD, you further acknowledge and agree to the following conditions:
 
-- Creating and managing a fundraiser on Go-Uplift LTD is provided free of charge.
-- You may only manage one active fundraiser using a single MSISDN or SIM line at any given time; however, you may contribute to an unlimited number of fundraisers created by other users.
-- You may withdraw available funds at any time, provided that your Account Balance meets the minimum withdrawal requirement of KES 250 (UGX 1.5M, TZS 1M).
+- Creating and managing a Campaign on Go-Uplift LTD is provided free of charge (subject to applicable Platform Fees on amounts raised or withdrawn).
+- You may only manage one active Campaign using a single MSISDN or SIM line at any given time; however, you may contribute to an unlimited number of Campaigns created by other users.
+- You may withdraw available funds at any time, provided that your Account Balance meets the minimum withdrawal requirement of KES 250 (or the equivalent threshold published for other supported currencies such as UGX or TZS).
 - Applicable mobile network provider charges and tariffs will apply to all withdrawals and contributions.
-- Each fundraiser may have a maximum of three (3) Treasurers responsible for approving withdrawals.
+- Each Campaign may have a maximum of three (3) Treasurers responsible for approving withdrawals.
 
-Additional fees applicable to the use of the Service are outlined separately on the Go-Uplift LTD website.
+Additional fees applicable to the use of the Service are outlined separately on the Go-Uplift LTD website or within the application.
 
-### 3.2 CUSTODY OF FUNDS
+### 3.3 KYC, Anti-Money Laundering and Compliance
+
+The Company is committed to compliance with applicable Kenyan laws, including the Proceeds of Crime and Anti-Money Laundering Act and related regulations.
+
+We may require you to complete Know Your Customer (KYC) verification at any time. This may include providing a copy of your national identity card, passport, KRA PIN certificate, proof of address, or any other documentation reasonably requested by the Company.
+
+We reserve the right to:
+
+- Request additional information or documentation before processing any withdrawal;
+- Freeze, delay, or refuse withdrawals where we have reasonable grounds to suspect fraud, money laundering, terrorist financing, or other illegal activity;
+- Report suspicious transactions to the relevant authorities as required by law; and
+- Suspend or terminate Accounts that fail to complete required verification or that are reasonably suspected of involvement in prohibited activity.
+
+You agree to cooperate fully with any KYC or compliance requests. Failure to do so may result in delayed or refused withdrawals and/or suspension of your Account.
+
+### 3.4 Custody of Funds
 
 The Company confirms that it maintains custody of all payments, contributions, and other funds received through available payment channels, including PAYBILL, TILL, PayPal, Stripe, Airtel Money, T-Kash, Equitel, and any other approved payment methods, in relation to amounts credited to your Account (“Customer Balances”).
 
@@ -131,7 +167,7 @@ These Customer Balances are held by the Company on your behalf and for your bene
 
 You agree that the Company’s internal records and system information shall be considered final and sufficient evidence of the amount of E-Value credited to your Account at any given time. The Company shall not be required to independently verify or investigate your ownership rights or beneficial entitlement to the Customer Balances.
 
-Where a payment is made to you in relation to your entitlement to Customer Balances, the Company may rely on instructions provided through your System Identification Number. The System Identification Number shall generally be the MSISDN or SIM line number used when registering the Fundraiser.
+Where a payment is made to you in relation to your entitlement to Customer Balances, the Company may rely on instructions provided through your System Identification Number. The System Identification Number shall generally be the MSISDN or SIM line number used when registering the Campaign.
 
 You acknowledge that the Company may act upon instructions appearing to originate from your System Identification Number, even where such instructions are submitted by another person using your credentials or access details. The Company shall not be responsible for losses arising from such reliance where appropriate security measures have not been maintained by you.
 
@@ -153,23 +189,23 @@ Notwithstanding any other provision contained in these Terms, where you choose t
 - You acknowledge that the Company only displays or provides payment information relating to your Paybill Account for your convenience and does not control those funds.
 - You agree to maintain sufficient credit within your Go-Uplift LTD Account to cover all applicable Fees payable to the Company. Since the Company does not control funds held in your personal Paybill Account, transactions may not be processed where your Account does not contain enough credit to meet the applicable Fees.
 
-### 3.3 WITHDRAWAL RIGHTS
+### 3.5 Withdrawal Rights
 
 In addition to the withdrawal provisions contained elsewhere in this Agreement, you acknowledge and agree to the following conditions relating to withdrawals:
 
-The Company will make reasonable efforts to process withdrawal requests within approximately one (1) to four (4) hours after receiving the request. However, processing times may be affected by circumstances beyond the Company’s reasonable control.
+The Company will make reasonable efforts to process withdrawal requests within approximately one (1) to four (4) hours after receiving the request. However, processing times may be affected by circumstances beyond the Company’s reasonable control, including network issues, compliance checks, or verification requirements.
 
-Withdrawals must be initiated using the SIM card or mobile number originally used to create and register the Fundraiser. Any request made through a different number or SIM card may require additional verification and investigation by the Company.
+Withdrawals must be initiated using the SIM card or mobile number originally used to create and register the Campaign. Any request made through a different number or SIM card may require additional verification and investigation by the Company.
 
 If your Mobile Phone or SIM card is lost, damaged, or unavailable, you are responsible for obtaining a replacement device or SIM card from your mobile network provider before attempting to complete a withdrawal.
 
 If you become physically or medically unable to access your Mobile Phone and complete a withdrawal, you may be required to:
 
 - Personally visit the Company’s offices or reach out for further instructions;
-- Provide satisfactory identification confirming that you are the person who created the Fundraiser; and
+- Provide satisfactory identification confirming that you are the person who created the Campaign; and
 - Submit medical documentation from a qualified medical professional confirming your inability to complete the withdrawal process using your Mobile Phone.
 
-Where the Fundraiser includes appointed Treasurers, the Company may require confirmation from the relevant Treasurers regarding your reported incapacity before processing the withdrawal request.
+Where the Campaign includes appointed Treasurers, the Company may require confirmation from the relevant Treasurers regarding your reported incapacity before processing the withdrawal request.
 
 Where a customer has passed away, withdrawal of funds from the Customer’s Account may be requested by the Customer’s next of kin or lawful representative (“Claimant”).
 
@@ -178,7 +214,7 @@ Before any withdrawal can be processed, the Claimant must provide documentation 
 - The Claimant’s original national identification document or passport;
 - The deceased Customer’s official death certificate;
 - A statutory declaration or affidavit witnessed by a commissioner for oaths confirming relevant facts, including the Claimant’s relationship to the deceased; and
-- A letter issued by the relevant provisional administration authority, from the DC or PC confirming details of the deceased and their beneficiaries, including the deceased person’s full name, place of residence, and all identified beneficiaries.
+- A letter issued by the relevant provincial administration authority, from the DC or PC confirming details of the deceased and their beneficiaries, including the deceased person’s full name, place of residence, and all identified beneficiaries.
 
 Alternatively, the Claimant may provide:
 
@@ -187,108 +223,107 @@ Alternatively, the Claimant may provide:
 
 in accordance with applicable succession laws.
 
-### 3.4 PROPRIETARY RIGHTS
+### 3.6 Platform Fees
+
+Creating a Campaign on Go-Uplift LTD is free of charge.
+
+The Company charges a Platform Fee on amounts raised or withdrawn through the Service. The applicable Platform Fee percentage and any other charges are published on the Go-Uplift LTD website and/or within the application and may be updated from time to time.
+
+Platform Fees are generally deducted at the time of withdrawal or as otherwise indicated. Once a transaction has been processed, Platform Fees are non-refundable except where required by applicable law or where the Company determines in its sole discretion that a refund is appropriate.
+
+Mobile network operator charges, bank charges, and any third-party payment processing fees remain the responsibility of the user and are separate from the Platform Fee.
+
+### 3.7 Campaign Rules and Creator Obligations
+
+By creating a Campaign you agree that:
+
+- All information provided about the Campaign (including the purpose, story, images, and target amount) is true, accurate, and not misleading;
+- The Campaign is for a lawful purpose and does not violate these Terms or any applicable law;
+- You will use funds raised substantially for the purpose described in the Campaign;
+- You will provide reasonable updates to Donors regarding the progress and use of funds where appropriate; and
+- You are solely responsible for any taxes, levies, or reporting obligations arising from amounts received through the Campaign.
+
+The Company reserves the right to review, suspend, remove, or refuse any Campaign that appears to be fraudulent, misleading, illegal, or otherwise in violation of these Terms. The Company has no obligation to monitor every Campaign but may take action at its discretion.
+
+You acknowledge that the Company does not guarantee that any Campaign will reach its fundraising target or that any particular amount will be raised.
+
+### 3.8 Donors and Contributions
+
+Contributions made through the Service are voluntary. Unless expressly stated otherwise, contributions are gifts and not payments for goods or services.
+
+Once funds have been successfully withdrawn by the Campaign creator (subject to any required multi-treasurer approvals and applicable Fees), the contribution is generally final. The Company is under no obligation to process refunds after withdrawal has been completed, except where required by law or where the Company determines in its sole discretion that a refund is appropriate.
+
+The Company does not control how Campaign creators ultimately use funds after withdrawal and does not guarantee that funds will be used exactly as described. Donors should exercise their own judgment when choosing which Campaigns to support.
+
+Chargebacks, payment reversals, and disputes initiated through mobile money providers, banks, or card networks will be handled in accordance with the rules of the relevant payment provider and the Company’s internal policies. The Company reserves the right to recover any amounts reversed or charged back from the relevant Account or Campaign creator.
+
+### 3.9 Prohibited Uses and Content
+
+You may not use the Service to create, promote, or support Campaigns that involve or relate to:
+
+- Illegal activities, fraud, scams, or pyramid schemes;
+- Terrorism, terrorist financing, or money laundering;
+- Hate speech, violence, discrimination, or harassment;
+- Adult sexual content involving minors or non-consensual activity;
+- Weapons, explosives, or controlled substances (except where clearly lawful and properly regulated);
+- Any activity that violates Kenyan law or the rights of any third party.
+
+You also agree not to:
+
+- Impersonate any person or entity or misrepresent your affiliation;
+- Interfere with or disrupt the Service or servers;
+- Attempt to gain unauthorised access to any part of the Service or other users’ Accounts;
+- Use automated means (bots, scrapers, etc.) to access the Service without prior written permission; or
+- Upload or transmit viruses, malware, or any other harmful code.
+
+The Company may suspend or terminate Accounts and remove content that violates this section, and may report such activity to the relevant authorities.
+
+### 3.10 Proprietary Rights
 
 All software, technology, systems, designs, features, content, and other materials that support or are provided through the Service (collectively referred to as the “Software”) are owned by Go-Uplift LTD, its affiliates, partners, licensors, or other authorised parties.
 
-Except where expressly permitted by Go-Uplift LTD, you may not copy, modify, reproduce, display, frame, extract, lease, rent, sell, transfer, assign, sublicense, distribute, create derivative works from, reverse engineer, reverse compile, reverse assemble, or attempt to discover the source code, structure, or underlying technology of the Software.
-
-When using the Service, you agree not to use any automated tools, including data mining systems, robots, crawlers, scraping software, or similar methods intended to collect, extract, or obtain information from the Service.
-
-If your access to the Service is restricted, suspended, or blocked by Go-Uplift LTD, including through blocking your IP address, you agree not to attempt to bypass or overcome such restrictions through methods such as IP masking, proxy servers, or other circumvention techniques.
-
-Any access, use, or exploitation of the Service or its content that has not been expressly authorised under these Terms of Use is strictly prohibited. All rights not specifically granted to you under these Terms remain reserved by Go-Uplift LTD.
-
-The Go-Uplift LTD name, branding, logos, and related marks are trademarks, service marks, or intellectual property belonging to Go-Uplift LTD (collectively referred to as the “Company Trademarks”).
-
-Any other names, brands, logos, products, or services displayed through the Service may belong to their respective owners. Such owners may or may not have an association, partnership, endorsement, or relationship with Go-Uplift LTD.
-
-Nothing contained in these Terms of Use or made available through the Service grants you any licence, ownership interest, or permission, whether by implication, legal principle, or otherwise, to use any Company Trademarks without prior written approval.
-
-Any goodwill, reputation, or value generated through the use of Company Trademarks shall belong solely to Go-Uplift LTD.
-
-Go-Uplift LTD shall not be responsible or liable for any third-party content, materials, information, or submissions made available through the Service, including content provided by other users.
-
-This includes, without limitation, responsibility for errors, omissions, inaccuracies, or any loss or damage arising from reliance on or use of such content.
-
-Go-Uplift LTD does not undertake an obligation to review or approve all content before it is published or made available through the Service. However, the company and its authorised representatives reserve the right, at their sole discretion, to refuse, restrict access to, or remove any content submitted through the Service.
-
-This includes content that violates these Terms of Use or content that Go-Uplift LTD considers inappropriate, harmful, objectionable, or otherwise unsuitable.
-
-You acknowledge that you are responsible for evaluating any content accessed through the Service and accept all risks associated with relying on such content, including risks relating to accuracy, completeness, reliability, or usefulness.
+Except where expressly permitted by Go-Uplift LTD, you may not copy, modify, reproduce, display, frame, extract, lease, rent, sell, distribute, create derivative works from, reverse engineer, decompile, or otherwise attempt to discover the source code of the Software or any part of it.
 
 #### User Content
 
-Any content, materials, information, images, documents, or other items that you upload, submit, transmit, or share through the Service (“User Content”) remain your responsibility.
+You retain ownership of any content you submit, post, or display on or through the Service (“User Content”). By submitting User Content you grant Go-Uplift LTD a worldwide, non-exclusive, royalty-free, transferable, sublicensable licence to use, reproduce, modify, adapt, publish, translate, distribute, and display such User Content in connection with operating and providing the Service.
 
-You represent and warrant that you own, control, or have obtained all necessary rights, permissions, and authorisations relating to such User Content, including all copyright, intellectual property, and publicity rights connected to it.
+You represent and warrant that you have all necessary rights to grant the above licence and that your User Content does not infringe the rights of any third party.
 
-By submitting User Content through the Service, you grant Go-Uplift LTD and its affiliated entities a worldwide, non-exclusive, royalty-free, fully paid, transferable, sublicensable, perpetual, and irrevocable licence to use, reproduce, display, store, modify, distribute, perform, and otherwise process such User Content.
-
-This licence allows Go-Uplift LTD to use User Content for purposes connected with operating, maintaining, improving, promoting, advertising, and marketing the Service through any current or future media, platform, or technology.
-
-Any questions, suggestions, comments, ideas, feedback, or other information you provide regarding the Service (“Submissions”) shall be considered non-confidential.
-
-You acknowledge that Go-Uplift LTD may use, reproduce, distribute, modify, or otherwise utilise such Submissions for any lawful purpose, whether commercial or non-commercial, without any obligation to provide acknowledgement, payment, or compensation.
-
-The company may retain, preserve, access, or disclose content where reasonably necessary or required by law, including where such action is necessary to:
-
-(a) comply with legal obligations, court orders, regulatory requirements, or government requests;
-
-(b) enforce these Terms of Use;
-
-(c) respond to claims that content infringes the rights of another person or entity; or
-
-(d) protect the rights, property, safety, or interests of Go-Uplift LTD, users of the Service, or members of the public.
-
-You acknowledge that operation of the Service may involve technical processing and transmission of information, including User Content, through various networks and systems. Such processing may require adjustments or modifications to ensure compatibility with different devices, networks, and technical requirements.
+You are solely responsible for your User Content. The Company does not endorse any User Content and has no obligation to monitor it, although we reserve the right to remove or disable access to any User Content that violates these Terms or that we consider objectionable.
 
 #### Copyright Complaints
 
-Go-Uplift LTD respects the intellectual property rights of others and expects all users of the Service to do the same.
+If you believe that any content on the Service infringes your copyright, you may send a notice to the Company containing:
 
-If you believe that any material available through the Service infringes your copyright or any other intellectual property rights, you should submit a written infringement notice in accordance with the procedures outlined below.
+- A description of the copyrighted work claimed to have been infringed;
+- A description of the material that is claimed to be infringing and its location on the Service;
+- Your contact information (name, address, telephone number, and email address);
+- A statement that you have a good-faith belief that the use is not authorised by the copyright owner, its agent, or the law;
+- A statement, under penalty of perjury, that the information in the notice is accurate and that you are the copyright owner or authorised to act on the owner’s behalf; and
+- Your physical or electronic signature.
 
-Upon receiving a valid notice, Go-Uplift LTD will review and investigate the alleged infringement and, where appropriate, take action in accordance with the Digital Millennium Copyright Act ("DMCA") and any other applicable intellectual property laws.
-
-Notices of alleged copyright infringement should be sent to the designated Copyright Agent by email at Go-UpliftLTDAfrica@gmail.com using the subject line "DMCA Takedown Request." Written notices may also be delivered by mail to:
-
-Modern Christian building  
-Nairobi, Kenya
-
-For an infringement notice to be valid, it must be submitted in writing and include the following:
-
-- A physical or electronic signature of the copyright owner or a person authorised to act on the owner's behalf;
-- A clear description of the copyrighted work or other intellectual property that is alleged to have been infringed;
-- A description of the material claimed to be infringing, together with sufficient information to enable us to locate the material on the Service;
-- Your full name, postal address, telephone number, and email address;
-- A statement confirming that you have a good faith belief that the disputed use has not been authorised by the copyright owner, its representative, or applicable law; and
-- A declaration made under penalty of perjury confirming that the information contained in your notice is accurate and that you are the copyright owner or are authorised to act on behalf of the copyright owner.
+Upon receipt of a valid notice the Company may remove or disable access to the allegedly infringing material.
 
 #### Counter-Notice
 
-If you believe that any User Content removed from the Service, or to which access has been disabled, was removed as a result of an error or mistaken identification, or that you possess the necessary rights or authorisation to use the material, you may submit a written counter-notice to the Copyright Agent.
+If your content has been removed and you believe the removal was the result of a mistake or misidentification, you may submit a counter-notice containing:
 
-Your counter-notice should include:
-
-- Your physical or electronic signature;
-- Identification of the material that was removed or disabled, together with the location where it appeared before removal;
-- A statement made in good faith that you believe the content was removed or disabled due to an error or misidentification; and
+- Identification of the material that was removed and the location at which it appeared before removal;
+- A statement under penalty of perjury that you have a good-faith belief that the material was removed as a result of mistake or misidentification;
 - Your full name, postal address, telephone number, and email address, together with a statement confirming your consent to the jurisdiction of the competent courts in Kenya and your agreement to accept service of legal documents from the person who submitted the original infringement notice.
 
 Where Go-Uplift LTD receives a valid counter-notice, a copy may be forwarded to the original complainant informing them that the removed material may be restored or access reinstated within ten (10) business days.
 
-Unless the original complainant commences legal proceedings seeking a court order to prevent restoration of the material, the company may, at its sole discretion, restore the content or re-enable access within ten (10) to fourteen (14) business days, or within any longer period considered reasonably necessary.
+Unless the original complainant commences legal proceedings seeking a court order to prevent restoration of the material, the Company may, at its sole discretion, restore the content or re-enable access within ten (10) to fourteen (14) business days, or within any longer period considered reasonably necessary.
 
 #### Repeat Infringer Policy
 
-In accordance with the Digital Millennium Copyright Act (DMCA) and other applicable intellectual property laws, the company maintains a policy for addressing repeated copyright infringement.
+The Company maintains a policy for addressing repeated copyright infringement. Where a user is determined, at the sole discretion of the Company, to be a repeat infringer, we may suspend, restrict, or permanently terminate that user’s access to the Service.
 
-Where a user is determined, at the sole discretion of the company, to be a repeat infringer, we may suspend, restrict, or permanently terminate that user's access to the Service.
+The Company also reserves the right to limit, suspend, or terminate the accounts of any user found to have infringed the intellectual property rights of another person, regardless of whether the infringement is repeated.
 
-The company also reserves the right to limit, suspend, or terminate the accounts of any user found to have infringed the intellectual property rights of another person, regardless of whether the infringement is repeated.
-
-### 3.5 THIRD-PARTY WEBSITES
+### 3.11 Third-Party Websites and Services
 
 The Service may contain links, references, or access points to external websites, platforms, or online resources operated by third parties. These links may be provided directly by Go-Uplift LTD or made available through third-party users, partners, or service providers.
 
@@ -298,17 +333,15 @@ You acknowledge and agree that Go-Uplift LTD does not endorse, guarantee, or ass
 
 To the fullest extent permitted by law, we shall not be responsible or liable, directly or indirectly, for any loss, damage, claim, or expense arising from or connected with your access to, use of, or reliance upon any third-party website, content, service, product, or resource.
 
-Any transactions, communications, agreements, or interactions you enter into with third parties while using the Service are solely between you and the relevant third party.
+Any transactions, communications, agreements, or interactions you enter into with third parties while using the Service are solely between you and the relevant third party. The Company shall have no responsibility or liability for any disputes, losses, or claims arising from your dealings with such third parties.
 
-You acknowledge that the company shall have no responsibility or liability for any disputes, losses, or claims arising from your dealings with such third parties.
+### 3.12 Apple-Enabled Software Applications
 
-### 3.5 Apple-Enabled Software Applications
-
-Our platform may include software applications designed to operate on Apple Inc. devices ("Apple-Enabled Software"). By downloading or using any Apple-Enabled Software, you acknowledge and agree to the following terms in addition to these Terms of Use.
+Our platform may include software applications designed to operate on Apple Inc. devices (“Apple-Enabled Software”). By downloading or using any Apple-Enabled Software, you acknowledge and agree to the following terms in addition to these Terms of Use.
 
 The agreement governing the Apple-Enabled Software exists solely between Go-Uplift LTD and you. Apple is not a party to this agreement and assumes no responsibility for the software or its content.
 
-You must not use the Apple-Enabled Software in any way that violates, conflicts with, or is inconsistent with Apple’s Usage Rules for Apple-Enabled Software or the applicable App Store Terms of Service. Your licence to use the Apple-Enabled Software is limited, personal, non-exclusive, non-transferable and revocable. It may only be used on Apple-branded devices that you own or control, in accordance with Apple's App Store Terms and applicable Usage Rules.
+You must not use the Apple-Enabled Software in any way that violates, conflicts with, or is inconsistent with Apple’s Usage Rules for Apple-Enabled Software or the applicable App Store Terms of Service. Your licence to use the Apple-Enabled Software is limited, personal, non-exclusive, non-transferable and revocable. It may only be used on Apple-branded devices that you own or control, in accordance with Apple’s App Store Terms and applicable Usage Rules.
 
 Apple has no obligation to provide maintenance, technical support or customer assistance relating to the Apple-Enabled Software.
 
@@ -316,76 +349,33 @@ Except where prohibited by applicable law, Apple makes no warranties regarding t
 
 Any claims relating to the Apple-Enabled Software, including product liability claims, compliance with legal or regulatory requirements, or consumer protection matters, are the sole responsibility of Go-Uplift LTD, not Apple.
 
-The company and you acknowledge and agree that Go-Uplift LTD, and not Apple, shall be solely responsible for handling any claims made by you or any third party arising from the Apple-Enabled Software or your possession or use of the Apple-Enabled Software. This includes, without limitation: (i) product liability claims; (ii) claims alleging that the Apple-Enabled Software does not comply with any applicable legal or regulatory requirements; and (iii) claims brought under consumer protection laws or similar legislation.
+The Company and you acknowledge and agree that Go-Uplift LTD, and not Apple, shall be solely responsible for handling any claims made by you or any third party arising from the Apple-Enabled Software or your possession or use of the Apple-Enabled Software. This includes, without limitation: (i) product liability claims; (ii) claims alleging that the Apple-Enabled Software does not comply with any applicable legal or regulatory requirements; and (iii) claims brought under consumer protection or similar legislation.
 
-If a third party alleges that the Apple-Enabled Software, or your possession or use of it, infringes that party’s intellectual property rights, Go-Uplift LTD, and not Apple, shall have sole responsibility for investigating, defending, resolving and settling such intellectual property infringement claims.
+In the event of any third-party claim that the Apple-Enabled Software or your possession and use of it infringes that third party’s intellectual property rights, Go-Uplift LTD, and not Apple, will be solely responsible for the investigation, defence, settlement and discharge of any such claim.
 
-You represent and warrant that:
+You represent and warrant that you are not located in a country that is subject to a U.S. Government embargo or that has been designated by the U.S. Government as a “terrorist supporting” country, and that you are not listed on any U.S. Government list of prohibited or restricted parties.
 
-1. You are not located in, or ordinarily resident in, a country that is subject to a United States Government embargo or has been designated by the United States Government as a “terrorist-supporting” country; and
-2. You are not included on any United States Government list of prohibited or restricted persons or entities.
+Apple and Apple’s subsidiaries are third-party beneficiaries of this section. Upon your acceptance of these Terms, Apple will have the right (and will be deemed to have accepted the right) to enforce this section against you as a third-party beneficiary.
 
-Questions, complaints or support requests relating to the Apple-Enabled Software should be directed to the company through email as follows: Go-UpliftLTDafrica@gmail.com
+### 3.13 Social Networking Services
 
-Apple and its subsidiaries are intended third-party beneficiaries of this section with respect to the Apple-Enabled Software. Upon your acceptance of these Terms of Use, Apple will have the right to enforce this section against you to the extent permitted under applicable law.
+The Service may allow you to connect or interact with third-party social networking services. Your use of any social networking service is subject to the terms and privacy policies of that third party. The Company is not responsible for the practices or content of any social networking service.
 
-### 3.6 SOCIAL NETWORKING SERVICES
+### 3.14 Changes to the Product or Terms of Use
 
-The Service may allow you to access, connect with, or integrate certain third-party social media and networking platforms, including services such as Facebook, X, or other similar platforms (“Social Networking Services”).
+Go-Uplift LTD reserves the right to modify, suspend, or discontinue any part of the Service at any time, with or without notice.
 
-By connecting your Social Networking Services account with the Service, or by signing into the Service through such platforms, you may be able to access enhanced features and receive a more personalised experience.
+We may also update these Terms of Use from time to time. When we make material changes we will provide notice through the Service, by email, SMS, or other reasonable means. Continued use of the Service after the effective date of the updated Terms constitutes acceptance of the changes.
 
-To enable these features, you may be required to authenticate, register, or log into your account with the relevant Social Networking Service through the platform operated by that third party.
+If you do not agree to the updated Terms you must stop using the Service.
 
-When you connect a Social Networking Service with the Service, the relevant third party may provide the company with access to certain information that you have chosen to share through that platform.
-
-Any information received through these integrations will be collected, stored, used, and disclosed in accordance with the company’s Privacy Policy.
-
-Further details regarding how information obtained through Social Networking Services is handled, including information relating to contacts, connections, or activity associated with such platforms, can be found in our Privacy Policy available at:
-
-www.Go-UpliftLTD.africa, www.Go-UpliftLTD.co.ke
-
-You acknowledge that the collection, use, storage, and disclosure of your information by Social Networking Services is governed solely by the privacy policies and practices of those third parties.
-
-Go-Uplift LTD does not control and shall not be responsible for the privacy practices, security measures, or actions of any third-party social media platform or service.
-
-The company does not guarantee the accuracy, availability, reliability, completeness, or quality of any information, content, products, services, opinions, advice, statements, or materials made available through Social Networking Services.
-
-You acknowledge that the company shall not be responsible for any loss, damage, or claim arising from your use of, or reliance upon, any Social Networking Service or information provided through such services.
-
-Any integration or availability of Social Networking Services within the Product is provided solely for convenience and does not represent an endorsement, recommendation, sponsorship, or approval by the company.
-
-### 3.7 CHANGES TO THE PRODUCT OR TERMS OF USE
-
-Go-Uplift LTD reserves the right, at any time and without prior notice, to make changes to the Product, Service, or these Terms of Use.
-
-Such changes may include, but are not limited to:
-
-- Adding, removing, updating, modifying, or replacing any information, content, features, or materials available through the Product at any time;
-- Revising, updating, or amending these Terms of Use at any time; and/or
-- Temporarily or permanently suspending, limiting, restricting, or withdrawing access to any part of the Product or Service at any time for any reason including without limitation;
-- Carrying out scheduled or unscheduled maintenance, upgrades, improvements, repairs, or technical corrections; and
-- Adjusting or changing the fees applicable to the use of the Product.
-
-Where changes are made, we may notify you through SMS, email, telephone communication, or any other available communication method.
-
-You are responsible for regularly reviewing updates, notices, and revised Terms of Use published through the website to remain informed of any changes.
-
-You authorise us to communicate with you through these methods and agree that such communication does not constitute a violation of your privacy rights.
-
-You further agree that Go-Uplift LTD, its affiliates, directors, officers, employees, or representatives shall not be held liable for communications made in accordance with these Terms.
-
-Your continued access to or use of the Service after any changes become effective will be considered acceptance of the revised Terms of Use and agreement to be bound by such amendments.
-
-If you do not agree with any updated terms, you may discontinue your use of the Service by providing written notice to the company.
-
-### 3.7 DISCLAIMER OF WARRANTIES AND LIMITATION OF LIABILITY
+### 3.15 Disclaimer of Warranties and Limitation of Liability
 
 Your use of the Service is undertaken entirely at your own discretion and risk. The Service is provided on an “as available” and “as is” basis.
 
 Go-Uplift LTD expressly excludes and disclaims all warranties and representations of any kind, whether express, implied, statutory, or otherwise, including but not limited to implied warranties relating to satisfactory quality, merchantability, suitability for a particular purpose, ownership, accuracy, reliability, and non-infringement.
 
-The company does not guarantee or represent that:
+The Company does not guarantee or represent that:
 
 (i) the Service will satisfy your specific requirements or expectations;
 
@@ -415,94 +405,52 @@ Such limitations include, but are not limited to, losses arising from:
 
 (vii) disclosure of your M-Pesa, Airtel Money, or other mobile payment access details, passwords, or security credentials to unauthorised persons;
 
-(viii) any alleged harm to your reputation, character, or public image resulting from your use of the Service; or
+(viii) any other matter relating to the Service.
 
-(ix) any other matter connected with or arising from your use of the Service.
+Nothing in these Terms excludes or limits liability for death or personal injury caused by negligence, fraud, or any other liability that cannot be excluded or limited under applicable Kenyan law.
 
-Under no circumstances shall the company’s total liability for any claim, loss, damage, or cause of action exceed one hundred United States dollars (USD $100).
+### 3.16 Indemnity and Release
 
-Certain jurisdictions may not permit the exclusion of specific warranties or limitations relating to certain types of damages. Therefore, some of the limitations contained in this section may not apply to you.
+You agree to indemnify, defend, and hold harmless Go-Uplift LTD, its affiliates, directors, officers, employees, agents, and partners from and against any and all claims, liabilities, damages, losses, costs, and expenses (including reasonable legal fees) arising out of or in connection with:
 
-If you are dissatisfied with any aspect of the Service or these Terms of Use, your only available remedy is to discontinue using the Service.
+- Your use of the Service;
+- Your User Content;
+- Your Campaigns and the use of funds raised;
+- Your violation of these Terms of Use;
+- Your violation of any law or the rights of any third party; or
+- Any dispute between you and another user or third party.
 
-In the event your Mobile Phone is lost, stolen, damaged, or destroyed, you are responsible for immediately contacting your mobile network provider and deactivating your SIM card or mobile account.
+You further release Go-Uplift LTD from any claims, demands, and damages of every kind arising out of or in any way connected with disputes between users or between users and third parties.
 
-Go-Uplift LTD shall not be responsible for any financial loss arising from unauthorised use of the Service through your device, SIM card, or mobile account after such loss, theft, or damage.
+### 3.17 Suspension, Disconnection, and Termination
 
-Where technical issues occur, the company will make reasonable efforts to investigate and resolve such issues within a suitable timeframe. However, we shall not be responsible for technical failures, interruptions, malfunctions, delays, or inability to access the Product caused by circumstances beyond its reasonable control.
+The Company may suspend, restrict, or permanently terminate your Account and access to the Service at any time, with or without notice, if:
 
-All contributions, donations, and funds collected through Go-Uplift LTD are obtained by Customers at their own responsibility, risk, and expense.
+- You breach these Terms of Use;
+- We reasonably believe your Account has been used for fraudulent, illegal, or prohibited activity;
+- You fail to complete required KYC or compliance checks;
+- Your Account remains inactive for an extended period; or
+- We are required to do so by law or by a competent authority.
 
-Go-Uplift LTD does not verify, guarantee, approve, or accept responsibility for the source, legality, or legitimacy of funds contributed through the Service. No warranty, guarantee, representation, or indemnity shall be provided or implied by the company regarding such funds.
+Upon termination:
 
-### 3.8 LEGAL RESTRICTIONS
+- Your right to use the Service immediately ceases;
+- We may delete or deactivate your Account and related data in accordance with our data retention practices and applicable law; and
+- Any remaining Balance (after deduction of applicable Fees and subject to any ongoing investigation or legal hold) may be returned to you or to your designated mobile money account after verification, or held pending resolution of any outstanding issues.
 
-The Go-Uplift LTD Product and Services must not be accessed, used, or operated by any person or organisation in any jurisdiction where such use is prohibited or conflicts with applicable laws, regulations, rules, directives, or requirements issued by any governmental authority or regulatory body.
+The provisions of these Terms that by their nature should survive termination (including but not limited to ownership provisions, warranty disclaimers, indemnity, and limitations of liability) shall survive.
 
-Users are responsible for ensuring that their access to and use of the Product complies with all applicable legal requirements within their jurisdiction.
+### 3.18 Governing Law and Arbitration
 
-### 3.9 MISLEADING, OFFENSIVE, AND INAPPROPRIATE CONTENT
+These Terms of Use and any dispute arising out of or in connection with them shall be governed by and construed in accordance with the laws of Kenya.
 
-Go-Uplift LTD does not support, approve, or endorse any particular product, service, political organisation, political position, belief, opinion, or viewpoint.
+#### Individual Arbitration
 
-The company reserves the right, without assuming liability or responsibility for any resulting claims, to monitor content submitted, displayed, or stored through its systems and to remove, restrict, or disable access to any content that, in its sole discretion, is considered misleading, offensive, unlawful, harmful, or otherwise inappropriate.
+Except for claims that may be brought in a small claims court of competent jurisdiction, any dispute, claim, or controversy arising out of or relating to these Terms or the Service shall be resolved by final and binding arbitration on an individual basis.
 
-You remain solely responsible for all information, communications, materials, and content you submit, upload, transmit, or distribute through the Service.
+By agreeing to this arbitration provision you and the Company each waive the right to a trial before a judge or jury and the right to participate in class or representative legal proceedings.
 
-You agree that you will not submit or share content that is defamatory, unlawful, offensive, inappropriate, violates another person’s rights, infringes copyright or other intellectual property rights, or breaches any applicable law.
-
-You agree to indemnify and hold the company harmless against any claims, damages, liabilities, losses, costs, or expenses arising from content or communications provided by you.
-
-You must not use Go-Uplift LTD, or any related Product or Service, to engage in, facilitate, encourage, or commit any unlawful activity or offence.
-
-### 3.10 SUSPENSION, DISCONNECTION, AND TERMINATION OF ACCOUNT AND SERVICES
-
-Go-Uplift LTD reserves the right, without incurring any liability and without necessarily providing prior notice, to suspend, restrict, disconnect, limit, or terminate your access to the Services, either partially or completely, and/or close your Account in any of the following circumstances:
-
-- Where you are declared bankrupt, insolvent, unable to meet your financial obligations as they become due, or where any application, proceeding, or action is commenced for bankruptcy, insolvency, liquidation, winding-up, creditor protection, or similar relief.
-- Where the company reasonably suspects or becomes aware that your Account is being used, or has previously been used, for unauthorised, unlawful, fraudulent, improper, or criminal purposes.
-- Where a law enforcement body, regulatory authority, government agency, or other competent authority begins an investigation, enforcement action, or regulatory process involving you, or where such circumstances may affect the reputation, integrity, or operations of Go-Uplift LTD.
-- Where you fail to comply with these Terms of Use or any applicable instructions, requirements, policies, or conditions relating to the use of the Service.
-- Where you notify the company that the security of your Account has been compromised, threatened, or placed at risk.
-- Where you request that your Account be closed.
-
-If your Account is suspended, disconnected, terminated, or closed, any remaining Balance credited to your Account may be returned to you in cash, provided that you personally present yourself at the designated Go-Uplift LTD offices and provide satisfactory proof of identity.
-
-To the maximum extent permitted by law, Go-Uplift LTD shall not be responsible or liable for any direct, indirect, consequential, special, or other losses or damages arising from any action, failure, delay, or omission relating to the suspension, restriction, or closure of your Account, whether caused by Go-Uplift LTD or any third party acting on its behalf.
-
-### 3.11 INDEMNITY AND RELEASE
-
-You agree to release, indemnify, defend, and hold harmless Go-Uplift LTD, together with its directors, officers, employees, representatives, agents, affiliates, and partners, from and against any losses, liabilities, damages, expenses, costs, claims, demands, proceedings, or legal fees arising from or connected with:
-
-- Your access to or use of the Service;
-- Any User Content submitted, uploaded, transmitted, or shared by you;
-- Your connection to or interaction with the Service;
-- Any breach of these Terms of Use by you;
-- Any negligent, unlawful, fraudulent, or wrongful act or omission committed by you or any person accessing the Service through your Account.
-
-This obligation includes claims involving personal injury, property damage, or death arising from your use of the Service.
-
-If you are a California resident, you waive California Civil Code Section 1542, which provides that a general release does not extend to claims that the creditor does not know or suspect exist in their favour at the time of executing the release and which, if known, would have materially affected their settlement with the debtor. If you are a resident of another jurisdiction, you waive any comparable statute or legal doctrine.
-
-### 3.12 GOVERNING LAW AND ARBITRATION
-
-Your use of the Product and these Terms of Use shall be governed by and interpreted in accordance with the laws of the United Kingdom, without regard to conflict of law principles.
-
-For matters that are not subject to arbitration, you and the company agree to submit to the exclusive jurisdiction of the courts located within the United Kingdom.
-
-The provisions relating to dispute resolution, arbitration, and related procedures contained in this section shall be referred to collectively as the “Arbitration Agreement.”
-
-You agree that any dispute, disagreement, claim, or controversy arising from or relating to these Terms of Use, the Service, or your relationship with us shall be resolved through final and binding arbitration rather than court proceedings, except where you are entitled to pursue an eligible individual claim through a small claims court.
-
-This Arbitration Agreement does not prevent you from reporting concerns or complaints to government, regulatory, or public authorities where permitted by law. Such authorities may independently seek remedies or enforcement action on your behalf.
-
-By agreeing to these Terms of Use, both you and Go-Uplift LTD acknowledge and agree that each party gives up the right to a trial before a judge or jury and the right to participate in class or representative legal proceedings.
-
-Any dispute shall be determined by a neutral arbitrator rather than a court or jury.
-
-To the extent permitted by applicable law, the arbitrator’s decision shall be final, binding, and enforceable upon both parties.
-
-The parties retain any legally available right to appeal questions of law arising from the arbitration decision.
+Any dispute shall be determined by a neutral arbitrator rather than a court or jury. To the extent permitted by applicable law, the arbitrator’s decision shall be final, binding, and enforceable upon both parties. The parties retain any legally available right to appeal questions of law arising from the arbitration decision.
 
 #### Prohibition of Class and Representative Actions
 
@@ -510,14 +458,16 @@ You and Go-Uplift LTD agree that all claims must be brought individually and not
 
 Unless both parties expressly agree otherwise, the arbitrator shall not:
 
-- Combine or consolidate claims brought by different individuals;
+- Combine or consolidate claims brought by different individuals; or
 - Conduct a class, collective, or representative arbitration.
 
 Additionally, the arbitrator may award relief, including monetary, injunctive and declaratory relief, only to the individual party seeking such relief and only to the extent necessary to resolve that party’s individual claim(s).
 
 #### Pre-Arbitration Dispute Resolution
 
-The Company is committed to resolving disputes amicably and efficiently, and most customer concerns can be resolved promptly and to the customer’s satisfaction by contacting customer support at www.GoUplift.co.ke or www.GoUplift.africa. If such efforts are unsuccessful, any party intending to commence arbitration must first send the other party a written Notice of Dispute (“Notice”) or by certified mail. Notices to the Company must be sent to the company office.
+The Company is committed to resolving disputes amicably and efficiently. Most customer concerns can be resolved promptly by contacting customer support through the channels published on the Go-Uplift LTD website.
+
+If such efforts are unsuccessful, any party intending to commence arbitration must first send the other party a written Notice of Dispute (“Notice”). Notices to the Company must be sent to the company’s designated legal notice address or email published on the website.
 
 The Notice must: (i) describe the nature and basis of the claim or dispute; and (ii) specify the relief sought. If the Company and you do not resolve the claim within sixty (60) calendar days after the Notice is received, either you or the Company may commence arbitration proceedings.
 
@@ -525,70 +475,56 @@ During the arbitration process, the amount of any settlement offer made by eithe
 
 #### Arbitration Procedures
 
-Any arbitration will be conducted by a single, independent arbitrator in accordance with the rules and procedures of the American Arbitration Association (“AAA”), including the AAA Supplementary Procedures for Consumer-Related Disputes (collectively, the “AAA Rules”), as modified by this Arbitration Agreement. Information about the AAA is available at http://www.adr.org, while details of the AAA Rules and applicable consumer arbitration fees can be found at www.adr.org/consumer_arbitration.
+Any arbitration will be conducted by a single, independent arbitrator in accordance with the Arbitration Act of Kenya (or such other rules as the parties may agree, including the rules of the Nairobi Centre for International Arbitration where applicable), as modified by this Arbitration Agreement.
 
-Where any provision of the AAA Rules conflicts with this Arbitration Agreement, the terms of this Arbitration Agreement will prevail, unless the arbitrator determines that applying the conflicting provision would prevent the arbitration from being fundamentally fair. The arbitrator must also apply and interpret these Terms of Service in the same manner a court would.
-
-The arbitrator has exclusive authority to determine all issues arising in relation to the arbitration, including matters concerning the scope, validity, enforceability, and applicability of this Arbitration Agreement. Although arbitration is generally less formal and more streamlined than court proceedings, the arbitrator may award the same forms of relief and damages that would be available to an individual in a court of law under these Terms of Service and applicable legislation. Any decision or award issued by the arbitrator is enforceable through the courts and may only be set aside or overturned by a court for very limited reasons.
-
-Unless otherwise agreed by both you and the Company, any arbitration hearing will be held at a location that is reasonably convenient for both parties, taking into account their ability to travel and any other relevant circumstances. Where the parties cannot reach agreement on the venue, the American Arbitration Association (“AAA”) will determine the location.
-
-If your claim is valued at US$10,000 or less, the Company agrees that you may choose whether the arbitration will be decided solely on written submissions, conducted through a telephone hearing, or held in person in accordance with the AAA Rules. For claims exceeding US$10,000, the availability of a hearing will be determined in accordance with the AAA Rules.
-
-Regardless of the format in which the arbitration is conducted, the arbitrator must provide a written decision that clearly sets out the reasoning behind the award, including the essential findings of fact and conclusions upon which the decision is based.
+The seat of arbitration shall be Nairobi, Kenya. The language of the arbitration shall be English.
 
 #### Costs of Arbitration
 
-Unless this Arbitration Agreement provides otherwise, all filing fees, administrative charges, and arbitrator fees (collectively referred to as the “Arbitration Fees”) shall be paid in accordance with the AAA Rules.
-
-Where the value of the relief sought is US$75,000 or less, the Company will, upon your request, pay all Arbitration Fees. If the amount claimed exceeds US$75,000, and you are able to satisfy the arbitrator that you cannot reasonably afford your share of the Arbitration Fees, or if the arbitrator determines for any other reason that you should not be required to pay those fees, the Company will pay your portion of the Arbitration Fees.
-
-Additionally, where you demonstrate that the costs of arbitration would be prohibitively expensive compared with pursuing the matter through litigation, the Company will pay such portion of the Arbitration Fees as the arbitrator considers necessary to ensure that arbitration is not cost-prohibitive. Any entitlement to, or payment of, attorneys’ fees shall be determined in accordance with the AAA Rules.
+Each party shall bear its own costs of arbitration unless the arbitrator determines otherwise or applicable law requires a different allocation.
 
 #### Confidentiality
 
-Every aspect of the arbitration process, including any ruling, decision, or award issued by the arbitrator, shall remain strictly confidential and must be treated as such by all parties involved.
-
-If a court or the arbitrator determines that any provision of this Arbitration Agreement—other than subsection (b) “Prohibition of Class and Representative Actions and Non-Individualised Relief”—is invalid or unenforceable, the parties agree that the affected provision shall be replaced with one that is valid and enforceable while most closely reflecting the original intent. The Arbitration Agreement will then continue to operate as modified.
-
-However, if a court or the arbitrator finds any part of subsection (b) “Prohibition of Class and Representative Actions and Non-Individualised Relief” to be invalid or unenforceable, this Arbitration Agreement shall become null and void in its entirety. All remaining provisions of these Terms of Service shall continue in full force and effect.
+The existence of the arbitration, any information disclosed during the arbitration, and any submissions or awards shall remain strictly confidential and must be treated as such by all parties involved, except as may be required by law or for enforcement of the award.
 
 #### Future Changes to the Arbitration Agreement
 
-Despite any other provision contained in these Terms of Service, if the Company makes any future amendment to this Arbitration Agreement (other than a change to the Notice Address) while you are using the Services, you may reject that amendment by sending written notice to the Company within thirty (30) calendar days after the change is made. If you reject the amendment, any dispute between you and the Company will continue to be resolved under the version of this Arbitration Agreement that was in effect when you first accepted these Terms of Service, or when you accepted any subsequent revision to them.
+If the Company makes any future amendment to this Arbitration Agreement (other than a change to the Notice Address) while you are using the Services, you may reject that amendment by sending written notice to the Company within thirty (30) calendar days after the change is made. If you reject the amendment, any dispute between you and the Company will continue to be resolved under the version of this Arbitration Agreement that was in effect when you first accepted these Terms of Use, or when you accepted any subsequent revision to them.
 
-### 3.13 SEVERABILITY
+### 3.19 Severability
 
-Each provision contained within these Terms of Use shall, wherever possible, be interpreted and applied in a manner that makes it valid and enforceable under the applicable governing law (4.10).
+Each provision contained within these Terms of Use shall, wherever possible, be interpreted and applied in a manner that makes it valid and enforceable under the applicable governing law.
 
 If any provision, term, or part of these Terms of Use is determined by a court or other competent authority to be invalid, unlawful, or unenforceable for any reason, such determination shall not affect the validity or enforceability of the remaining provisions.
 
 In such circumstances, the affected provision shall be modified, interpreted, or removed to the minimum extent necessary so that the remaining provisions of these Terms of Use continue to remain valid, effective, and enforceable as though the invalid or unenforceable provision had not been included.
 
-### 3.14 PRIVACY
+### 3.20 Privacy
 
-Go-Uplift LTD values and respects the privacy of users of the Service. For more information please visit our privacy policy.
+Go-Uplift LTD values and respects the privacy of users of the Service. Our collection, use, and protection of personal data is governed by our Privacy Policy and by the Data Protection Act, 2019 of Kenya (and any successor legislation).
 
 By accessing or using the Service, you acknowledge and consent to the collection and use of your personal information as described in the applicable Privacy Policy.
 
-### 3.15 GENERAL TERMS
+Please review our Privacy Policy carefully. It is available on the Go-Uplift LTD website.
+
+### 3.21 General Terms
 
 These Terms of Use represent the complete agreement between you and Go-Uplift LTD regarding your access to and use of the Service and replace any previous agreements, discussions, understandings, or arrangements relating to the same subject matter.
 
 Your use of certain third-party services, affiliated services, external content, software, or other integrated platforms may also be subject to additional terms and conditions imposed by those third parties.
 
-You agree that any claim, dispute, or legal action arising from or connected with your use of the Service or these Terms of Use must be initiated within one (1) year from the date on which the claim or cause of action first arose.
+You agree that any claim, dispute, or legal action arising from or connected with your use of the Service or these Terms of Use must be initiated within one (1) year from the date on which the claim or cause of action first arose. Any claim not brought within this period shall be permanently excluded to the extent permitted by applicable law.
 
-Any claim not brought within this period shall be permanently excluded to the extent permitted by applicable law.
+A printed copy of these Terms of Use, together with any electronic notices or communications provided by us, shall be considered admissible evidence in any judicial, administrative, or legal proceedings relating to these Terms of Use, to the same extent as official business records maintained in physical form.
 
-A printed copy of these Terms of Use, together with any electronic notices or communications provided by us shall be considered admissible evidence in any judicial, administrative, or legal proceedings relating to these Terms of Use, to the same extent as official business records maintained in physical form.
+You may not transfer, assign, or otherwise delegate your rights or obligations under these Terms of Use to another person or entity without obtaining prior written approval from the Company.
 
-You may not transfer, assign, or otherwise delegate your rights or obligations under these Terms of Use to another person or entity without obtaining prior written approval from the company.
-
-We, however, may assign, transfer, or otherwise dispose of its rights and obligations under these Terms of Use, either wholly or partially, without restriction.
+We, however, may assign, transfer, or otherwise dispose of our rights and obligations under these Terms of Use, either wholly or partially, without restriction.
 
 The headings and section titles used throughout these Terms of Use are provided solely for convenience and reference purposes and shall not affect the interpretation, meaning, or legal effect of any provision.
 
 Any notices or communications from Go-Uplift LTD may be provided to you through email, postal mail, SMS, electronic notifications, or other communication methods available through the Service.
 
 Go-Uplift LTD may also notify you of updates, amendments, changes to these Terms of Use, or other important matters by displaying notices, messages, or links through the Service.
+
+If you have any questions about these Terms of Use, please contact us through the channels published on the Go-Uplift LTD website.
