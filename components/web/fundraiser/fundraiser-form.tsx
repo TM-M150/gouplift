@@ -30,6 +30,12 @@ import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import React from "react";
 import { fundraiserFrontend } from "@/lib/validations/fundraiser";
+import {
+  defaultEndDateString,
+  endOfNairobiDay,
+  maxEndDateString,
+  minEndDateString,
+} from "@/lib/fundraiser-dates";
 import { ConvexError } from "convex/values";
 import { Id } from "@/convex/_generated/dataModel";
 import { Textarea } from "@/components/ui/textarea";
@@ -58,6 +64,9 @@ export default function FundraiserForm() {
   );
   const [submitting, setSubmitting] = React.useState(false);
   const [formError, setFormError] = React.useState<string | null>(null);
+  // Read once, so the suggested date and the allowed range don't shift while
+  // the form is open.
+  const [openedAt] = React.useState(() => Date.now());
 
   React.useEffect(() => {
     return () => {
@@ -134,6 +143,7 @@ export default function FundraiserForm() {
         ? (linkedOrganization?.name ?? (beneficiaryDetails || undefined))
         : undefined,
       goalAmount: Number(goalRaw ?? 0),
+      endDate: String(formData.get("endDate") ?? ""),
       currency: "KES" as const,
       country: "Kenya",
       title: String(formData.get("title") ?? "").trim(),
@@ -147,6 +157,12 @@ export default function FundraiserForm() {
         parsed.error.issues[0]?.message ??
           "Please check your answers and try again.",
       );
+      return;
+    }
+
+    const endDate = endOfNairobiDay(parsed.data.endDate);
+    if (endDate === null) {
+      setFormError("Choose an end date.");
       return;
     }
 
@@ -182,6 +198,7 @@ export default function FundraiserForm() {
         // about it. The server re-checks membership either way.
         organizationId: linkedOrganization?._id,
         goalAmount: parsed.data.goalAmount,
+        endDate,
         currency: parsed.data.currency,
         location: parsed.data.location,
         country: parsed.data.country,
@@ -367,6 +384,23 @@ export default function FundraiserForm() {
                 />
               </QuestionnaireChoices>
               <QuestionnaireError />
+            </QuestionnaireItem>
+
+            <QuestionnaireItem name="endDate" required>
+              <QuestionnaireTitle>When should it end?</QuestionnaireTitle>
+              <QuestionnaireDescription>
+                Donations stop at the end of this day, Nairobi time. You can
+                move it later while the fundraiser is still running, up to a
+                year from today.
+              </QuestionnaireDescription>
+              <QuestionnaireInput
+                type="date"
+                aria-label="Fundraiser end date"
+                defaultValue={defaultEndDateString(openedAt)}
+                min={minEndDateString(openedAt)}
+                max={maxEndDateString(openedAt)}
+              />
+              <QuestionnaireError>Choose an end date to continue.</QuestionnaireError>
             </QuestionnaireItem>
 
             <QuestionnaireItem name="coverPhoto" required>

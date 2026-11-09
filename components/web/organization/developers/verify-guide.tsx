@@ -27,8 +27,8 @@ export function VerifyGuide() {
           <p className="text-muted-foreground">
             A <code>POST</code> with a JSON body whenever a donation to one of
             your fundraisers completes (<code>donation.completed</code>). The
-            Send test button sends a <code>ping</code> so you can check your
-            setup. Donor email and phone are never included, and an anonymous
+            Send test button sends a <code>ping</code>{" "}
+            so you can check your setup. Donor email and phone are never included, and an anonymous
             donor&apos;s name and message are <code>null</code>. We may add
             fields over time, so ignore ones you don&apos;t recognise.
           </p>

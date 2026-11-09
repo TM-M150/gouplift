@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { notFound } from "next/navigation";
 import { fetchQuery } from "convex/nextjs";
+import { connection } from "next/server";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +12,11 @@ import { DonationStatusBanner } from "@/components/web/donate/donation-status-ba
 import { DonateButton } from "@/components/web/donate/donate-button";
 import { EditFundraiserButton } from "@/components/web/fundraiser/edit-fundraiser-button";
 import { PayoutVerificationNotice } from "@/components/web/fundraiser/payout-verification-notice";
+import {
+  describeTimeLeft,
+  formatEndDate,
+  hasEnded,
+} from "@/lib/fundraiser-dates";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -93,6 +99,9 @@ export default async function FundraiserPage({
 }: PageProps) {
   const { id } = await params;
   const { donation: donationId, source } = await searchParams;
+  // The page depends on the time of the request (has the end date passed?),
+  // so it must never be prerendered or reused.
+  await connection();
   const fundraiser = await loadFundraiser(id);
 
   if (!fundraiser) {
@@ -107,7 +116,24 @@ export default async function FundraiserPage({
         )
       : 0;
 
-  const showStatusBadge = fundraiser.status !== "ACTIVE";
+  // The hourly sweep marks a fundraiser EXPIRED, but donations stop at the
+  // end date itself, so the page shows it as ended straight away.
+  // A server component runs once per request, so reading the clock is fine.
+  // eslint-disable-next-line react-hooks/purity
+  const now = Date.now();
+  const status =
+    fundraiser.status === "ACTIVE" && hasEnded(fundraiser.endDate, now)
+      ? "EXPIRED"
+      : fundraiser.status;
+  const showStatusBadge = status !== "ACTIVE";
+  const endNote =
+    fundraiser.endDate === undefined
+      ? null
+      : status === "ACTIVE"
+        ? `${describeTimeLeft(fundraiser.endDate, now)} · ends ${formatEndDate(fundraiser.endDate)}`
+        : status === "EXPIRED"
+          ? `Ended ${formatEndDate(fundraiser.endDate)}`
+          : null;
 
   return (
     <main className="min-h-screen max-w-5xl mx-auto w-full pt-24 px-4 pb-16">
@@ -136,7 +162,7 @@ export default async function FundraiserPage({
               <Badge variant="secondary">{formatType(fundraiser.type)}</Badge>
               {showStatusBadge && (
                 <Badge variant="outline">
-                  {STATUS_LABELS[fundraiser.status] ?? fundraiser.status}
+                  {STATUS_LABELS[status] ?? status}
                 </Badge>
               )}
             </div>
@@ -197,11 +223,14 @@ export default async function FundraiserPage({
                   {fundraiser.donorCount === 1 ? "donation" : "donations"} ·{" "}
                   {progress}% funded
                 </p>
+                {endNote && (
+                  <p className="text-sm text-muted-foreground">{endNote}</p>
+                )}
               </div>
 
               <DonateButton
                 fundraiserId={fundraiser._id}
-                disabled={fundraiser.status !== "ACTIVE"}
+                disabled={status !== "ACTIVE"}
                 // The embed widget links here with ?source=embed. This only
                 // labels the donation; it grants nothing.
                 source={source === "embed" ? "EMBED" : undefined}

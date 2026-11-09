@@ -145,8 +145,8 @@ function DocumentsCard({
       <CardHeader>
         <CardTitle className="text-xl">Documents</CardTitle>
         <CardDescription>
-          {description} PDF, JPG, PNG or WebP, up to 10 MB each. They&apos;re
-          only used to verify you and are never shown publicly.
+          {description}{" "}
+          PDF, JPG, PNG or WebP, up to 10 MB each. They&apos;re only used to verify you and are never shown publicly.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">

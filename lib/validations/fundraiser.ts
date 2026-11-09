@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { endDateStringProblem } from "@/lib/fundraiser-dates";
 
 export const fundraiserObjectSchema = z.object({
   title: z
@@ -84,6 +85,12 @@ export const fundraiserFrontend = fundraiserObjectSchema
     coverImageFile: z
       .custom<File>((val) => val instanceof File, "Please select an image file")
       .optional(),
+    // YYYY-MM-DD from the date input. The form turns it into the stored
+    // timestamp (the end of that day in Nairobi) before sending it.
+    endDate: z.string().superRefine((value, ctx) => {
+      const problem = endDateStringProblem(value, Date.now());
+      if (problem) ctx.addIssue({ code: "custom", message: problem });
+    }),
   })
   .superRefine(requireBeneficiaryDetails);
 

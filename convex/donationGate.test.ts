@@ -63,7 +63,12 @@ async function setup() {
   return { t, creator };
 }
 
-function makeFundraiser(t: T, creator: Id<"users">, status: Status) {
+function makeFundraiser(
+  t: T,
+  creator: Id<"users">,
+  status: Status,
+  endDate?: number,
+) {
   return t.run((ctx) =>
     ctx.db.insert("fundraisers", {
       creatorId: creator,
@@ -78,11 +83,14 @@ function makeFundraiser(t: T, creator: Id<"users">, status: Status) {
       status,
       isPrivate: false,
       isVerified: false,
+      endDate,
       createdAt: Date.now(),
       updatedAt: Date.now(),
     }),
   );
 }
+
+const HOUR = 60 * 60 * 1000;
 
 const sasapayDonation = (fundraiserId: Id<"fundraisers">) => ({
   fundraiserId,
@@ -113,6 +121,31 @@ describe("isAcceptingDonations", () => {
   it("is false when there is no fundraiser", () => {
     expect(isAcceptingDonations(null)).toBe(false);
   });
+
+  it("stays open until the end date", () => {
+    const now = 1_000_000;
+    expect(isAcceptingDonations({ status: "ACTIVE", endDate: now + 1 }, now)).toBe(
+      true,
+    );
+    expect(isAcceptingDonations({ status: "ACTIVE", endDate: undefined }, now)).toBe(
+      true,
+    );
+  });
+
+  it("closes at the end date itself, not after it", () => {
+    const now = 1_000_000;
+    expect(isAcceptingDonations({ status: "ACTIVE", endDate: now }, now)).toBe(false);
+    expect(isAcceptingDonations({ status: "ACTIVE", endDate: now - 1 }, now)).toBe(
+      false,
+    );
+  });
+
+  it("an end date never opens a fundraiser that isn't ACTIVE", () => {
+    const now = 1_000_000;
+    for (const status of CLOSED_STATUSES) {
+      expect(isAcceptingDonations({ status, endDate: now + HOUR }, now)).toBe(false);
+    }
+  });
 });
 
 describe("creating a SasaPay donation", () => {
@@ -139,6 +172,32 @@ describe("creating a SasaPay donation", () => {
       ),
     ).rejects.toThrow(DONATIONS_CLOSED_MESSAGE);
     expect(await donationCount(t)).toBe(0);
+  });
+
+  it("works before the end date and is refused after it, even before the sweep runs", async () => {
+    const { t, creator } = await setup();
+    const fundraiserId = await makeFundraiser(
+      t,
+      creator,
+      "ACTIVE",
+      Date.now() + HOUR,
+    );
+
+    await t.mutation(
+      internal.donations.createPendingDonation,
+      sasapayDonation(fundraiserId),
+    );
+    expect(await donationCount(t)).toBe(1);
+
+    // The status is still ACTIVE: only the clock has moved.
+    vi.setSystemTime(Date.now() + 2 * HOUR);
+    await expect(
+      t.mutation(
+        internal.donations.createPendingDonation,
+        sasapayDonation(fundraiserId),
+      ),
+    ).rejects.toThrow(DONATIONS_CLOSED_MESSAGE);
+    expect(await donationCount(t)).toBe(1);
   });
 
   it("is refused when the fundraiser no longer exists", async () => {
@@ -172,6 +231,24 @@ describe("creating a PayPal donation", () => {
   it.each(CLOSED_STATUSES)("is refused when the fundraiser is %s", async (status) => {
     const { t, creator } = await setup();
     const fundraiserId = await makeFundraiser(t, creator, status);
+
+    await expect(
+      t.mutation(
+        internal.paypal.createPendingPayPalDonation,
+        paypalDonation(fundraiserId),
+      ),
+    ).rejects.toThrow(DONATIONS_CLOSED_MESSAGE);
+    expect(await donationCount(t)).toBe(0);
+  });
+
+  it("is refused once the end date has passed", async () => {
+    const { t, creator } = await setup();
+    const fundraiserId = await makeFundraiser(
+      t,
+      creator,
+      "ACTIVE",
+      Date.now() - 1,
+    );
 
     await expect(
       t.mutation(

@@ -146,6 +146,8 @@ export default defineSchema({
     .index("by_type", ["type"])
     .index("by_beneficiaryUserId", ["beneficiaryUserId"])
     .index("by_endDate", ["endDate"])
+    // For the hourly sweep that expires fundraisers whose end date has passed.
+    .index("by_status_and_endDate", ["status", "endDate"])
     .index("by_organizationId", ["organizationId"])
     .index("by_organizationId_and_status_and_isPrivate", [
       "organizationId",

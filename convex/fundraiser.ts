@@ -6,6 +6,7 @@ import {
   fundraiserSchema,
   fundraiserUpdateSchema,
 } from "../lib/validations/fundraiser";
+import { endDateProblem, hasEnded } from "../lib/fundraiser-dates";
 
 function requireOwner(user: Doc<"users">, fundraiser: Doc<"fundraisers">) {
   if (fundraiser.creatorId !== user._id && user.role !== "ADMIN") {
@@ -94,7 +95,14 @@ export const createFundraiser = mutation({
       );
     }
 
+    // Every fundraiser needs an end date, so none stays open forever.
     const now = Date.now();
+    if (args.endDate === undefined) {
+      throw new ConvexError("Choose when your fundraiser ends.");
+    }
+    const endProblem = endDateProblem(args.endDate, now);
+    if (endProblem) throw new ConvexError(endProblem);
+
     const newFundraiser = await ctx.db.insert("fundraisers", {
       creatorId: user._id,
       title: parsed.data.title,
@@ -442,5 +450,53 @@ export const updateFundraiser = mutation({
     });
 
     return args.fundraiserId;
+  },
+});
+
+/**
+ * Moves a running fundraiser's end date later. It can't shorten a date or
+ * bring back one that has already ended: an ended fundraiser stays ended, and
+ * the owner starts a new one if they need more time. A fundraiser with no end
+ * date (made before end dates were required) can be given one.
+ */
+export const extendEndDate = mutation({
+  args: { fundraiserId: v.id("fundraisers"), endDate: v.number() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+    if (!authUser) {
+      throw new ConvexError("You must be signed in to edit a fundraiser");
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authUserId", (q) => q.eq("authUserId", authUser._id))
+      .unique();
+    if (!user) {
+      throw new ConvexError("User profile not found");
+    }
+
+    const fundraiser = await ctx.db.get(args.fundraiserId);
+    if (!fundraiser) {
+      throw new ConvexError("Fundraiser not found");
+    }
+    requireOwner(user, fundraiser);
+
+    const now = Date.now();
+    if (fundraiser.status !== "ACTIVE" || hasEnded(fundraiser.endDate, now)) {
+      throw new ConvexError(
+        "Only a running fundraiser can be extended. This one has ended or isn't open.",
+      );
+    }
+
+    const problem = endDateProblem(args.endDate, now);
+    if (problem) throw new ConvexError(problem);
+
+    if (fundraiser.endDate !== undefined && args.endDate <= fundraiser.endDate) {
+      throw new ConvexError("Choose a date after the current end date.");
+    }
+
+    await ctx.db.patch(fundraiser._id, { endDate: args.endDate, updatedAt: now });
+    return null;
   },
 });

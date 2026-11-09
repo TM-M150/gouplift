@@ -6,6 +6,7 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EditFundraiserForm } from "@/components/web/fundraiser/edit-fundraiser-form";
+import { ExtendEndDate } from "@/components/web/fundraiser/extend-end-date";
 
 const LOCKED_STATUSES = new Set([
   "COMPLETED",
@@ -67,6 +68,11 @@ export default function EditFundraiserPage() {
   return (
     <main className="min-h-screen max-w-3xl mx-auto w-full pt-24 px-4 pb-16">
       <h1 className="mb-8 text-3xl font-semibold">Edit fundraiser</h1>
+      <ExtendEndDate
+        fundraiserId={fundraiser._id}
+        status={fundraiser.status}
+        endDate={fundraiser.endDate}
+      />
       <EditFundraiserForm fundraiser={fundraiser} />
     </main>
   );
