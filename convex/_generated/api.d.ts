@@ -49,6 +49,7 @@ import type * as lib_webhookQueue from "../lib/webhookQueue.js";
 import type * as lib_webhookSend from "../lib/webhookSend.js";
 import type * as lib_webhookSignature from "../lib/webhookSignature.js";
 import type * as lib_webhookValidators from "../lib/webhookValidators.js";
+import type * as newsletter from "../newsletter.js";
 import type * as organizationRisk from "../organizationRisk.js";
 import type * as organizations from "../organizations.js";
 import type * as payoutAccountReview from "../payoutAccountReview.js";
@@ -111,6 +112,7 @@ declare const fullApi: ApiFromModules<{
   "lib/webhookSend": typeof lib_webhookSend;
   "lib/webhookSignature": typeof lib_webhookSignature;
   "lib/webhookValidators": typeof lib_webhookValidators;
+  newsletter: typeof newsletter;
   organizationRisk: typeof organizationRisk;
   organizations: typeof organizations;
   payoutAccountReview: typeof payoutAccountReview;

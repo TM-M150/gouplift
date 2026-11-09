@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { fetchQuery } from "convex/nextjs";
-import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowLeftRight,
@@ -20,12 +19,20 @@ import { FeaturedFundraisers } from "@/components/web/home/featured-fundraisers"
 import { PlatformStats } from "@/components/web/home/platform-stats";
 import { StartFundraiserLink } from "@/components/web/home/start-fundraiser-link";
 import { Testimonials } from "@/components/web/home/testimonials";
+import { HeroStage } from "@/components/web/home/hero-stage";
+import { AmountSlips, GoalRing } from "@/components/web/home/panel-art";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { api } from "@/convex/_generated/api";
 import { PLATFORM_FEE_RATE } from "@/convex/lib/constants";
-import { SITE_DESCRIPTION, SITE_NAME, SITE_TITLE, SITE_URL } from "@/lib/site";
+import {
+  SHARE_IMAGE,
+  SITE_DESCRIPTION,
+  SITE_NAME,
+  SITE_TITLE,
+  SITE_URL,
+} from "@/lib/site";
 import { cn } from "@/lib/utils";
 
 // Statically rendered and refreshed in the background, like /fundraisers.
@@ -43,11 +50,13 @@ export const metadata: Metadata = {
     title: SITE_TITLE,
     description: SITE_DESCRIPTION,
     url: SITE_URL,
+    images: [SHARE_IMAGE],
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: SITE_TITLE,
     description: SITE_DESCRIPTION,
+    images: [SHARE_IMAGE],
   },
 };
 
@@ -180,22 +189,13 @@ export default async function Home() {
                 </Link>
               </div>
             </div>
-            <div className="relative mt-8 overflow-hidden p-6 max-sm:-mr-56 sm:mt-16">
+            <div className="relative mt-8 overflow-hidden p-6 sm:mt-16">
               {/* 1. Ambient Background Gradient & Top-Fade Mask */}
               <div className="mask-t-from-25% mask-t-to-65% bg-linear-to-b border-zinc-700/50 absolute inset-0 -z-10 rounded-2xl border to-zinc-600" />
 
               {/* 2. Top-Left Radial Glow Ring Overlay */}
               <div className="before:mask-radial-at-top-left before:mask-radial-from-65% before:mask-radial-[100%_60%] before:ring-foreground before:border-foreground/10 pointer-events-none absolute inset-0 z-10 rounded-2xl ring-1 ring-white/10 before:absolute before:-inset-px before:z-10 before:size-56 before:rounded-tl-2xl before:border-l before:border-t" />
-              <div className="bg-background relative z-0 overflow-hidden rounded-xl border border-white/10 shadow-2xl shadow-black/50">
-                <Image
-                  src="https://images.unsplash.com/photo-1790386857336-976dda373487?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
-                  alt=""
-                  width={1200}
-                  height={675}
-                  className="w-full h-auto object-cover"
-                  priority
-                />
-              </div>
+              <HeroStage fundraiser={featured[0]} />
             </div>
           </div>
         </div>
@@ -391,20 +391,11 @@ export default async function Home() {
           </div>
 
           <CategoryChips categories={stats?.categories ?? []} />
-          <FeaturedFundraisers fundraisers={featured} />
+          <FeaturedFundraisers fundraisers={featured.slice(1)} />
 
           <div className="grid gap-3 lg:grid-cols-5">
             <div className="after:border-foreground/10 relative overflow-hidden rounded-xl bg-stone-100 p-8 after:pointer-events-none after:absolute after:inset-0 after:rounded-xl after:border lg:col-span-3 lg:row-span-2">
-              <video
-                autoPlay
-                loop
-                muted
-                playsInline
-                preload="metadata"
-                aria-hidden
-                className="mask-l-from-foreground absolute inset-0 ml-auto h-full w-2/3 object-cover"
-                src="https://www.pexels.com/download/video/18744488/"
-              />
+              <AmountSlips />
 
               <div className="min-h-100 relative flex flex-col justify-between">
                 <p className="max-w-lg text-3xl text-black">
@@ -424,13 +415,7 @@ export default async function Home() {
             </div>
 
             <div className="inset-ring inset-ring-foreground/10 min-h-100 relative grid gap-8 overflow-hidden rounded-xl bg-emerald-600 p-8 lg:col-span-2 lg:row-span-2 lg:grid-rows-subgrid">
-              <Image
-                src="https://images.unsplash.com/photo-1579208570378-8c970854bc23?q=80&w=922&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
-                alt=""
-                width={1200}
-                height={675}
-                className="w-full h-auto rounded-lg"
-              />
+              <GoalRing />
               <div className="bg-linear-to-b pointer-events-none absolute inset-0 to-black/25" />
               <p className="max-w-lg text-balance text-3xl">
                 Every shilling brings a fundraiser closer to its goal.
