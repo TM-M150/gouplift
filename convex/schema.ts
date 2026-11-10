@@ -229,6 +229,11 @@ export default defineSchema({
     refundReason: v.optional(v.string()),
 
     completedAt: v.optional(v.number()),
+    // When the money in this donation became withdrawable (see
+    // fundraiserBalances). Mobile money is final, so it settles the moment it
+    // completes; a PayPal payment can still be disputed, so it settles a few
+    // days later. Empty means "not yet", or a donation from before this field.
+    settledAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -499,10 +504,15 @@ export default defineSchema({
       v.literal("BENEFICIAL_OWNER_REMOVED"),
       v.literal("TESTIMONIAL_APPROVED"),
       v.literal("TESTIMONIAL_REJECTED"),
+      v.literal("PAYOUT_APPROVED"),
+      v.literal("PAYOUT_REJECTED"),
+      v.literal("PAYOUT_PAID"),
+      v.literal("PAYOUT_FAILED"),
     ),
     organizationId: v.optional(v.id("organizations")),
     fundraiserId: v.optional(v.id("fundraisers")),
     testimonialId: v.optional(v.id("testimonials")),
+    payoutId: v.optional(v.id("payouts")),
     kycSubmissionId: v.optional(v.id("kycSubmissions")),
     payoutAccountId: v.optional(v.id("payoutAccounts")),
     documentId: v.optional(v.id("organizationDocuments")),
@@ -687,6 +697,81 @@ export default defineSchema({
     releasedAt: v.optional(v.number()),
     releaseNote: v.optional(v.string()),
   }).index("by_fundraiserId_and_status", ["fundraiserId", "status"]),
+
+  // What a fundraiser has earned and what has already left. Kept apart from the
+  // fundraiser document because public queries return that whole document.
+  // All amounts are KES, after the platform fee.
+  //
+  //   settledNet  every completed donation that is past its settlement delay
+  //   pendingNet  completed donations still inside it (PayPal)
+  //   reserved    payouts asked for or approved but not yet sent
+  //   paid        payouts that have been sent
+  //
+  // The withdrawable amount is settledNet - reserved - paid. A payout request
+  // takes its amount out of that in the same transaction that creates it, so
+  // two requests can never claim the same money. convex/payoutBalances.ts can
+  // rebuild every figure from the donations and payouts, which stay the record.
+  fundraiserBalances: defineTable({
+    fundraiserId: v.id("fundraisers"),
+    settledNet: v.number(),
+    pendingNet: v.number(),
+    reserved: v.number(),
+    paid: v.number(),
+    updatedAt: v.number(),
+  }).index("by_fundraiserId", ["fundraiserId"]),
+
+  // One request to send a fundraiser some of its money to its verified payout
+  // account (AML policy 5.5). Staff approve it, send the money themselves,
+  // then record the reference. Every request is kept, whatever its outcome, as
+  // the record of what was paid out and who decided (policy 15).
+  payouts: defineTable({
+    fundraiserId: v.id("fundraisers"),
+    // Whose verification level applies: the fundraiser's creator.
+    ownerUserId: v.id("users"),
+    organizationId: v.optional(v.id("organizations")),
+    requestedBy: v.id("users"),
+    payoutAccountId: v.id("payoutAccounts"),
+    // Where it goes, as the owner saw it when they asked. Stays correct if
+    // the account is closed later.
+    destination: v.string(),
+    // KES taken from the balance. Any transfer charge comes off what the
+    // fundraiser receives, not off this.
+    amount: v.number(),
+    status: v.union(
+      v.literal("REQUESTED"),
+      v.literal("APPROVED"),
+      v.literal("PAID"),
+      v.literal("REJECTED"),
+      v.literal("CANCELLED"),
+      v.literal("FAILED"),
+    ),
+    // The owner's total payouts would pass the Level 2 limit (policy 5.3), so
+    // the approval has to record a note.
+    needsEnhancedApproval: v.boolean(),
+    requestedAt: v.number(),
+    approvedBy: v.optional(v.id("users")),
+    approvedAt: v.optional(v.number()),
+    approvalNote: v.optional(v.string()),
+    rejectedBy: v.optional(v.id("users")),
+    rejectedAt: v.optional(v.number()),
+    // Shown to the owner, so it must never hint at a suspicion.
+    rejectionReason: v.optional(v.string()),
+    cancelledAt: v.optional(v.number()),
+    paidBy: v.optional(v.id("users")),
+    paidAt: v.optional(v.number()),
+    // The M-Pesa code or bank reference of the transfer staff made.
+    providerReference: v.optional(v.string()),
+    transferFeeAmount: v.optional(v.number()),
+    failedBy: v.optional(v.id("users")),
+    failedAt: v.optional(v.number()),
+    // Staff only.
+    failureReason: v.optional(v.string()),
+  })
+    .index("by_fundraiserId_and_requestedAt", ["fundraiserId", "requestedAt"])
+    .index("by_fundraiserId_and_status", ["fundraiserId", "status"])
+    .index("by_status_and_requestedAt", ["status", "requestedAt"])
+    .index("by_ownerUserId_and_status", ["ownerUserId", "status"])
+    .index("by_providerReference", ["providerReference"]),
 
   organizationMembers: defineTable({
     organizationId: v.id("organizations"),

@@ -16,6 +16,7 @@ import {
   donationSourceValidator,
 } from "./lib/donationSource";
 import { creditCompletedDonation } from "./lib/fundraiserTotals";
+import { recordCompletedDonation } from "./lib/payoutBalance";
 import { resolveTestimonialOptIn } from "../lib/testimonials";
 
 function roundToCents(amount: number): number {
@@ -421,6 +422,7 @@ export const markDonationCompleted = internalMutation({
       donation.grossAmount,
       now,
     );
+    await recordCompletedDonation(ctx, args.donationId, now);
 
     // Tell the organization's webhooks, if it has any. Scheduled rather than
     // called so that nothing about webhooks can hold up or undo recording a

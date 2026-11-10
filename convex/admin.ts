@@ -9,6 +9,7 @@ import {
   MIN_REJECTION_REASON_LENGTH,
 } from "./lib/adminAudit";
 import { getActivePayoutHold } from "./lib/payoutEligibility";
+import { availableBalance } from "../lib/payouts";
 import {
   getVerificationBlockers,
   ORGANIZATION_REVIEW_CHECK_LABELS,
@@ -679,7 +680,7 @@ export const getPlatformTotals = query({
   handler: async (ctx) => {
     await requireStaff(ctx);
 
-    const [users, active, completed, pendingPayout] = await Promise.all([
+    const [users, active, completed, balances] = await Promise.all([
       ctx.db.query("users").take(TOTALS_CAP + 1),
       ctx.db
         .query("fundraisers")
@@ -689,13 +690,13 @@ export const getPlatformTotals = query({
         .query("donations")
         .withIndex("by_status", (q) => q.eq("status", "COMPLETED"))
         .take(TOTALS_CAP + 1),
-      ctx.db
-        .query("donations")
-        .withIndex("by_payoutStatus", (q) =>
-          q.eq("payoutStatus", "PENDING_PAYOUT"),
-        )
-        .take(TOTALS_CAP + 1),
+      // What fundraisers could withdraw right now, from the running balances.
+      ctx.db.query("fundraiserBalances").take(TOTALS_CAP + 1),
     ]);
+    const owed = balances
+      .slice(0, TOTALS_CAP)
+      .map((row) => availableBalance(row))
+      .filter((amount) => amount > 0);
 
     return {
       cap: TOTALS_CAP,
@@ -706,9 +707,11 @@ export const getPlatformTotals = query({
         grossVolume: sumOf(completed, TOTALS_CAP, (d) => d.grossAmount),
         platformFees: sumOf(completed, TOTALS_CAP, (d) => d.platformFeeAmount),
       },
+      // Fundraisers with money they could withdraw, and how much in total.
       pendingPayouts: {
-        ...tally(pendingPayout, TOTALS_CAP),
-        netOwed: sumOf(pendingPayout, TOTALS_CAP, (d) => d.netAmount),
+        count: owed.length,
+        capped: balances.length > TOTALS_CAP,
+        netOwed: money(owed.reduce((total, amount) => total + amount, 0)),
       },
     };
   },

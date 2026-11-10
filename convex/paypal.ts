@@ -17,6 +17,7 @@ import {
   donationSourceValidator,
 } from "./lib/donationSource";
 import { creditCompletedDonation } from "./lib/fundraiserTotals";
+import { recordCompletedDonation } from "./lib/payoutBalance";
 import { resolveTestimonialOptIn } from "../lib/testimonials";
 
 const PAYPAL_BASE_URL = "https://api-m.sandbox.paypal.com"; // Switch to https://api-m.paypal.com for production
@@ -347,6 +348,7 @@ export const completePayPalDonation = internalMutation({
       donation.grossAmount,
       Date.now(),
     );
+    await recordCompletedDonation(ctx, args.donationId, Date.now());
 
     // See markDonationCompleted: scheduled so webhooks can't affect payment
     // recording, and skipped on a repeat callback by the guard above.
@@ -780,6 +782,7 @@ export const recordSubscriptionPayment = internalMutation({
       grossAmountKes,
       now,
     );
+    await recordCompletedDonation(ctx, donationId, now);
 
     // The early return on an existing capture id above is what keeps a
     // repeated PayPal notification from queueing a second event.
