@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ChevronDown } from "lucide-react";
 import { PLATFORM_FEE_RATE } from "@/convex/lib/constants";
 import { InfoCta, InfoPage } from "@/components/web/info/info-page";
+import { PAYPAL_SETTLEMENT_DELAY_DAYS } from "@/lib/payouts";
 import { SHARE_IMAGE, SITE_URL, SUPPORT_EMAIL } from "@/lib/site";
 
 const TITLE = "Help Center | GoUplift";
@@ -113,6 +114,25 @@ const faqs: Array<{ question: string; answer: React.ReactNode }> = [
         <Link href="/payouts">payouts page</Link>. See{" "}
         <Link href="/withdrawals">Payout accounts</Link> for how they are
         checked.
+      </p>
+    ),
+  },
+  {
+    question: "How do I withdraw the money I have raised?",
+    answer: (
+      <p>
+        Open your <Link href="/payouts">payouts page</Link>, find the
+        fundraiser and ask to withdraw. We review each request, then send the
+        money to your payout account. Any transfer charge comes off the amount.
+        See <Link href="/withdrawals">how withdrawals work</Link>.
+      </p>
+    ),
+  },
+  {
+    question: "Why can't I withdraw a donation yet?",
+    answer: (
+      <p>
+        {`Donations paid by M-Pesa, Airtel Money, SasaPay or card are ready straight away. Donations paid through PayPal become ready ${PAYPAL_SETTLEMENT_DELAY_DAYS} days after they arrive. You also need to be verified and have a payout account. Your payouts page shows what is holding things up.`}
       </p>
     ),
   },

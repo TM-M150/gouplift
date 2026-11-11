@@ -977,6 +977,22 @@ describe("getMyPayoutOverview", () => {
     expect(result?.blockedReason).toBeNull();
   });
 
+  it("says where the money would go, masked the way the owner already sees it", async () => {
+    const w = await setup(0);
+    expect((await overview(w))?.destination).toBe("M-Pesa +254712345678");
+
+    const org = await addOrganizationFundraiser(w.t, w.ids);
+    const bank = (await overview(w, org.fundraiserId))?.destination;
+    expect(bank).toContain("Equity Bank");
+    expect(bank).not.toContain("0123456789012");
+
+    await w.t.run(async (ctx) => {
+      const selection = await ctx.db.query("fundraiserPayoutAccounts").first();
+      await ctx.db.delete(selection!._id);
+    });
+    expect((await overview(w))?.destination).toBeNull();
+  });
+
   it("lists the latest payouts newest first", async () => {
     const w = await setup(0);
     for (let i = 0; i < 25; i++) {
@@ -1078,7 +1094,7 @@ describe("the staff queue", () => {
         accountChanged: false,
         blockers: [],
         balance: { available: 5000, pending: 0, reserved: 3000, paid: 2000 },
-        requestedBy: w.ids.owner,
+        requestedByName: "auth_owner",
       });
     });
 
@@ -1105,6 +1121,145 @@ describe("the staff queue", () => {
 
       expect(detail?.accountChanged).toBe(true);
       expect(detail?.blockers.map((b) => b.code)).toContain("ON_HOLD");
+    });
+
+    it("reads as not found for something that isn't a payout id", async () => {
+      const w = await setup(10_000);
+      const payoutId = await request(w, 3000);
+
+      expect(
+        await w.asAdmin.query(api.payouts.getPayoutForStaff, { payoutId: "nope" }),
+      ).toBeNull();
+      // An id from another table is not a payout either.
+      expect(
+        await w.asAdmin.query(api.payouts.getPayoutForStaff, {
+          payoutId: w.ids.fundraiser,
+        }),
+      ).toBeNull();
+      expect(
+        await w.asAdmin.query(api.payouts.getPayoutForStaff, { payoutId }),
+      ).not.toBeNull();
+    });
+
+    it("says who it is for, and what the account has to be in the name of", async () => {
+      const w = await setup(10_000);
+      await w.t.run((ctx) =>
+        ctx.db.patch(w.ids.kycId, {
+          legalName: "Jane Wanjiru Kamau",
+          phoneNumber: "+254712345678",
+        }),
+      );
+      const payoutId = await request(w, 3000);
+
+      const detail = await w.asAdmin.query(api.payouts.getPayoutForStaff, { payoutId });
+
+      expect(detail).toMatchObject({
+        ownerName: "auth_owner",
+        ownerEmail: "auth_owner@example.test",
+        requestedByName: "auth_owner",
+        identityOnFile: {
+          legalName: "Jane Wanjiru Kamau",
+          phoneNumber: "+254712345678",
+        },
+      });
+    });
+
+    it("lists what happened, in order, and who did it", async () => {
+      const w = await setup(10_000);
+      const payoutId = await request(w, 3000);
+      vi.advanceTimersByTime(60_000);
+      await approve(w, payoutId, "Looks right.");
+      vi.advanceTimersByTime(60_000);
+      await markPaid(w, payoutId);
+
+      const detail = await w.asAdmin.query(api.payouts.getPayoutForStaff, { payoutId });
+
+      expect(
+        detail?.timeline.map((e) => [e.kind, e.actorName, e.note]),
+      ).toEqual([
+        ["REQUESTED", "auth_owner", null],
+        ["APPROVED", "auth_admin", "Looks right."],
+        ["PAID", "auth_admin", null],
+      ]);
+      const times = detail?.timeline.map((e) => e.at) ?? [];
+      expect(times).toEqual([...times].sort((a, b) => a - b));
+    });
+
+    it("says who cancelled it, even when it is another owner of the organization", async () => {
+      const w = await setup(0);
+      const org = await addOrganizationFundraiser(w.t, w.ids);
+      await fund(w.t, org.fundraiserId, 5000);
+      await w.t.run((ctx) =>
+        ctx.db.insert("organizationMembers", {
+          organizationId: org.organizationId,
+          userId: w.ids.stranger,
+          role: "OWNER",
+          joinedAt: Date.now(),
+        }),
+      );
+      const payoutId = await request(w, 1000, org.fundraiserId);
+      vi.advanceTimersByTime(60_000);
+      await w.asStranger.mutation(api.payouts.cancelPayoutRequest, { payoutId });
+
+      const detail = await w.asAdmin.query(api.payouts.getPayoutForStaff, { payoutId });
+
+      expect(detail?.timeline.map((e) => [e.kind, e.actorName])).toEqual([
+        ["REQUESTED", "auth_owner"],
+        ["CANCELLED", "auth_stranger"],
+      ]);
+    });
+
+    it("shows a rejection after an approval as two steps, with the reason", async () => {
+      const w = await setup(10_000);
+      const payoutId = await approved(w, 3000);
+      vi.advanceTimersByTime(60_000);
+      await reject(w, payoutId, "The number is no longer in use.");
+
+      const detail = await w.asAdmin.query(api.payouts.getPayoutForStaff, { payoutId });
+
+      expect(detail?.timeline.map((e) => e.kind)).toEqual([
+        "REQUESTED",
+        "APPROVED",
+        "REJECTED",
+      ]);
+      expect(detail?.timeline.at(-1)?.note).toBe("The number is no longer in use.");
+    });
+
+    it("says in advance when this admin can't approve it", async () => {
+      const w = await setup(10_000);
+      await w.t.run((ctx) => ctx.db.patch(w.ids.owner, { role: "ADMIN" }));
+      const payoutId = await request(w, 3000);
+
+      const mine = await w.asOwner.query(api.payouts.getPayoutForStaff, { payoutId });
+      const theirs = await w.asAdmin2.query(api.payouts.getPayoutForStaff, { payoutId });
+
+      expect(mine?.approveBlocked).toMatch(/can't approve a payout to yourself/);
+      expect(theirs?.approveBlocked).toBeNull();
+      await approve(w, payoutId);
+      const after = await w.asOwner.query(api.payouts.getPayoutForStaff, { payoutId });
+      expect(after?.approveBlocked).toBeNull();
+    });
+
+    it("shows an organization's payout under the organization's name", async () => {
+      const w = await setup(0);
+      const org = await addOrganizationFundraiser(w.t, w.ids);
+      await fund(w.t, org.fundraiserId, 5000);
+      const payoutId = await request(w, 1000, org.fundraiserId);
+
+      const detail = await w.asAdmin.query(api.payouts.getPayoutForStaff, { payoutId });
+      const [row] = await w.asAdmin.query(api.payouts.listPayoutsForStaff, {
+        status: "REQUESTED",
+      });
+
+      expect(row).toMatchObject({ ownerName: "Kajiado Youth Trust", isOrganization: true });
+      expect(detail).toMatchObject({
+        ownerName: "Kajiado Youth Trust",
+        isOrganization: true,
+        identityOnFile: null,
+        ownerTier: null,
+        ownerLimit: null,
+        ownerCommitted: null,
+      });
     });
 
     it("shows what staff recorded once it is decided", async () => {

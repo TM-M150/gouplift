@@ -7,11 +7,12 @@ import {
   PAYOUT_METHOD_LABELS,
 } from "@/lib/payout-accounts";
 import { tierPayoutLimitKes } from "@/lib/kyc";
+import { MIN_PAYOUT_KES, PAYPAL_SETTLEMENT_DELAY_DAYS } from "@/lib/payouts";
 import { SHARE_IMAGE, SITE_URL } from "@/lib/site";
 
 const TITLE = "Payout Accounts | GoUplift";
 const DESCRIPTION =
-  "Where GoUplift fundraisers are paid: the M-Pesa and bank accounts you can add, how they are checked, and the limits that come with each verification level.";
+  "How GoUplift fundraisers are paid: how a withdrawal works, the M-Pesa and bank accounts you can add, how they are checked, and the limits that come with each verification level.";
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -44,6 +45,32 @@ export default function WithdrawalsPage() {
       title="Payout accounts and limits"
       lead="Before you can be paid, you tell us where the money should go and we check that the account is the right one."
     >
+      <InfoSection title="How a withdrawal works">
+        <ol>
+          <li>
+            Open your <Link href="/payouts#withdraw">payouts page</Link> and
+            choose how much to withdraw, from {kes(MIN_PAYOUT_KES)} up to what
+            is ready.
+          </li>
+          <li>
+            We review the request. Until then the amount is set aside for you,
+            and you can cancel the request.
+          </li>
+          <li>
+            Once it is approved we send the money to your payout account. You
+            will see the M-Pesa code or bank reference, and exactly what
+            reached you.
+          </li>
+        </ol>
+        <p>
+          {`Donations paid by M-Pesa, Airtel Money, SasaPay or card are ready to withdraw straight away. Donations paid through PayPal become ready ${PAYPAL_SETTLEMENT_DELAY_DAYS} days after they arrive.`}
+        </p>
+        <p>
+          You can have one withdrawal in progress at a time. Any transfer charge
+          from the mobile network or bank comes off the amount you withdraw.
+        </p>
+      </InfoSection>
+
       <InfoSection title="Where you can be paid">
         <ul>
           <li>{PAYOUT_METHOD_LABELS.MPESA}</li>

@@ -49,6 +49,6 @@ export const adminNav: AdminNavItem[] = [
     icon: Heart,
     ready: false,
   },
-  { title: "Payouts", href: "/admin/payouts", icon: Wallet, ready: false },
+  { title: "Payouts", href: "/admin/payouts", icon: Wallet, ready: true },
   { title: "Users", href: "/admin/users", icon: Users, ready: false },
 ];

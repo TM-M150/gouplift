@@ -27,7 +27,7 @@ import {
   logAction,
   MIN_REJECTION_REASON_LENGTH,
 } from "./lib/adminAudit";
-import { getKycTier } from "./lib/kycTier";
+import { getApprovedKycSubmissions, getKycTier } from "./lib/kycTier";
 import { getOwnerAccess } from "./lib/orgAccess";
 import {
   getBalance,
@@ -157,6 +157,9 @@ export const getMyPayoutOverview = query({
     ]);
 
     const available = availableBalance(balance);
+    const account = selection
+      ? await ctx.db.get(selection.payoutAccountId)
+      : null;
     const tier = fundraiser.organizationId
       ? null
       : await getKycTier(ctx, fundraiser.creatorId);
@@ -174,6 +177,8 @@ export const getMyPayoutOverview = query({
       // Null when there is no cap: an organization, or above Level 2.
       limitRemaining: remaining,
       blockedReason: ownerSafePayoutMessage(blockers),
+      // Where the money would go, masked the way the owner already sees it.
+      destination: account ? describeDestination(account) : null,
       heldUntil: selection?.changedAt
         ? payoutChangeHeldUntil(selection.changedAt)
         : null,
@@ -268,7 +273,11 @@ export const cancelPayoutRequest = mutation({
     }
 
     const now = Date.now();
-    await ctx.db.patch(payout._id, { status: "CANCELLED", cancelledAt: now });
+    await ctx.db.patch(payout._id, {
+      status: "CANCELLED",
+      cancelledAt: now,
+      cancelledBy: user._id,
+    });
     await releaseReservation(ctx, payout.fundraiserId, payout.amount, now);
     return null;
   },
@@ -280,12 +289,14 @@ function staffSummary(
   payout: Doc<"payouts">,
   fundraiser: Fundraiser | null,
   owner: Doc<"users"> | null,
+  organization: Doc<"organizations"> | null,
 ) {
   return {
     _id: payout._id,
     fundraiserId: payout.fundraiserId,
     fundraiserTitle: fundraiser?.title ?? "Deleted fundraiser",
-    ownerName: owner?.displayName ?? "Unknown",
+    // For an organization's fundraiser the payout is the organization's.
+    ownerName: organization?.name ?? owner?.displayName ?? "Unknown",
     isOrganization: payout.organizationId !== undefined,
     amount: payout.amount,
     destination: payout.destination,
@@ -321,11 +332,12 @@ export const listPayoutsForStaff = query({
 
     return await Promise.all(
       rows.map(async (row) => {
-        const [fundraiser, owner] = await Promise.all([
+        const [fundraiser, owner, organization] = await Promise.all([
           ctx.db.get(row.fundraiserId),
           ctx.db.get(row.ownerUserId),
+          row.organizationId ? ctx.db.get(row.organizationId) : null,
         ]);
-        return staffSummary(row, fundraiser, owner);
+        return staffSummary(row, fundraiser, owner, organization);
       }),
     );
   },
@@ -337,25 +349,100 @@ export const listPayoutsForStaff = query({
  * limit. Null for anyone who isn't an admin.
  */
 export const getPayoutForStaff = query({
-  args: { payoutId: v.id("payouts") },
+  // A string, not v.id(): the value comes straight from the URL, and an
+  // invalid one should read as "not found" rather than throw.
+  args: { payoutId: v.string() },
   handler: async (ctx, args) => {
     const user = await getCurrentUserDoc(ctx);
     if (!user || user.role !== "ADMIN") return null;
 
-    const payout = await ctx.db.get(args.payoutId);
+    const payoutId = ctx.db.normalizeId("payouts", args.payoutId);
+    const payout = payoutId ? await ctx.db.get(payoutId) : null;
     if (!payout) return null;
-    const [fundraiser, owner, account, balance, selection] = await Promise.all([
-      ctx.db.get(payout.fundraiserId),
-      ctx.db.get(payout.ownerUserId),
-      ctx.db.get(payout.payoutAccountId),
-      getBalance(ctx, payout.fundraiserId),
-      getFundraiserPayoutSelection(ctx, payout.fundraiserId),
-    ]);
+    const [fundraiser, owner, organization, account, balance, selection] =
+      await Promise.all([
+        ctx.db.get(payout.fundraiserId),
+        ctx.db.get(payout.ownerUserId),
+        payout.organizationId ? ctx.db.get(payout.organizationId) : null,
+        ctx.db.get(payout.payoutAccountId),
+        getBalance(ctx, payout.fundraiserId),
+        getFundraiserPayoutSelection(ctx, payout.fundraiserId),
+      ]);
     const blockers = fundraiser ? await getPayoutBlockers(ctx, fundraiser, null) : [];
     const tier = payout.organizationId ? null : await getKycTier(ctx, payout.ownerUserId);
+    // Who the account has to be in the name of: the identity verified at Level 1.
+    const tierOne = payout.organizationId
+      ? null
+      : (await getApprovedKycSubmissions(ctx, payout.ownerUserId)).find(
+          (submission) => submission.requestedTier === 1,
+        );
+
+    const names = new Map<Id<"users">, string>();
+    const nameOf = async (userId: Id<"users"> | undefined) => {
+      if (!userId) return null;
+      const cached = names.get(userId);
+      if (cached) return cached;
+      const name = (await ctx.db.get(userId))?.displayName ?? "Unknown";
+      names.set(userId, name);
+      return name;
+    };
+
+    // What happened to it and when, in order, from the payout itself.
+    const happened: Array<{
+      kind: "REQUESTED" | "APPROVED" | "REJECTED" | "CANCELLED" | "PAID" | "FAILED";
+      at: number;
+      actor: Id<"users"> | undefined;
+      note: string | null;
+    }> = [
+      { kind: "REQUESTED", at: payout.requestedAt, actor: payout.requestedBy, note: null },
+    ];
+    if (payout.approvedAt !== undefined) {
+      happened.push({
+        kind: "APPROVED",
+        at: payout.approvedAt,
+        actor: payout.approvedBy,
+        note: payout.approvalNote ?? null,
+      });
+    }
+    if (payout.rejectedAt !== undefined) {
+      happened.push({
+        kind: "REJECTED",
+        at: payout.rejectedAt,
+        actor: payout.rejectedBy,
+        note: payout.rejectionReason ?? null,
+      });
+    }
+    if (payout.cancelledAt !== undefined) {
+      happened.push({
+        kind: "CANCELLED",
+        at: payout.cancelledAt,
+        // Older cancellations didn't record who: it was the requester then.
+        actor: payout.cancelledBy ?? payout.requestedBy,
+        note: null,
+      });
+    }
+    if (payout.paidAt !== undefined) {
+      happened.push({ kind: "PAID", at: payout.paidAt, actor: payout.paidBy, note: null });
+    }
+    if (payout.failedAt !== undefined) {
+      happened.push({
+        kind: "FAILED",
+        at: payout.failedAt,
+        actor: payout.failedBy,
+        note: payout.failureReason ?? null,
+      });
+    }
+    happened.sort((a, b) => a.at - b.at);
 
     return {
-      ...staffSummary(payout, fundraiser, owner),
+      ...staffSummary(payout, fundraiser, owner, organization),
+      ownerEmail: owner?.email ?? null,
+      identityOnFile: tierOne
+        ? {
+            legalName: tierOne.legalName ?? null,
+            phoneNumber: tierOne.phoneNumber ?? null,
+          }
+        : null,
       ownerTier: tier,
       // The limit, and what this person has been paid or asked for in total.
       ownerLimit: tier === null ? null : tierPayoutLimitKes(tier),
@@ -383,7 +470,18 @@ export const getPayoutForStaff = query({
         reserved: roundMoney(balance?.reserved ?? 0),
         paid: roundMoney(balance?.paid ?? 0),
       },
-      requestedBy: payout.requestedBy,
+      requestedByName: await nameOf(payout.requestedBy),
+      // Why this admin can't approve it, if they can't. Enforced on approval too.
+      approveBlocked:
+        payout.status === "REQUESTED" ? approvalBlockedReason(user, payout) : null,
+      timeline: await Promise.all(
+        happened.map(async (event) => ({
+          kind: event.kind,
+          at: event.at,
+          actorName: await nameOf(event.actor),
+          note: event.note,
+        })),
+      ),
       approvalNote: payout.approvalNote ?? null,
       rejectionReason: payout.rejectionReason ?? null,
       providerReference: payout.providerReference ?? null,
@@ -392,6 +490,25 @@ export const getPayoutForStaff = query({
     };
   },
 });
+
+/**
+ * Why this admin can't approve this payout, or null if they can. Shown on the
+ * screen and enforced when approving, so the two can't disagree.
+ */
+function approvalBlockedReason(
+  admin: Doc<"users">,
+  payout: Doc<"payouts">,
+): string | null {
+  // Someone else has to look at it: nobody approves money going to themselves.
+  if (payout.requestedBy === admin._id || payout.ownerUserId === admin._id) {
+    return "You can't approve a payout to yourself. Ask another admin.";
+  }
+  // Above the Level 2 limit, the MLRO approves each payout (policy 5.3).
+  if (payout.needsEnhancedApproval && !isMlro(admin)) {
+    return "Only the MLRO can approve a payout above the Level 2 limit.";
+  }
+  return null;
+}
 
 async function loadPayout(ctx: MutationCtx, payoutId: Id<"payouts">) {
   const payout = await ctx.db.get(payoutId);
@@ -411,19 +528,11 @@ export const approvePayout = mutation({
     const payout = await loadPayout(ctx, args.payoutId);
     requireStatus(payout, ["REQUESTED"], "Only a payout waiting for review can be approved.");
 
-    // Someone else has to look at it: nobody approves money going to themselves.
-    if (payout.requestedBy === admin._id || payout.ownerUserId === admin._id) {
-      throw new ConvexError("You can't approve a payout to yourself. Ask another admin.");
-    }
+    const blocked = approvalBlockedReason(admin, payout);
+    if (blocked) throw new ConvexError(blocked);
 
     const note = cleanNote(args.note);
     if (payout.needsEnhancedApproval) {
-      // Above the Level 2 limit, the MLRO approves each payout (policy 5.3).
-      if (!isMlro(admin)) {
-        throw new ConvexError(
-          "Only the MLRO can approve a payout above the Level 2 limit.",
-        );
-      }
       if ((note?.length ?? 0) < MIN_REJECTION_REASON_LENGTH) {
         throw new ConvexError(
           "This payout is above the Level 2 limit. Record the reason for approving it in the note.",

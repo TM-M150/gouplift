@@ -757,6 +757,8 @@ export default defineSchema({
     // Shown to the owner, so it must never hint at a suspicion.
     rejectionReason: v.optional(v.string()),
     cancelledAt: v.optional(v.number()),
+    // An organization can have several owners, so which one is recorded.
+    cancelledBy: v.optional(v.id("users")),
     paidBy: v.optional(v.id("users")),
     paidAt: v.optional(v.number()),
     // The M-Pesa code or bank reference of the transfer staff made.
