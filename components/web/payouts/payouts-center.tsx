@@ -27,6 +27,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { DecisionDialog } from "@/components/web/admin/decision-dialog";
 import { errorMessage, formatDateTime } from "@/components/web/admin/utils";
 import { AddAccountForm } from "@/components/web/payouts/add-account-form";
+import { FundraiserWithdrawal } from "@/components/web/payouts/withdrawal-card";
 import {
   ACCOUNT_STATUS_DISPLAY,
   describeAccount,
@@ -379,6 +380,25 @@ export function PayoutsCenter() {
           </CardContent>
         </Card>
       )}
+
+      <section id="withdraw" className="scroll-mt-24 space-y-4">
+        <div className="space-y-1">
+          <h2 className="text-xl font-semibold">Withdraw your money</h2>
+          <p className="text-sm text-muted-foreground">
+            Ask for what a fundraiser has raised to be sent to its payout
+            account. We check every withdrawal before the money is sent.
+            Fundraisers appear here once they have received donations.
+          </p>
+        </div>
+        {destinations.map((destination) => (
+          <FundraiserWithdrawal
+            key={destination.fundraiserId}
+            fundraiserId={destination.fundraiserId}
+            title={destination.title}
+            subtitle={destination.organizationName}
+          />
+        ))}
+      </section>
 
       {accounts.tier >= 1 && (
         <AccountsCard

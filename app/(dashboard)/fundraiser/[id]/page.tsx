@@ -12,6 +12,7 @@ import { DonationStatusBanner } from "@/components/web/donate/donation-status-ba
 import { DonateButton } from "@/components/web/donate/donate-button";
 import { EditFundraiserButton } from "@/components/web/fundraiser/edit-fundraiser-button";
 import { PayoutVerificationNotice } from "@/components/web/fundraiser/payout-verification-notice";
+import { WithdrawNotice } from "@/components/web/fundraiser/withdraw-notice";
 import {
   describeTimeLeft,
   formatEndDate,
@@ -170,6 +171,11 @@ export default async function FundraiserPage({
             <PayoutVerificationNotice
               creatorId={fundraiser.creatorId}
               organizationId={fundraiser.organizationId}
+            />
+
+            <WithdrawNotice
+              fundraiserId={fundraiser._id}
+              creatorId={fundraiser.creatorId}
             />
 
             <div className="flex flex-wrap items-start justify-between gap-3">

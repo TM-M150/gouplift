@@ -63,6 +63,12 @@ export default function HowItWorksPage() {
             should go: an M-Pesa number or a bank account. See{" "}
             <Link href="/withdrawals">Payout accounts</Link>.
           </li>
+          <li>
+            <strong>Withdraw.</strong>{" "}
+            Ask for what you have raised to be sent to your payout account. We
+            review each request, then send the money. See{" "}
+            <Link href="/withdrawals">how withdrawals work</Link>.
+          </li>
         </ol>
       </InfoSection>
 
