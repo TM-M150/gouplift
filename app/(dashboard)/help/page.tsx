@@ -50,6 +50,23 @@ const faqs: Array<{ question: string; answer: React.ReactNode }> = [
     ),
   },
   {
+    question: "Will I get a receipt?",
+    answer: (
+      <>
+        <p>
+          Yes. When your donation goes through, we email a receipt to the address
+          you gave. It shows the amount, the date, how you paid and your payment
+          reference. It usually arrives within a few minutes. If it
+          doesn&apos;t, check your spam folder.
+        </p>
+        <p>
+          If you donated without giving an email address, there is nothing to
+          send a receipt to.
+        </p>
+      </>
+    ),
+  },
+  {
     question: "Does GoUplift charge donors?",
     answer: (
       <p>
