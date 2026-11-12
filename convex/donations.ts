@@ -434,6 +434,12 @@ export const markDonationCompleted = internalMutation({
       { donationId: args.donationId },
     );
 
+    // And the donor's receipt, the same way: a separate step, so email can
+    // never touch the payment.
+    await ctx.scheduler.runAfter(0, internal.receipts.queueReceipt, {
+      donationId: args.donationId,
+    });
+
     // Same reasoning for testimonials: a separate, scheduled step, so a
     // problem with one can never touch the payment.
     if (donation.shareAsTestimonial === true) {

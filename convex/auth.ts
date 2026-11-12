@@ -9,6 +9,7 @@ import { components, internal } from "./_generated/api";
 import { betterAuth } from "better-auth/minimal";
 import { DataModel } from "./_generated/dataModel";
 import authConfig from "./auth.config";
+import { EMAIL_FROM } from "./lib/email";
 
 const siteUrl = process.env.SITE_URL || "http://localhost:3000";
 
@@ -33,7 +34,7 @@ async function sendPasswordResetEmail(
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      from: "GoUplift <noreply@gouplift.co.ke>",
+      from: EMAIL_FROM,
       to: [to],
       subject: "Reset your GoUplift password",
       html: `

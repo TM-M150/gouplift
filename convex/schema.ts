@@ -247,6 +247,39 @@ export default defineSchema({
     .index("by_paypalSubscriptionId", ["paypalSubscriptionId"])
     .index("by_paypalCaptureId", ["paypalCaptureId"]),
 
+  // One row per donation: the receipt email for it, and what became of it.
+  // It holds no email address (the donation has it) and no message body.
+  donationReceipts: defineTable({
+    donationId: v.id("donations"),
+    status: v.union(
+      v.literal("PENDING"), // queued, not yet tried
+      v.literal("RETRYING"), // tried, will try again at nextAttemptAt
+      v.literal("SENT"),
+      v.literal("FAILED"), // gave up; `receipts:requeueFailed` tries them again
+      v.literal("SKIPPED"), // deliberately not sent, see skippedReason
+    ),
+    skippedReason: v.optional(
+      v.union(
+        v.literal("NO_EMAIL"),
+        v.literal("INVALID_EMAIL"),
+        v.literal("NOT_COMPLETED"),
+      ),
+    ),
+    attempts: v.number(),
+    // Goes up each time a failed receipt is queued again, so the retry isn't
+    // mistaken by the email service for a repeat of the failed request.
+    generation: v.number(),
+    lastError: v.optional(v.string()),
+    lastStatusCode: v.optional(v.number()),
+    lastAttemptAt: v.optional(v.number()),
+    nextAttemptAt: v.optional(v.number()),
+    emailId: v.optional(v.string()), // Resend's id for the sent email
+    sentAt: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index("by_donationId", ["donationId"])
+    .index("by_status", ["status"]),
+
   paypalSubscriptions: defineTable({
     fundraiserId: v.id("fundraisers"),
     donorUserId: v.optional(v.id("users")),

@@ -358,6 +358,11 @@ export const completePayPalDonation = internalMutation({
       { donationId: args.donationId },
     );
 
+    // The donor's receipt: a separate, scheduled step, like the webhook.
+    await ctx.scheduler.runAfter(0, internal.receipts.queueReceipt, {
+      donationId: args.donationId,
+    });
+
     // A separate, scheduled step so testimonials can't touch the payment.
     if (donation.shareAsTestimonial === true) {
       await ctx.scheduler.runAfter(0, internal.testimonials.queueFromDonation, {
@@ -791,5 +796,8 @@ export const recordSubscriptionPayment = internalMutation({
       internal.webhookDelivery.enqueueDonationCompleted,
       { donationId },
     );
+    await ctx.scheduler.runAfter(0, internal.receipts.queueReceipt, {
+      donationId,
+    });
   },
 });
