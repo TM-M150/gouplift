@@ -4,6 +4,7 @@ import { v } from "convex/values";
 // the dashboard; everything else is a real thing that happened.
 export const webhookEventTypeValidator = v.union(
   v.literal("donation.completed"),
+  v.literal("donation.refunded"),
   v.literal("ping"),
 );
 

@@ -26,17 +26,27 @@ export function VerifyGuide() {
           <h4 className="font-medium">What you receive</h4>
           <p className="text-muted-foreground">
             A <code>POST</code> with a JSON body whenever a donation to one of
-            your fundraisers completes (<code>donation.completed</code>). The
-            Send test button sends a <code>ping</code>{" "}
-            so you can check your setup. Donor email and phone are never included, and an anonymous
-            donor&apos;s name and message are <code>null</code>. We may add
-            fields over time, so ignore ones you don&apos;t recognise.
+            your fundraisers completes (<code>donation.completed</code>), and
+            again if it is later refunded or reversed (
+            <code>donation.refunded</code>). The Send test button sends a{" "}
+            <code>ping</code> so you can check your setup. Donor email and
+            phone are never included, and an anonymous donor&apos;s name and
+            message are <code>null</code>. We may add fields over time, so
+            ignore ones you don&apos;t recognise, and ignore event types you
+            don&apos;t handle.
           </p>
           <Code>{EXAMPLE_EVENT}</Code>
           <p className="text-muted-foreground">
             <code>amount</code> and <code>currency</code> are what the donor
             actually paid (KES or USD). <code>source</code> is{" "}
             <code>WEB</code> or <code>EMBED</code>.
+          </p>
+          <p className="text-muted-foreground">
+            A <code>donation.refunded</code> event has the same{" "}
+            <code>donation</code> object (same <code>id</code>, without the
+            message) plus <code>refundedAt</code>. When you get one, take that
+            donation back out of whatever you counted for it. It is sent once
+            per donation, for a full refund only.
           </p>
         </section>
 

@@ -370,6 +370,14 @@ export function WithdrawalCardView({
           </Notice>
         ) : null}
 
+        {overview.shortfall > 0 && (
+          <Notice>
+            A donation that was already withdrawn has been refunded, so this
+            fundraiser is {formatKes(overview.shortfall)} short. You can
+            withdraw again once later donations have covered it.
+          </Notice>
+        )}
+
         {open && <OpenRequest payout={open} onCancel={onCancel} />}
 
         {atLimit && (

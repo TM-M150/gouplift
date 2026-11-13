@@ -924,6 +924,7 @@ describe("getMyPayoutOverview", () => {
       pending: 0,
       reserved: 0,
       paid: 0,
+      shortfall: 0,
       minPayout: 250,
       limitRemaining: 100_000,
       blockedReason: null,

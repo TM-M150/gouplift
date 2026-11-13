@@ -47,6 +47,40 @@ export function buildDonationCompletedEvent(args: {
   };
 }
 
+export function donationRefundedEventId(donationId: Id<"donations">): string {
+  return `evt_donation_refunded_${donationId}`;
+}
+
+// Sent when a donation that was reported as completed is later refunded or
+// reversed, so a receiver that counted it can take it back. Same privacy rules
+// as above. The reason is staff-facing and deliberately not included.
+export function buildDonationRefundedEvent(args: {
+  donation: Doc<"donations">;
+  organizationId: Id<"organizations">;
+  createdAt: number;
+}) {
+  const { donation } = args;
+  return {
+    id: donationRefundedEventId(donation._id),
+    type: "donation.refunded" as const,
+    createdAt: iso(args.createdAt),
+    data: {
+      donation: {
+        id: donation._id,
+        fundraiserId: donation.fundraiserId,
+        organizationId: args.organizationId,
+        amount: donation.originalAmount ?? donation.grossAmount,
+        currency: donation.originalCurrency ?? donation.currency,
+        source: donation.source ?? "WEB",
+        isAnonymous: donation.isAnonymous,
+        donorName: donation.isAnonymous ? null : (donation.donorName ?? null),
+        completedAt: iso(donation.completedAt ?? args.createdAt),
+        refundedAt: iso(donation.refundedAt ?? args.createdAt),
+      },
+    },
+  };
+}
+
 export function buildPingEvent(args: { eventId: string; createdAt: number }) {
   return {
     id: args.eventId,

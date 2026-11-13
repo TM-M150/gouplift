@@ -11,6 +11,7 @@ import { payoutChangeHeldUntil } from "../lib/payout-accounts";
 import {
   addMoney,
   availableBalance,
+  balanceShortfall,
   LIMIT_COUNTING_PAYOUT_STATUSES,
   MAX_PAYOUT_REFERENCE_LENGTH,
   MIN_PAYOUT_KES,
@@ -173,6 +174,8 @@ export const getMyPayoutOverview = query({
       pending: roundMoney(balance?.pendingNet ?? 0),
       reserved: roundMoney(balance?.reserved ?? 0),
       paid: roundMoney(balance?.paid ?? 0),
+      // Refunded after it was paid out: withdrawals wait until it is covered.
+      shortfall: balanceShortfall(balance),
       minPayout: MIN_PAYOUT_KES,
       // Null when there is no cap: an organization, or above Level 2.
       limitRemaining: remaining,

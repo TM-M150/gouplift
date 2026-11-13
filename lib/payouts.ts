@@ -75,6 +75,19 @@ export function availableBalance(balance: BalanceFigures | null): number {
   );
 }
 
+/**
+ * How far below zero the balance is: money that was paid out and has since
+ * been refunded by a donor's payment being taken back. Nothing is withdrawable
+ * until later donations have covered it. Zero for any balance that isn't short.
+ */
+export function balanceShortfall(balance: BalanceFigures | null): number {
+  if (!balance) return 0;
+  return Math.max(
+    0,
+    roundMoney(balance.reserved + balance.paid - balance.settledNet),
+  );
+}
+
 /** The most that can be requested: whole shillings, as M-Pesa sends. */
 export function withdrawableKes(available: number): number {
   return Math.floor(available);

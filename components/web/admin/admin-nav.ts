@@ -5,6 +5,7 @@ import {
   LayoutDashboard,
   Quote,
   ShieldCheck,
+  Undo2,
   Users,
   Wallet,
   type LucideIcon,
@@ -50,5 +51,6 @@ export const adminNav: AdminNavItem[] = [
     ready: false,
   },
   { title: "Payouts", href: "/admin/payouts", icon: Wallet, ready: true },
+  { title: "Refunds", href: "/admin/refunds", icon: Undo2, ready: true },
   { title: "Users", href: "/admin/users", icon: Users, ready: false },
 ];

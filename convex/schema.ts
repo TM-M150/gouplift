@@ -225,8 +225,15 @@ export default defineSchema({
     isSubscriptionPayment: v.optional(v.boolean()),
 
     failureReason: v.optional(v.string()),
+    // Set when the donation is refunded (see convex/lib/refunds.ts). The
+    // reason is staff-facing: it is never sent to webhooks or shown publicly.
     refundedAt: v.optional(v.number()),
     refundReason: v.optional(v.string()),
+    // Who recorded it: a staff member, or PayPal telling us it refunded or
+    // reversed the payment itself. Staff-recorded ones are in adminAuditLog.
+    refundSource: v.optional(v.union(v.literal("STAFF"), v.literal("PAYPAL"))),
+    // PayPal's id for the refund or reversal, kept to match it to their records.
+    refundProviderId: v.optional(v.string()),
 
     completedAt: v.optional(v.number()),
     // When the money in this donation became withdrawable (see
@@ -541,9 +548,11 @@ export default defineSchema({
       v.literal("PAYOUT_REJECTED"),
       v.literal("PAYOUT_PAID"),
       v.literal("PAYOUT_FAILED"),
+      v.literal("DONATION_REFUNDED"),
     ),
     organizationId: v.optional(v.id("organizations")),
     fundraiserId: v.optional(v.id("fundraisers")),
+    donationId: v.optional(v.id("donations")),
     testimonialId: v.optional(v.id("testimonials")),
     payoutId: v.optional(v.id("payouts")),
     kycSubmissionId: v.optional(v.id("kycSubmissions")),
