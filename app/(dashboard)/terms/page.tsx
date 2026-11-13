@@ -145,7 +145,7 @@ export default function TermsOfServicePage() {
           </h1>
 
           <p className="mt-4 text-sm text-muted-foreground">
-            Effective 30th August 2026
+            Last updated: 12 November 2026
           </p>
 
           <Separator className="mt-8" />

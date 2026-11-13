@@ -1,7 +1,5 @@
 # Terms of Use and Conditions
 
-**Last Updated: 10 November 2026**
-
 These Terms of Use contain an arbitration provision which requires, except in certain limited circumstances, that any disputes or claims you bring against us must be resolved through final and binding arbitration.
 
 By agreeing to this arbitration provision, you acknowledge that:
@@ -23,11 +21,13 @@ You are required to carefully review these Terms of Use before accessing or usin
 
 Unless the context requires otherwise, the following terms and expressions shall have the meanings assigned below:
 
-**“Account”** means a customer’s virtual Go-Uplift LTD account maintained by the Company, which records the amount of E-Value held by the Customer. The E-Value recorded in the Account represents an equivalent cash value, less any applicable fees and charges, maintained through the Company’s designated payment account on behalf of the Customer.
+**“Account”** means your GoUplift account on the Service, which you use to create and manage Campaigns, make donations, and request Withdrawals.
 
 **“Agreement”** means these Terms of Use, together with any revisions, amendments, or updates made to them from time to time.
 
-**“Balance”** means the amount of E-Value available and credited to your Account at any particular time.
+**“Available Balance”** means the part of a Campaign’s Balance that is ready to be withdrawn: the amount that has become withdrawable under section 3.5 and has not been set aside for, or already paid out in, a Withdrawal.
+
+**“Balance”** means, for a Campaign, the Payments received for it, less the Platform Fee and less any amounts already withdrawn, as recorded by the Company at any particular time.
 
 **“Campaign”** or **“Fundraiser”** means any fundraising initiative, campaign, or activity created by a Customer on the Service for the purpose of collecting contributions.
 
@@ -35,35 +35,29 @@ Unless the context requires otherwise, the following terms and expressions shall
 
 **“Donor”** or **“Contributor”** means any person who makes a contribution or payment towards a Campaign.
 
-**“E-Value”** means the electronic value recorded in a Customer’s Account, representing that Customer’s entitlement to an equivalent cash amount maintained through the applicable payment account.
-
 **“Fees”** means all transaction fees, service charges, Platform Fees, and other applicable charges payable in connection with the Go-Uplift LTD Services under this Agreement.
 
 **“Fundraising”** means any campaign, activity, or initiative established for the purpose of collecting money, contributions, or donations from individuals or groups of people for a specific cause, purpose, or need.
 
-**“KYC”** means Know Your Customer identity verification procedures required by the Company or by applicable law.
+**“KYC”** means Know Your Customer identity verification procedures required by the Company or by applicable law. In these Terms it is also called “verification”.
 
 **“Mobile Phone”** means any mobile handset, smartphone, or mobile device used to access or operate the Service.
 
-**“MSISDN”** means the Mobile Subscriber Integrated Services Digital Network Number or the unique identification number assigned to your SIM card by a mobile network operator providing access to the Service.
-
 **“Network Service Provider”** or **“Service Provider”** means any telecommunications or mobile network operator that has entered into an arrangement with the Company to provide or support access to the Service.
 
-**“Paybill Account”** means a paybill account assigned to you by an authorised mobile network operator for your personal use. Where you choose to use your own Paybill Account, you will not use the Company’s designated payment account.
+**“Payments”** means any money received as a contribution, donation, or financial support towards a Campaign.
 
-**“Payments”** means any money received into your Account as a contribution, donation, or financial support towards a Fundraising activity.
-
-**“PAYBILL Account”** means the account assigned to the Company by an authorised mobile money provider through its mobile money platform for receiving and managing payments made through the Service.
+**“Payout Account”** means an M-Pesa number or a bank account that has been added to the Service as a place to send Withdrawals, and that the Company has verified under section 3.5.
 
 **“Platform Fee”** means the fee charged by the Company for use of the Service, as published on the Go-Uplift LTD website or within the application from time to time.
 
 **“Product”**, **“Service”**, or **“Services”** means all products, features, applications, software, websites, and related services provided through Go-Uplift LTD, including its website and mobile applications.
 
-**“SIM Card”** means the subscriber identity module which, when used with compatible mobile equipment, allows access to mobile communication and mobile money services.
-
 **“SMS”** means a Short Message Service consisting of text messages transmitted through a mobile network.
 
-**“Trust Account”** means the commercial bank account maintained by the Company into which Payments are received and held on behalf of Customers.
+**“Verification Level”** means the level of identity verification that you have completed (“Level 1”, “Level 2”, or higher), as described in section 3.3.
+
+**“Withdrawal”** means a request for part of an Available Balance to be paid to a Payout Account, and the payment made in response to that request.
 
 **“we”**, **“us”**, **“our”**, or **“Company”** means Go-Uplift LTD, the entity responsible for providing and operating the Go-Uplift LTD Service.
 
@@ -82,7 +76,7 @@ To use the Service you must:
 
 By registering or using the Service you represent and warrant that you meet these requirements.
 
-If you choose to register for the Service, you agree to provide information that is accurate, complete, current, and truthful through the applicable registration process (including USSD, website, or mobile application). You are responsible for ensuring that your account information remains accurate, updated, and complete.
+If you choose to register for the Service, you agree to provide information that is accurate, complete, current, and truthful through the applicable registration process on the website or in any application we provide. You are responsible for ensuring that your account information remains accurate, updated, and complete.
 
 The Company reserves the right to refuse registration, require additional verification, or suspend or terminate any Account at its sole discretion where eligibility requirements are not met or where information provided is false or incomplete.
 
@@ -92,7 +86,7 @@ These Terms of Use govern your access to and use of Go-Uplift LTD. By accessing,
 
 You acknowledge that your decision to use the Go-Uplift LTD Service is made voluntarily and that you have not been forced, pressured, or otherwise compelled to access or use the Service.
 
-You agree to comply with these Terms of Use when using Go-Uplift LTD and any additional products, features, or services that may be made available by us from time to time, including payment services such as M-Pesa, Airtel Money, PayPal, Stripe, third-party merchant services, social networking platforms, and other related services.
+You agree to comply with these Terms of Use when using Go-Uplift LTD and any additional products, features, or services that may be made available by us from time to time, including payment services provided by our payment partners (SasaPay, for payments in Kenyan shillings by M-Pesa, Airtel Money, SasaPay wallet, or card, and PayPal, for payments in US dollars), sign-in through Google, and other related services.
 
 Go-Uplift LTD reserves the right to establish reasonable procedures, restrictions, and limitations regarding the operation and use of the Service. These may include limits relating to the period for which information, data, or other content may be stored and the maximum storage capacity allocated to users on the Company’s systems.
 
@@ -114,8 +108,6 @@ Go-Uplift LTD shall not be responsible for any loss, damage, or liability arisin
 
 You further acknowledge that Go-Uplift LTD shall not be liable for any unauthorised use of your Account where such use occurs because you failed to safeguard your password, PIN, or other confidential security information.
 
-You also acknowledge that Go-Uplift LTD shall not be responsible for withdrawals made from your Account without the required approvals where you failed to activate or properly use the multiple treasurer security feature provided through the Product.
-
 Upon completing the registration process or accessing the Go-Uplift LTD Service, you are granted a limited, non-exclusive, non-transferable, non-assignable, non-sublicensable, and revocable licence to use the Service.
 
 Your use of the Service is subject to these Terms of Use and is undertaken at your own risk. You agree that Go-Uplift LTD shall not be responsible for any failure, malfunction, or technical issue arising from your Mobile Phone hardware, software, or your Network Service Provider.
@@ -136,19 +128,27 @@ Go-Uplift LTD shall not accept responsibility for any direct, indirect, incident
 
 By using Go-Uplift LTD, you further acknowledge and agree to the following conditions:
 
-- Creating and managing a Campaign on Go-Uplift LTD is provided free of charge (subject to applicable Platform Fees on amounts raised or withdrawn).
-- You may only manage one active Campaign using a single MSISDN or SIM line at any given time; however, you may contribute to an unlimited number of Campaigns created by other users.
-- You may withdraw available funds at any time, provided that your Account Balance meets the minimum withdrawal requirement of KES 250 (or the equivalent threshold published for other supported currencies such as UGX or TZS).
-- Applicable mobile network provider charges and tariffs will apply to all withdrawals and contributions.
-- Each Campaign may have a maximum of three (3) Treasurers responsible for approving withdrawals.
+- Creating and managing a Campaign on Go-Uplift LTD is provided free of charge. A Platform Fee is deducted from each donation, as explained in section 3.6.
+- You may withdraw your Available Balance, in amounts of at least KES 250, once you have completed the verification and set up the Payout Account described in sections 3.3 and 3.5, and subject to our review of each request.
+- A transfer charge applied by the mobile network or bank when we send a Withdrawal is deducted from the amount withdrawn. Charges applied by mobile network providers or payment providers when you make a donation remain your responsibility.
 
 Additional fees applicable to the use of the Service are outlined separately on the Go-Uplift LTD website or within the application.
 
-### 3.3 KYC, Anti-Money Laundering and Compliance
+### 3.3 Verification, Anti-Money Laundering and Compliance
 
 The Company is committed to compliance with applicable Kenyan laws, including the Proceeds of Crime and Anti-Money Laundering Act and related regulations.
 
-We may require you to complete Know Your Customer (KYC) verification at any time. This may include providing a copy of your national identity card, passport, KRA PIN certificate, proof of address, or any other documentation reasonably requested by the Company.
+You can browse Campaigns, donate to them, and start a Campaign without being verified. To be paid out, you must be verified. Verification is in levels, and each level is reviewed by a member of our team before it is approved:
+
+- **Level 1**: your legal name, your national ID or passport and a photograph of it, a Kenyan mobile number registered in your name, the country you live in, how much you expect to raise and over what period, a declaration about whether you or someone close to you holds a public position (a “politically exposed person”), and what the money is for;
+- **Level 2**: in addition, evidence supporting your Campaign, your KRA PIN certificate, and proof of the account you want to be paid to; and
+- **Above Level 2**: each payment is reviewed individually by our compliance team, who may ask for further information, including about the source of the funds.
+
+Organisations are verified separately, with documents showing who they are and who owns or controls them.
+
+The total amount that can be paid out to you depends on your Verification Level. The current limits are published on the Payout accounts and limits page of the Go-Uplift LTD website and may change from time to time.
+
+We may require you to complete verification at any time. This may include providing a copy of your national identity card, passport, KRA PIN certificate, proof of address, or any other documentation reasonably requested by the Company.
 
 We reserve the right to:
 
@@ -157,55 +157,79 @@ We reserve the right to:
 - Report suspicious transactions to the relevant authorities as required by law; and
 - Suspend or terminate Accounts that fail to complete required verification or that are reasonably suspected of involvement in prohibited activity.
 
-You agree to cooperate fully with any KYC or compliance requests. Failure to do so may result in delayed or refused withdrawals and/or suspension of your Account.
+Where we decline, hold, or delay a verification or a Withdrawal for compliance reasons, we may be unable to tell you why, and may give only a general explanation.
+
+You agree to cooperate fully with any verification or compliance requests. Failure to do so may result in delayed or refused withdrawals and/or suspension of your Account.
 
 ### 3.4 Custody of Funds
 
-The Company confirms that it maintains custody of all payments, contributions, and other funds received through available payment channels, including PAYBILL, TILL, PayPal, Stripe, Airtel Money, T-Kash, Equitel, and any other approved payment methods, in relation to amounts credited to your Account (“Customer Balances”).
+Donations are received through our payment partners: SasaPay, for payments in Kenyan shillings by M-Pesa, Airtel Money, SasaPay wallet, or card, and PayPal, for payments in US dollars. Payments are received into accounts that the Company operates for that purpose. They are not paid directly to Campaign creators.
 
-These Customer Balances are held by the Company on your behalf and for your benefit. You shall have a beneficial interest in such Customer Balances to the extent that they correspond with the Balance reflected in your Account.
+For each Campaign, the Company records a Balance. Payments received in US dollars are converted into Kenyan shillings using an exchange rate close to the time of the Payment, and the Balance is recorded in Kenyan shillings.
 
-You agree that the Company’s internal records and system information shall be considered final and sufficient evidence of the amount of E-Value credited to your Account at any given time. The Company shall not be required to independently verify or investigate your ownership rights or beneficial entitlement to the Customer Balances.
+The Company confirms that it maintains custody of the Payments received through these channels, in relation to the Balances recorded for Campaigns (“Customer Balances”). Customer Balances are held by the Company on your behalf and for your benefit. You shall have a beneficial interest in your Customer Balances to the extent that they correspond with the Balance recorded for your Campaign.
 
-Where a payment is made to you in relation to your entitlement to Customer Balances, the Company may rely on instructions provided through your System Identification Number. The System Identification Number shall generally be the MSISDN or SIM line number used when registering the Campaign.
+You agree that the Company’s internal records and system information shall be considered final and sufficient evidence of the Balance recorded for your Campaign at any given time. The Company shall not be required to independently verify or investigate your ownership rights or beneficial entitlement to the Customer Balances.
 
-You acknowledge that the Company may act upon instructions appearing to originate from your System Identification Number, even where such instructions are submitted by another person using your credentials or access details. The Company shall not be responsible for losses arising from such reliance where appropriate security measures have not been maintained by you.
+The Company will pay a Withdrawal only to a Payout Account that has been verified under section 3.5, in response to a Withdrawal request made through your signed-in Account. You acknowledge that the Company may act on instructions that appear to come from your Account, even where they were given by another person using your sign-in details. The Company shall not be responsible for losses arising from such reliance where you have not kept your sign-in details secure.
 
-You acknowledge and agree that the Company does not invest, use, or generate income from funds held on your behalf. The Company has no obligation to invest Customer Balances and shall only hold such funds in the designated Customer Balances Account.
-
-You understand that funds received through PAYBILL, TILL, PayPal, Stripe, Airtel Money, T-Kash, Equitel, and other payment channels are maintained in the Customer Balances Account on your behalf. The Company generates revenue solely through the fees charged for use of the Product and Services.
+You acknowledge and agree that the Company does not invest, use, or generate income from funds held on your behalf. The Company has no obligation to invest Customer Balances. The Company generates revenue solely through the fees charged for use of the Product and Services.
 
 Where any interest or financial benefit arises from holding Customer Balances, you acknowledge that you shall have no entitlement to such interest. The Company shall be entitled to retain such interest for its own purposes, including covering operational costs, maintaining the Service, managing expenses, supporting charitable initiatives selected at the Company’s discretion, or for any other lawful purpose.
 
 Payments, donations, and contributions made through a Go-Uplift LTD Account do not constitute deposits. The Company is not a financial institution and does not provide banking services.
 
-You acknowledge that funds held in your Account or maintained on your behalf are not insured. You agree to release, indemnify, and hold the Company harmless against any risks, losses, claims, or damages arising from the absence of such insurance coverage.
-
-Notwithstanding any other provision contained in these Terms, where you choose to use your own Paybill Account, the following additional terms shall apply:
-
-- You authorise the Company to connect and integrate your Paybill Account details with the Service so that payment-related notifications and records correctly display your Paybill Account information.
-- The Company does not control, access, receive, or hold custody of payments made directly into your personal Paybill Account. You acknowledge that you are solely responsible for receiving, controlling, and managing funds held within your own Paybill Account.
-- You agree to indemnify and protect the Company against any losses, liabilities, expenses, claims, or costs arising from the management, access, control, or receipt of payments made into your personal Paybill Account.
-- You acknowledge that the Company only displays or provides payment information relating to your Paybill Account for your convenience and does not control those funds.
-- You agree to maintain sufficient credit within your Go-Uplift LTD Account to cover all applicable Fees payable to the Company. Since the Company does not control funds held in your personal Paybill Account, transactions may not be processed where your Account does not contain enough credit to meet the applicable Fees.
+You acknowledge that funds held on your behalf are not insured. You agree to release, indemnify, and hold the Company harmless against any risks, losses, claims, or damages arising from the absence of such insurance coverage.
 
 ### 3.5 Withdrawal Rights
 
-In addition to the withdrawal provisions contained elsewhere in this Agreement, you acknowledge and agree to the following conditions relating to withdrawals:
+In addition to the withdrawal provisions contained elsewhere in this Agreement, you acknowledge and agree to the following conditions relating to withdrawals.
 
-The Company will make reasonable efforts to process withdrawal requests within approximately one (1) to four (4) hours after receiving the request. However, processing times may be affected by circumstances beyond the Company’s reasonable control, including network issues, compliance checks, or verification requirements.
+#### How a Withdrawal Works
 
-Withdrawals must be initiated using the SIM card or mobile number originally used to create and register the Campaign. Any request made through a different number or SIM card may require additional verification and investigation by the Company.
+1. You request a Withdrawal from the payouts page of your Account. The amount must be in whole Kenyan shillings, at least KES 250, and no more than your Available Balance.
+2. The amount is set aside for you while we review the request. You can cancel the request while it is waiting for review.
+3. We review each request. We may approve it, reject it, or ask for more information.
+4. Once a request is approved, we send the money to your Payout Account. Payments are sent by our team and are not automatic. We will show you the M-Pesa code or bank reference, and the amount that reached you.
+5. If a request is rejected, cancelled, or cannot be sent, the amount returns to your Available Balance.
 
-If your Mobile Phone or SIM card is lost, damaged, or unavailable, you are responsible for obtaining a replacement device or SIM card from your mobile network provider before attempting to complete a withdrawal.
+You can have one Withdrawal in progress for each Campaign at a time.
 
-If you become physically or medically unable to access your Mobile Phone and complete a withdrawal, you may be required to:
+We aim to review and pay Withdrawals promptly, but we do not promise a processing time. Reviews, compliance checks, verification requirements, and the availability of M-Pesa, banks, or our payment partners can all affect how long a Withdrawal takes.
+
+#### When Donations Can Be Withdrawn
+
+Payments made through SasaPay (M-Pesa, Airtel Money, SasaPay wallet, or card) are added to your Available Balance when they are received. Payments made through PayPal can be disputed or reversed, so they become part of your Available Balance only after a waiting period has passed. The length of that period is published on the Payout accounts and limits page of the Go-Uplift LTD website.
+
+If a Payment is reversed, refunded, or charged back, we may deduct it from your Balance or recover it from you, as set out in section 3.8.
+
+#### Transfer Charges
+
+Any transfer charge applied by the mobile network, bank, or payment provider when we send a Withdrawal is deducted from the amount withdrawn. The amount that reaches you will therefore be lower than the amount you requested by that charge.
+
+#### Payout Accounts
+
+We send Withdrawals only to a Payout Account that we have verified. A Payout Account may be an M-Pesa number or a bank account in your name or your organisation’s name. It may also belong to someone else, such as a hospital or a school, if you tell us why and we agree that it is appropriate for the Campaign.
+
+At Level 1, the only Payout Account is the mobile number you confirmed when you were verified. From Level 2 you can add other M-Pesa numbers or bank accounts, with proof that the account is yours (or the beneficiary’s). Our team reviews each one before it can be used. An organisation can add Payout Accounts once it has been verified. The number of Payout Accounts you can have at a time is limited.
+
+If you change your Payout Account, we pause Withdrawals for a short period afterwards, so that the real owner of the Account has time to notice the change and tell us. The length of that period is published on the Payout accounts and limits page of the Go-Uplift LTD website.
+
+#### Limits and Holds
+
+The total we can pay out to you depends on your Verification Level (section 3.3). We may also hold, delay, or refuse a Withdrawal for the compliance reasons set out in section 3.3.
+
+#### If You Cannot Complete a Withdrawal Yourself
+
+If you lose access to your Account or to the mobile number that is your Payout Account, contact us. We will not send money to a new Payout Account until we have verified it, which can take time.
+
+If you become physically or medically unable to complete a Withdrawal yourself, you may be required to:
 
 - Personally visit the Company’s offices or reach out for further instructions;
 - Provide satisfactory identification confirming that you are the person who created the Campaign; and
-- Submit medical documentation from a qualified medical professional confirming your inability to complete the withdrawal process using your Mobile Phone.
+- Submit medical documentation from a qualified medical professional confirming your inability to complete the Withdrawal yourself.
 
-Where the Campaign includes appointed Treasurers, the Company may require confirmation from the relevant Treasurers regarding your reported incapacity before processing the withdrawal request.
+#### If a Customer Has Passed Away
 
 Where a customer has passed away, withdrawal of funds from the Customer’s Account may be requested by the Customer’s next of kin or lawful representative (“Claimant”).
 
@@ -227,9 +251,11 @@ in accordance with applicable succession laws.
 
 Creating a Campaign on Go-Uplift LTD is free of charge.
 
-The Company charges a Platform Fee on amounts raised or withdrawn through the Service. The applicable Platform Fee percentage and any other charges are published on the Go-Uplift LTD website and/or within the application and may be updated from time to time.
+The Company charges a Platform Fee on each donation made to a Campaign. The fee is deducted from the donation, so the Balance recorded for a Campaign is the amount donated less the Platform Fee, and Donors are not charged anything extra by the Company. The Platform Fee percentage and any other charges are published on the Pricing and Fees page of the Go-Uplift LTD website and/or within the application and may be updated from time to time. A change applies to donations made after it takes effect.
 
-Platform Fees are generally deducted at the time of withdrawal or as otherwise indicated. Once a transaction has been processed, Platform Fees are non-refundable except where required by applicable law or where the Company determines in its sole discretion that a refund is appropriate.
+The total raised shown on a Campaign page is the full amount donated, before the Platform Fee.
+
+Once a donation has been processed, the Platform Fee is non-refundable except where required by applicable law or where the Company determines in its sole discretion that a refund is appropriate.
 
 Mobile network operator charges, bank charges, and any third-party payment processing fees remain the responsibility of the user and are separate from the Platform Fee.
 
@@ -251,7 +277,9 @@ You acknowledge that the Company does not guarantee that any Campaign will reach
 
 Contributions made through the Service are voluntary. Unless expressly stated otherwise, contributions are gifts and not payments for goods or services.
 
-Once funds have been successfully withdrawn by the Campaign creator (subject to any required multi-treasurer approvals and applicable Fees), the contribution is generally final. The Company is under no obligation to process refunds after withdrawal has been completed, except where required by law or where the Company determines in its sole discretion that a refund is appropriate.
+If you give an email address when you donate, we send a receipt for the donation to that address. Please keep it as your record of the donation.
+
+Once funds have been successfully withdrawn by the Campaign creator and sent to their Payout Account, the contribution is generally final. The Company is under no obligation to process refunds after withdrawal has been completed, except where required by law or where the Company determines in its sole discretion that a refund is appropriate.
 
 The Company does not control how Campaign creators ultimately use funds after withdrawal and does not guarantee that funds will be used exactly as described. Donors should exercise their own judgment when choosing which Campaigns to support.
 
@@ -436,7 +464,7 @@ Upon termination:
 
 - Your right to use the Service immediately ceases;
 - We may delete or deactivate your Account and related data in accordance with our data retention practices and applicable law; and
-- Any remaining Balance (after deduction of applicable Fees and subject to any ongoing investigation or legal hold) may be returned to you or to your designated mobile money account after verification, or held pending resolution of any outstanding issues.
+- Any remaining Balance (after deduction of applicable Fees and subject to any ongoing investigation or legal hold) may be paid to a verified Payout Account after verification, or held pending resolution of any outstanding issues.
 
 The provisions of these Terms that by their nature should survive termination (including but not limited to ownership provisions, warranty disclaimers, indemnity, and limitations of liability) shall survive.
 
@@ -503,7 +531,7 @@ In such circumstances, the affected provision shall be modified, interpreted, or
 
 Go-Uplift LTD values and respects the privacy of users of the Service. Our collection, use, and protection of personal data is governed by our Privacy Policy and by the Data Protection Act, 2019 of Kenya (and any successor legislation).
 
-By accessing or using the Service, you acknowledge and consent to the collection and use of your personal information as described in the applicable Privacy Policy.
+By accessing or using the Service, you acknowledge that we collect and use your personal information as described in the Privacy Policy.
 
 Please review our Privacy Policy carefully. It is available on the Go-Uplift LTD website.
 
