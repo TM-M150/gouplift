@@ -37,7 +37,7 @@ export const PAYOUT_STATUS_LABELS: Record<PayoutStatus, string> = {
   FAILED: "Couldn't be sent",
 };
 
-/** The smallest payout. Matches the Terms (3.1). */
+/** The smallest payout. Matches the Terms (3.2 and 3.5). */
 export const MIN_PAYOUT_KES = 250;
 
 // A mobile-money payment can't be taken back once it completes, but a PayPal

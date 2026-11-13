@@ -148,7 +148,7 @@ export default function PrivacyPolicyPage() {
           </h1>
 
           <p className="mt-4 text-sm text-muted-foreground">
-            Last updated: 16 October 2026
+            Last updated: 12 November 2026
           </p>
 
           <Separator className="mt-8" />
