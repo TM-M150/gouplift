@@ -11,6 +11,7 @@ import type { Metadata } from "next";
 import { DonationStatusBanner } from "@/components/web/donate/donation-status-banner";
 import { DonateButton } from "@/components/web/donate/donate-button";
 import { EditFundraiserButton } from "@/components/web/fundraiser/edit-fundraiser-button";
+import { FundraiserUpdates } from "@/components/web/fundraiser/fundraiser-updates";
 import { PayoutVerificationNotice } from "@/components/web/fundraiser/payout-verification-notice";
 import { WithdrawNotice } from "@/components/web/fundraiser/withdraw-notice";
 import {
@@ -18,6 +19,7 @@ import {
   formatEndDate,
   hasEnded,
 } from "@/lib/fundraiser-dates";
+import { UPDATE_POSTING_STATUSES } from "@/lib/updates";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -204,6 +206,12 @@ export default async function FundraiserPage({
           <p className="whitespace-pre-wrap text-base leading-relaxed">
             {fundraiser.story}
           </p>
+
+          <FundraiserUpdates
+            fundraiserId={fundraiser._id}
+            creatorId={fundraiser.creatorId}
+            canPost={UPDATE_POSTING_STATUSES.has(fundraiser.status)}
+          />
         </section>
 
         <section className="lg:col-span-1">

@@ -521,6 +521,32 @@ export default defineSchema({
     .index("by_status_and_approvedAt", ["status", "approvedAt"])
     .index("by_authorUserId", ["authorUserId"]),
 
+  // A progress update the creator posts on their fundraiser, for donors to
+  // read. Plain text only. PUBLISHED ones are shown; HIDDEN means staff took
+  // it down (and can put it back); REMOVED means its author deleted it. The
+  // fundraiser's `updatesCount` counts the PUBLISHED ones.
+  fundraiserUpdates: defineTable({
+    fundraiserId: v.id("fundraisers"),
+    authorUserId: v.id("users"),
+    body: v.string(),
+    status: v.union(
+      v.literal("PUBLISHED"),
+      v.literal("HIDDEN"),
+      v.literal("REMOVED"),
+    ),
+    editedAt: v.optional(v.number()),
+    // Set while HIDDEN. The reason is for staff and the audit log: the author
+    // is told it was hidden, never why.
+    hiddenBy: v.optional(v.id("users")),
+    hiddenAt: v.optional(v.number()),
+    hiddenReason: v.optional(v.string()),
+    createdAt: v.number(),
+  }).index("by_fundraiserId_and_status_and_createdAt", [
+    "fundraiserId",
+    "status",
+    "createdAt",
+  ]),
+
   adminAuditLog: defineTable({
     actorId: v.id("users"),
     action: v.union(
@@ -549,11 +575,14 @@ export default defineSchema({
       v.literal("PAYOUT_PAID"),
       v.literal("PAYOUT_FAILED"),
       v.literal("DONATION_REFUNDED"),
+      v.literal("FUNDRAISER_UPDATE_HIDDEN"),
+      v.literal("FUNDRAISER_UPDATE_RESTORED"),
     ),
     organizationId: v.optional(v.id("organizations")),
     fundraiserId: v.optional(v.id("fundraisers")),
     donationId: v.optional(v.id("donations")),
     testimonialId: v.optional(v.id("testimonials")),
+    fundraiserUpdateId: v.optional(v.id("fundraiserUpdates")),
     payoutId: v.optional(v.id("payouts")),
     kycSubmissionId: v.optional(v.id("kycSubmissions")),
     payoutAccountId: v.optional(v.id("payoutAccounts")),
