@@ -116,6 +116,48 @@ export function buildRobots(
   };
 }
 
+/**
+ * Addresses that reach this site but aren't the one we publish. They exist
+ * only to send people on to SITE_URL. The published address (www.gouplift.africa)
+ * must never be listed here, or it would redirect to itself.
+ */
+export const REDIRECTED_HOSTS = [
+  "gouplift.co.ke",
+  "www.gouplift.co.ke",
+] as const;
+
+/**
+ * Paths that keep answering on a redirected host. Partner sites were told to
+ * use whichever address they copied the snippet from: a script or an iframe
+ * would follow a redirect, but a browser refuses a cross-site fetch() that is
+ * redirected, so /api/ calls (and the embed widget's own files) must keep
+ * working exactly where they are. Compared against the path without its
+ * leading slash.
+ */
+export const NOT_REDIRECTED_PATH = "(?:api|embed)(?:/|$)|embed\\.js$";
+
+/**
+ * next.config.ts `redirects`: a permanent redirect from each redirected host to
+ * the same path (and query string, which Next carries over) on SITE_URL. Done
+ * here rather than in the Vercel dashboard because the dashboard can only
+ * redirect a whole domain, not leave /api/ and the embed widget alone.
+ */
+export function canonicalHostRedirects() {
+  const hosts = REDIRECTED_HOSTS.map((host) => host.replace(/\./g, "\\.")).join(
+    "|",
+  );
+  return [
+    {
+      source: `/:path((?!${NOT_REDIRECTED_PATH}).*)`,
+      // Next matches the whole host name against this pattern; the group keeps
+      // the "|" from splitting the anchors away from the alternatives.
+      has: [{ type: "host" as const, value: `(?:${hosts})` }],
+      destination: `${SITE_URL}/:path`,
+      permanent: true,
+    },
+  ];
+}
+
 type Page<T> = { page: T[]; isDone: boolean; continueCursor: string };
 
 /**
