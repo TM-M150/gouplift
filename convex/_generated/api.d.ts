@@ -70,6 +70,7 @@ import type * as receipts from "../receipts.js";
 import type * as reconcileTotals from "../reconcileTotals.js";
 import type * as refunds from "../refunds.js";
 import type * as sasapay from "../sasapay.js";
+import type * as sitemap from "../sitemap.js";
 import type * as testimonials from "../testimonials.js";
 import type * as users from "../users.js";
 import type * as webhookDelivery from "../webhookDelivery.js";
@@ -144,6 +145,7 @@ declare const fullApi: ApiFromModules<{
   reconcileTotals: typeof reconcileTotals;
   refunds: typeof refunds;
   sasapay: typeof sasapay;
+  sitemap: typeof sitemap;
   testimonials: typeof testimonials;
   users: typeof users;
   webhookDelivery: typeof webhookDelivery;
