@@ -3,6 +3,7 @@ import {
   PAYPAL_SETTLEMENT_DELAY_MS,
   addMoney,
   availableBalance,
+  balanceShortfall,
   needsEnhancedApproval,
   payoutAmountProblem,
   roundMoney,
@@ -19,6 +20,24 @@ describe("money arithmetic", () => {
     expect(0.1 + 0.2).not.toBe(0.3);
     expect(addMoney(0.1, 0.2)).toBe(0.3);
     expect(roundMoney(1244.7500000001)).toBe(1244.75);
+  });
+});
+
+describe("balanceShortfall", () => {
+  it("is zero for a balance that isn't short, or none at all", () => {
+    expect(balanceShortfall(null)).toBe(0);
+    expect(balanceShortfall({ settledNet: 1000, reserved: 300, paid: 200 })).toBe(0);
+    expect(balanceShortfall({ settledNet: 500, reserved: 300, paid: 200 })).toBe(0);
+  });
+
+  it("is how far below zero a refund after payout left it", () => {
+    expect(balanceShortfall({ settledNet: 0, reserved: 0, paid: 950 })).toBe(950);
+    expect(balanceShortfall({ settledNet: 100.1, reserved: 0.2, paid: 950 })).toBe(850.1);
+  });
+
+  it("and available is zero at the same time", () => {
+    const balance = { settledNet: 0, reserved: 0, paid: 950 };
+    expect(availableBalance(balance)).toBe(0);
   });
 });
 

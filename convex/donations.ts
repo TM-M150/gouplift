@@ -399,8 +399,9 @@ export const markDonationCompleted = internalMutation({
     }
 
     // Webhooks get redelivered — this stops a duplicate "success" callback
-    // from crediting the fundraiser twice for the same donation.
-    if (donation.status === "COMPLETED") {
+    // from crediting the fundraiser twice for the same donation. A refunded
+    // donation is finished too: a late callback must not bring it back.
+    if (donation.status === "COMPLETED" || donation.status === "REFUNDED") {
       return;
     }
 
@@ -462,9 +463,9 @@ export const markDonationFailed = internalMutation({
       throw new Error(`Donation ${args.donationId} not found.`);
     }
 
-    // Don't clobber a COMPLETED donation if a stale failure callback
-    // arrives after a success one already landed.
-    if (donation.status === "COMPLETED") {
+    // Don't clobber a COMPLETED (or since refunded) donation if a stale
+    // failure callback arrives after a success one already landed.
+    if (donation.status === "COMPLETED" || donation.status === "REFUNDED") {
       return;
     }
 

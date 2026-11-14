@@ -49,6 +49,8 @@ app.post("/gouplift-webhook", express.raw({ type: "application/json" }), (req, r
   // Events can be delivered more than once: skip ones whose event.id you've seen.
   if (event.type === "donation.completed") {
     // event.data.donation.amount, .currency, .fundraiserId, ...
+  } else if (event.type === "donation.refunded") {
+    // The same donation.id as an earlier donation.completed: take it back out.
   }
   res.sendStatus(200); // any 2xx means "received"
 });`;

@@ -125,8 +125,9 @@ export async function settleDonationBalance(
 /**
  * Takes a completed donation back out of the balance. Any path that moves a
  * COMPLETED donation to REFUNDED must call this, with the donation as it was
- * before. There is no such path yet. If the money has already been paid out,
- * the balance goes negative and the next payouts are held until it is covered.
+ * before; convex/lib/refunds.ts is the only one. If the money has already
+ * been paid out, settledNet goes negative and the next payouts are held until
+ * later donations cover it (availableBalance never shows less than zero).
  */
 export async function reverseDonationCredit(
   ctx: MutationCtx,

@@ -327,8 +327,9 @@ export const completePayPalDonation = internalMutation({
       throw new Error("Donation not found");
     }
 
-    // Idempotent
-    if (donation.status === "COMPLETED") {
+    // Idempotent. A refunded donation is finished too: a late or repeated
+    // capture must not bring it back.
+    if (donation.status === "COMPLETED" || donation.status === "REFUNDED") {
       return null;
     }
 
@@ -337,6 +338,8 @@ export const completePayPalDonation = internalMutation({
       payoutStatus: "PENDING_PAYOUT",
       merchantRequestId: args.paypalCaptureId,
       providerTransactionCode: args.paypalCaptureId,
+      // So a refund notification, which carries the capture id, can find it.
+      paypalCaptureId: args.paypalCaptureId,
       providerPayload: args.rawPayload,
       completedAt: Date.now(),
       updatedAt: Date.now(),
@@ -386,8 +389,9 @@ export const failPayPalDonation = internalMutation({
     }
 
     // Same guard as completePayPalDonation — a late/duplicate DENIED
-    // webhook must never clobber a donation that already completed.
-    if (donation.status === "COMPLETED") {
+    // webhook must never clobber a donation that already completed (or was
+    // refunded since).
+    if (donation.status === "COMPLETED" || donation.status === "REFUNDED") {
       return;
     }
 
@@ -669,8 +673,25 @@ export const paypalWebhook = httpAction(async (ctx, request) => {
       break;
     }
 
-    // Subscription events (BILLING.SUBSCRIPTION.ACTIVATED, PAYMENT.SALE.COMPLETED,
-    // .CANCELLED/.SUSPENDED/.EXPIRED) go here — blocked on the schema below.
+    // PayPal refunded the payment, or reversed it (a dispute or chargeback
+    // that was lost). Either way the money is gone, so the donation comes out
+    // of the fundraiser's balance and totals; see convex/refunds.ts.
+    case "PAYMENT.CAPTURE.REFUNDED":
+    case "PAYMENT.CAPTURE.REVERSED":
+    case "PAYMENT.SALE.REFUNDED":
+    case "PAYMENT.SALE.REVERSED": {
+      const outcome = await ctx.runMutation(internal.refunds.applyPayPalRefund, {
+        eventType: event.event_type,
+        resource: event.resource,
+      });
+      // An error makes PayPal send it again later: the refund can arrive
+      // before the payment's own notification, and one that can't be matched
+      // should show in PayPal's failed deliveries rather than vanish.
+      if (outcome === "not_found") {
+        return new Response("Donation not found", { status: 404 });
+      }
+      break;
+    }
 
     default:
       // Acknowledge anything else so PayPal stops retrying.

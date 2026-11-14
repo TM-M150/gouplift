@@ -1,16 +1,21 @@
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
+import type { Doc } from "./_generated/dataModel";
 import {
   internalAction,
   internalMutation,
   internalQuery,
+  type MutationCtx,
 } from "./_generated/server";
 import {
   MAX_DELIVERY_ATTEMPTS,
   MAX_WEBHOOK_ENDPOINTS,
   RETRY_DELAYS_MS,
 } from "./lib/webhookConfig";
-import { buildDonationCompletedEvent } from "./lib/webhookPayloads";
+import {
+  buildDonationCompletedEvent,
+  buildDonationRefundedEvent,
+} from "./lib/webhookPayloads";
 import { queueDelivery } from "./lib/webhookQueue";
 import { sendWebhook, type SendOutcome } from "./lib/webhookSend";
 import {
@@ -34,43 +39,67 @@ export const enqueueDonationCompleted = internalMutation({
     const donation = await ctx.db.get(args.donationId);
     if (!donation || donation.status !== "COMPLETED") return null;
 
-    const fundraiser = await ctx.db.get(donation.fundraiserId);
-    if (!fundraiser?.organizationId) return null;
-
-    const organization = await ctx.db.get(fundraiser.organizationId);
-    if (!organization || organization.verificationStatus !== "VERIFIED") {
-      return null;
-    }
-
-    const endpoints = await ctx.db
-      .query("webhookEndpoints")
-      .withIndex("by_organizationId", (q) =>
-        q.eq("organizationId", organization._id),
-      )
-      .take(MAX_WEBHOOK_ENDPOINTS);
-    const active = endpoints.filter((endpoint) => endpoint.isActive);
-    if (active.length === 0) return null;
-
-    const now = Date.now();
-    const event = buildDonationCompletedEvent({
-      donation,
-      organizationId: organization._id,
-      createdAt: now,
-    });
-    const payload = JSON.stringify(event);
-
-    for (const endpoint of active) {
-      await queueDelivery(ctx, {
-        endpoint,
-        eventId: event.id,
-        eventType: event.type,
-        payload,
-        now,
-      });
-    }
+    await enqueueForOrganization(ctx, donation, (organizationId, createdAt) =>
+      buildDonationCompletedEvent({ donation, organizationId, createdAt }),
+    );
     return null;
   },
 });
+
+// The same, for a donation that was refunded or reversed. Scheduled by
+// convex/lib/refunds.ts, so a webhook problem can never undo a refund.
+export const enqueueDonationRefunded = internalMutation({
+  args: { donationId: v.id("donations") },
+  handler: async (ctx, args): Promise<null> => {
+    const donation = await ctx.db.get(args.donationId);
+    if (!donation || donation.status !== "REFUNDED") return null;
+
+    await enqueueForOrganization(ctx, donation, (organizationId, createdAt) =>
+      buildDonationRefundedEvent({ donation, organizationId, createdAt }),
+    );
+    return null;
+  },
+});
+
+// Queues one event to every active endpoint of the fundraiser's organization,
+// when it has a verified one. Nothing happens for a personal fundraiser.
+async function enqueueForOrganization(
+  ctx: MutationCtx,
+  donation: Doc<"donations">,
+  build: (
+    organizationId: Doc<"organizations">["_id"],
+    createdAt: number,
+  ) => { id: string; type: Doc<"webhookDeliveries">["eventType"] },
+) {
+  const fundraiser = await ctx.db.get(donation.fundraiserId);
+  if (!fundraiser?.organizationId) return;
+
+  const organization = await ctx.db.get(fundraiser.organizationId);
+  if (!organization || organization.verificationStatus !== "VERIFIED") return;
+
+  const endpoints = await ctx.db
+    .query("webhookEndpoints")
+    .withIndex("by_organizationId", (q) =>
+      q.eq("organizationId", organization._id),
+    )
+    .take(MAX_WEBHOOK_ENDPOINTS);
+  const active = endpoints.filter((endpoint) => endpoint.isActive);
+  if (active.length === 0) return;
+
+  const now = Date.now();
+  const event = build(organization._id, now);
+  const payload = JSON.stringify(event);
+
+  for (const endpoint of active) {
+    await queueDelivery(ctx, {
+      endpoint,
+      eventId: event.id,
+      eventType: event.type,
+      payload,
+      now,
+    });
+  }
+}
 
 type DeliveryJob = {
   status: WebhookDeliveryStatus;
