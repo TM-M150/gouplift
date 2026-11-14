@@ -2,9 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   buildRobots,
   buildSitemap,
+  canonicalHostRedirects,
   collectPages,
   MAX_SITEMAP_URLS,
+  NOT_REDIRECTED_PATH,
   PRIVATE_PATHS,
+  REDIRECTED_HOSTS,
   STATIC_PAGES,
 } from "../lib/seo";
 import { SITE_URL } from "../lib/site";
@@ -27,7 +30,10 @@ describe("buildSitemap", () => {
       { id: "k17abc", updatedAt: Date.parse("2026-11-10T08:00:00Z") },
     ],
     organizations: [
-      { slug: "kajiado-youth-trust", updatedAt: Date.parse("2026-11-01T08:00:00Z") },
+      {
+        slug: "kajiado-youth-trust",
+        updatedAt: Date.parse("2026-11-01T08:00:00Z"),
+      },
     ],
   });
   const urls = sitemap.map((entry) => entry.url);
@@ -73,7 +79,9 @@ describe("buildSitemap", () => {
       ],
       organizations: [],
     });
-    expect(twice.filter((e) => e.url.endsWith("/fundraiser/x"))).toHaveLength(1);
+    expect(twice.filter((e) => e.url.endsWith("/fundraiser/x"))).toHaveLength(
+      1,
+    );
   });
 
   it("stays under Google's limit, keeping the fixed pages and dropping the oldest fundraisers", () => {
@@ -131,7 +139,10 @@ describe("robots rules", () => {
       "/users/abc",
     ]) {
       // "/admin" has no trailing slash: it is the admin home itself.
-      expect(blocked(path === "/admin" ? "/admin/" : path, PRIVATE_PATHS), path).toBe(true);
+      expect(
+        blocked(path === "/admin" ? "/admin/" : path, PRIVATE_PATHS),
+        path,
+      ).toBe(true);
     }
   });
 });
@@ -172,7 +183,13 @@ describe("collectPages", () => {
 
   it("walks every page, passing the cursor on", async () => {
     const { fetchPage, calls } = paged([["a", "b"], ["c"], ["d", "e"]]);
-    expect(await collectPages(fetchPage, 100)).toEqual(["a", "b", "c", "d", "e"]);
+    expect(await collectPages(fetchPage, 100)).toEqual([
+      "a",
+      "b",
+      "c",
+      "d",
+      "e",
+    ]);
     expect(calls).toEqual([null, "1", "2"]);
   });
 
@@ -199,5 +216,66 @@ describe("collectPages", () => {
     );
     expect(calls).toBe(5);
     expect(result).toHaveLength(5);
+  });
+});
+
+describe("canonicalHostRedirects", () => {
+  const [rule] = canonicalHostRedirects();
+  // Next matches the whole host name against the pattern.
+  const hostMatches = (host: string) =>
+    new RegExp(`^${rule.has[0].value}$`).test(host);
+
+  it("sends the redirected hosts permanently to the same path on the real site", () => {
+    expect(canonicalHostRedirects()).toHaveLength(1);
+    expect(rule.permanent).toBe(true);
+    expect(rule.destination).toBe(`${SITE_URL}/:path`);
+    expect(rule.has[0].type).toBe("host");
+  });
+
+  it("matches the redirected hosts and nothing that merely contains them", () => {
+    for (const host of REDIRECTED_HOSTS) expect(hostMatches(host)).toBe(true);
+    for (const host of [
+      "gouplift.africa",
+      "www.gouplift.africa",
+      "evilgouplift.co.ke",
+      "gouplift.co.ke.evil.com",
+      "gouplift-co-ke.example",
+      "localhost:3000",
+    ]) {
+      expect(hostMatches(host)).toBe(false);
+    }
+  });
+
+  it("never redirects the address it redirects to", () => {
+    expect(hostMatches(new URL(SITE_URL).host)).toBe(false);
+    expect(REDIRECTED_HOSTS).not.toContain(new URL(SITE_URL).host);
+  });
+
+  it("leaves the API and the embed widget where they are", () => {
+    // The part of the rule that decides which paths are redirected, applied to
+    // a path without its leading slash.
+    const redirected = (path: string) =>
+      new RegExp(`^(?!${NOT_REDIRECTED_PATH}).*$`).test(path);
+    for (const path of [
+      "api/v1/organizations/kajiado-youth-trust",
+      "api/auth/get-session",
+      "embed/organizations/kajiado-youth-trust",
+      "embed.js",
+    ]) {
+      expect(redirected(path), path).toBe(false);
+    }
+    for (const path of [
+      "",
+      "fundraisers",
+      "fundraiser/k17abc",
+      "organizations/kajiado-youth-trust",
+      "sitemap.xml",
+      "robots.txt",
+      // Only the real API and widget are exempt, not look-alike names.
+      "apiary",
+      "embedded-stories",
+    ]) {
+      expect(redirected(path), path).toBe(true);
+    }
   });
 });

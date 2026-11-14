@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { canonicalHostRedirects } from "./lib/seo";
 
 // Convex serves HTTP routes from the .convex.site domain. The public API
 // (convex/publicApi.ts) is exposed on our own domain instead, so partner
@@ -31,6 +32,10 @@ const nextConfig: NextConfig = {
         ],
       },
     ];
+  },
+  // gouplift.co.ke is only a way in: it sends people to the real site.
+  async redirects() {
+    return canonicalHostRedirects();
   },
   async rewrites() {
     if (!convexSiteUrl) {
