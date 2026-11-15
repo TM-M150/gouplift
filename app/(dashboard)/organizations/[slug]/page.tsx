@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { fetchQuery } from "convex/nextjs";
 import { api } from "@/convex/_generated/api";
+import { shareDescription, shareMetadata } from "@/lib/share";
 
 import { HeroSection } from "@/components/web/organization/view/hero-section";
 import { Info } from "@/components/web/organization/view/info";
@@ -31,12 +32,19 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     };
   }
 
-  return {
+  return shareMetadata({
+    path: `/organizations/${encodeURIComponent(organization.slug)}`,
     title: `${organization.name} | GoUplift`,
-    description:
-      organization.description ??
+    // In a link preview the site name is shown next to the title already.
+    shareTitle: organization.name,
+    description: shareDescription(
+      [organization.description],
       `Support and learn more about ${organization.name} on GoUplift.`,
-  };
+    ),
+    // The banner is the better shape for a preview; the logo is the next best.
+    images: [organization.heroImageUrl, organization.logoUrl],
+    imageAlt: organization.name,
+  });
 }
 
 export default async function OrganizationPage({ params }: Props) {

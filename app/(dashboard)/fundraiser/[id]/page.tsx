@@ -19,6 +19,7 @@ import {
   formatEndDate,
   hasEnded,
 } from "@/lib/fundraiser-dates";
+import { shareDescription, shareMetadata } from "@/lib/share";
 import { UPDATE_POSTING_STATUSES } from "@/lib/updates";
 
 interface PageProps {
@@ -90,10 +91,18 @@ export async function generateMetadata({
     return { title: "Fundraiser not found" };
   }
 
-  return {
+  // The canonical address has no query string, so a link carrying
+  // ?donation=... or ?source=... is still the same page to a search engine.
+  return shareMetadata({
+    path: `/fundraiser/${encodeURIComponent(fundraiser._id)}`,
     title: fundraiser.title,
-    description: fundraiser.tagline ?? fundraiser.story.slice(0, 160),
-  };
+    description: shareDescription(
+      [fundraiser.tagline, fundraiser.story],
+      "Support this fundraiser on GoUplift.",
+    ),
+    images: [fundraiser.coverImageUrl],
+    imageAlt: fundraiser.title,
+  });
 }
 
 export default async function FundraiserPage({
