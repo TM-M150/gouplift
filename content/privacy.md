@@ -30,6 +30,12 @@ We collect only what we need for the purposes set out in this policy. What we co
 - The amount, the date, the payment method, the payment reference or transaction code, and the message you write, if any.
 - We do not receive or store your card number, your M-Pesa or Airtel Money PIN, or your PayPal password. Those are handled by SasaPay and PayPal.
 
+### If You Get Emails About a Fundraiser You Gave To
+
+- If you gave to a fundraiser and left your email address, we may email you when its organiser posts a progress update and chooses to let its donors know. The email says that there is a new update and links to it on our website. It does not include what the organiser wrote. We send at most one of these emails per fundraiser per day. The organiser decides whether an update email is sent, but we send it, and we do not give the organiser your email address for this.
+- Every one of these emails has a link to unsubscribe, either from that fundraiser or from the update emails of every fundraiser. Your receipts are not affected.
+- For each update email we keep a record of your email address, whether it was sent, and a random code that is part of the unsubscribe link, so that the link in an old email keeps working. If you unsubscribe, we keep your email address on a list of people not to email, and the fundraiser if you only unsubscribed from that one, so that we do not email you again.
+
 ### If You Raise Money
 
 - The details of your fundraiser: its title, story, pictures, the amount you want to raise, who it is for, and its dates.
@@ -76,7 +82,7 @@ We may combine information into totals and statistics that do not identify anyon
 - **To provide the Services you ask for.** To create your account, let you start a fundraiser, take and record donations, send receipts, and review and pay withdrawals. We do this because it is necessary to carry out our agreement with you.
 - **To meet our legal duties.** To verify identity, prevent fraud, money laundering, and terrorist financing, keep records, and respond to lawful requests from authorities.
 - **To keep the Services safe and working.** To prevent abuse, fix problems, and understand how the Services are used so that we can improve them. We do this because it is in our legitimate interests, and yours, to have a secure and reliable service.
-- **To contact you.** About your account, your donations, your fundraisers, and your withdrawals, and, if you have signed up, to send you our newsletter.
+- **To contact you.** About your account, your donations, your fundraisers, and your withdrawals, to tell you about updates on fundraisers you have given to (you can unsubscribe from these at any time), and, if you have signed up, to send you our newsletter.
 - **Where you have chosen it.** For example, if you sign up for the newsletter or offer your message as a testimonial. You can withdraw your consent at any time.
 
 We do not sell your Personal Data.
@@ -111,6 +117,7 @@ We keep Personal Data only for as long as we need it for the purposes in this po
 - Account and fundraiser information: while your account is open, and for a reasonable time afterwards.
 - Verification, risk, and payout records: for as long as the law requires, which can be several years after you stop using the Services.
 - Newsletter sign-ups: until you ask us to remove you.
+- Records of update emails, and the list of people who have unsubscribed from them: for as long as the unsubscribe links in those emails need to keep working, and, for the list, for as long as we need it to make sure we do not email someone who asked us not to.
 
 When we no longer need Personal Data, and the law does not require us to keep it, we delete it or make it anonymous.
 
@@ -124,7 +131,7 @@ Under the Data Protection Act you have the right to:
 - ask us to correct Personal Data that is false or misleading; and
 - ask us to delete Personal Data that is false or misleading, and other Personal Data we no longer need.
 
-You can also withdraw any consent you have given us, for example to receive our newsletter or to show your message as a testimonial.
+You can also withdraw any consent you have given us, for example to receive our newsletter or to show your message as a testimonial, and you can object to update emails about a fundraiser at any time using the link in the email.
 
 To use any of these rights, contact us using the details below. We may need to confirm who you are first. Some records, such as verification and payout records, we must keep by law even if you ask us to delete them. If that applies, we will tell you.
 

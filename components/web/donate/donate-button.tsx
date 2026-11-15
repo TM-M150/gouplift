@@ -194,6 +194,11 @@ export function DonateButton({
               onChange={(event) => setEmail(event.target.value)}
               required
             />
+            <p className="text-xs text-muted-foreground">
+              We will email your receipt. We may also email you when the
+              organizer of this fundraiser posts an update; every one of those
+              emails has an unsubscribe link.
+            </p>
           </div>
 
           <div className="space-y-2">

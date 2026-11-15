@@ -55,6 +55,8 @@ export const PRIVATE_PATHS = [
   // People's profiles aren't offered to search engines. Revisit if creators
   // should be findable by name.
   "/users/",
+  // The link in an update email: its address holds a secret.
+  "/unsubscribe/",
 ] as const;
 
 /** Google reads at most 50,000 URLs from one sitemap. */

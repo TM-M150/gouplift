@@ -7,6 +7,7 @@ import {
   fundraiserUpdateSchema,
 } from "../lib/validations/fundraiser";
 import { endDateProblem, hasEnded } from "../lib/fundraiser-dates";
+import { canViewFundraiser } from "./lib/fundraiserAccess";
 
 function requireOwner(user: Doc<"users">, fundraiser: Doc<"fundraisers">) {
   if (fundraiser.creatorId !== user._id && user.role !== "ADMIN") {
@@ -180,8 +181,6 @@ export const listMyFundraisers = query({
   },
 });
 
-const RESTRICTED_STATUSES = new Set(["DRAFT", "PENDING_REVIEW", "REJECTED"]);
-
 export const getFundraiserById = query({
   args: { fundraiserId: v.id("fundraisers") },
   handler: async (ctx, args) => {
@@ -193,24 +192,8 @@ export const getFundraiserById = query({
     // Restricted fundraisers are only visible to their owner or staff —
     // everyone else gets treated as "not found" rather than "forbidden"
     // so the detail page doesn't leak that a restricted fundraiser exists.
-    const needsAuth =
-      fundraiser.isPrivate || RESTRICTED_STATUSES.has(fundraiser.status);
-
-    if (needsAuth) {
-      const authUser = await authComponent.safeGetAuthUser(ctx);
-      const user = authUser
-        ? await ctx.db
-            .query("users")
-            .withIndex("by_authUserId", (q) => q.eq("authUserId", authUser._id))
-            .unique()
-        : null;
-
-      const isOwner = user?._id === fundraiser.creatorId;
-      const isStaff = user?.role === "ADMIN" || user?.role === "MODERATOR";
-
-      if (!isOwner && !isStaff) {
-        return null;
-      }
+    if (!(await canViewFundraiser(ctx, fundraiser))) {
+      return null;
     }
 
     return {

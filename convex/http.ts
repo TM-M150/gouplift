@@ -2,6 +2,7 @@ import { httpRouter } from "convex/server";
 import { authComponent, createAuth } from "./auth";
 import { donationCallback } from "./donations";
 import { paypalWebhook } from "./paypal";
+import { unsubscribeRoute } from "./unsubscribe";
 import {
   apiNotFoundRoute,
   apiPreflightRoute,
@@ -22,6 +23,19 @@ http.route({
   path: "/paypal/webhook",
   method: "POST",
   handler: paypalWebhook,
+});
+
+// The unsubscribe link in update emails (see unsubscribe.ts).
+http.route({
+  pathPrefix: "/email/unsubscribe/",
+  method: "POST",
+  handler: unsubscribeRoute,
+});
+
+http.route({
+  pathPrefix: "/email/unsubscribe/",
+  method: "GET",
+  handler: unsubscribeRoute,
 });
 
 // Public read-only API (see publicApi.ts). The more specific prefix wins, so

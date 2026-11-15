@@ -266,7 +266,7 @@ By creating a Campaign you agree that:
 - All information provided about the Campaign (including the purpose, story, images, and target amount) is true, accurate, and not misleading;
 - The Campaign is for a lawful purpose and does not violate these Terms or any applicable law;
 - You will use funds raised substantially for the purpose described in the Campaign;
-- You will provide reasonable updates to Donors regarding the progress and use of funds where appropriate; and
+- You will provide reasonable updates to Donors regarding the progress and use of funds where appropriate. Updates you post on the Service must be true and not misleading, must not ask Donors to send money outside the Service, and must not contain anything prohibited by section 3.9. We may hide or remove an update that does not follow these Terms; and
 - You are solely responsible for any taxes, levies, or reporting obligations arising from amounts received through the Campaign.
 
 The Company reserves the right to review, suspend, remove, or refuse any Campaign that appears to be fraudulent, misleading, illegal, or otherwise in violation of these Terms. The Company has no obligation to monitor every Campaign but may take action at its discretion.
@@ -277,7 +277,7 @@ You acknowledge that the Company does not guarantee that any Campaign will reach
 
 Contributions made through the Service are voluntary. Unless expressly stated otherwise, contributions are gifts and not payments for goods or services.
 
-If you give an email address when you donate, we send a receipt for the donation to that address. Please keep it as your record of the donation.
+If you give an email address when you donate, we send a receipt for the donation to that address. Please keep it as your record of the donation. We may also email you when the creator of a Campaign you gave to posts an update and chooses to let Donors know. That email says there is a new update and links to it, and it has a link to unsubscribe. Unsubscribing does not stop your receipts.
 
 Once funds have been successfully withdrawn by the Campaign creator and sent to their Payout Account, the contribution is generally final. The Company is under no obligation to process refunds after withdrawal has been completed, except where required by law or where the Company determines in its sole discretion that a refund is appropriate.
 

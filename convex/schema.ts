@@ -521,6 +521,84 @@ export default defineSchema({
     .index("by_status_and_approvedAt", ["status", "approvedAt"])
     .index("by_authorUserId", ["authorUserId"]),
 
+  // A progress update the creator posts on their fundraiser, for donors to
+  // read. Plain text only. PUBLISHED ones are shown; HIDDEN means staff took
+  // it down (and can put it back); REMOVED means its author deleted it. The
+  // fundraiser's `updatesCount` counts the PUBLISHED ones.
+  fundraiserUpdates: defineTable({
+    fundraiserId: v.id("fundraisers"),
+    authorUserId: v.id("users"),
+    body: v.string(),
+    status: v.union(
+      v.literal("PUBLISHED"),
+      v.literal("HIDDEN"),
+      v.literal("REMOVED"),
+    ),
+    editedAt: v.optional(v.number()),
+    // Set while HIDDEN. The reason is for staff and the audit log: the author
+    // is told it was hidden, never why.
+    hiddenBy: v.optional(v.id("users")),
+    hiddenAt: v.optional(v.number()),
+    hiddenReason: v.optional(v.string()),
+    // Set when the creator asked for donors to be emailed about this update
+    // and it was allowed (see updateEmails.ts), with how many were queued.
+    notifiedAt: v.optional(v.number()),
+    emailQueuedCount: v.optional(v.number()),
+    createdAt: v.number(),
+  }).index("by_fundraiserId_and_status_and_createdAt", [
+    "fundraiserId",
+    "status",
+    "createdAt",
+  ]),
+
+  // One row per donor emailed about an update, the way donationReceipts is one
+  // row per receipt. It keeps the donor's address (lower-case) so a donor who
+  // gave twice is emailed once, and a random token for the unsubscribe link,
+  // so no address ever appears in a URL. The row is kept after sending: a link
+  // in an old email has to keep working.
+  updateEmailDeliveries: defineTable({
+    updateId: v.id("fundraiserUpdates"),
+    fundraiserId: v.id("fundraisers"),
+    email: v.string(),
+    token: v.string(),
+    status: v.union(
+      v.literal("PENDING"), // queued, not yet tried
+      v.literal("RETRYING"), // tried, will try again at nextAttemptAt
+      v.literal("SENT"),
+      v.literal("FAILED"), // gave up; `updateEmails:requeueFailed` tries again
+      v.literal("SKIPPED"), // deliberately not sent, see skippedReason
+    ),
+    skippedReason: v.optional(
+      v.union(
+        v.literal("UPDATE_NOT_PUBLISHED"),
+        v.literal("NOT_VISIBLE"),
+        v.literal("OPTED_OUT"),
+      ),
+    ),
+    attempts: v.number(),
+    // Goes up each time a failed email is queued again, so the retry isn't
+    // mistaken by the email service for a repeat of the failed request.
+    generation: v.number(),
+    lastError: v.optional(v.string()),
+    lastStatusCode: v.optional(v.number()),
+    lastAttemptAt: v.optional(v.number()),
+    nextAttemptAt: v.optional(v.number()),
+    emailId: v.optional(v.string()), // Resend's id for the sent email
+    sentAt: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index("by_updateId_and_email", ["updateId", "email"])
+    .index("by_token", ["token"])
+    .index("by_status", ["status"]),
+
+  // Who has asked not to get update emails. A row with a fundraiser means that
+  // fundraiser only; a row without one means every fundraiser.
+  updateEmailOptOuts: defineTable({
+    email: v.string(), // lower-case
+    fundraiserId: v.optional(v.id("fundraisers")),
+    createdAt: v.number(),
+  }).index("by_email_and_fundraiserId", ["email", "fundraiserId"]),
+
   adminAuditLog: defineTable({
     actorId: v.id("users"),
     action: v.union(
@@ -549,11 +627,14 @@ export default defineSchema({
       v.literal("PAYOUT_PAID"),
       v.literal("PAYOUT_FAILED"),
       v.literal("DONATION_REFUNDED"),
+      v.literal("FUNDRAISER_UPDATE_HIDDEN"),
+      v.literal("FUNDRAISER_UPDATE_RESTORED"),
     ),
     organizationId: v.optional(v.id("organizations")),
     fundraiserId: v.optional(v.id("fundraisers")),
     donationId: v.optional(v.id("donations")),
     testimonialId: v.optional(v.id("testimonials")),
+    fundraiserUpdateId: v.optional(v.id("fundraiserUpdates")),
     payoutId: v.optional(v.id("payouts")),
     kycSubmissionId: v.optional(v.id("kycSubmissions")),
     payoutAccountId: v.optional(v.id("payoutAccounts")),
