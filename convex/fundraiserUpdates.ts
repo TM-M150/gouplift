@@ -3,6 +3,7 @@ import {
   paginationOptsValidator,
   paginationResultValidator,
 } from "convex/server";
+import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 import {
   mutation,
@@ -13,6 +14,7 @@ import {
 import {
   checkUpdateBody,
   MAX_UPDATES_PER_DAY,
+  UPDATE_EMAIL_WINDOW_MS,
   UPDATE_POSTING_STATUSES,
   UPDATE_RATE_WINDOW_MS,
 } from "../lib/updates";
@@ -21,7 +23,7 @@ import {
   logAction,
   MIN_REJECTION_REASON_LENGTH,
 } from "./lib/adminAudit";
-import { canViewFundraiser } from "./lib/fundraiserAccess";
+import { canEmailDonorsAbout, canViewFundraiser } from "./lib/fundraiserAccess";
 import { consumeRateLimit } from "./lib/rateLimit";
 import { getCurrentUserDoc, getStaffUser, requireStaff } from "./lib/staff";
 
@@ -110,9 +112,32 @@ export const list = query({
 
 // ---- The creator ------------------------------------------------------
 
+/**
+ * What happened to the request to email donors. "queued": they are being
+ * emailed. "throttled": donors were already emailed about an update in the
+ * last day. "unavailable": this fundraiser can't email donors (private, under
+ * review). "no_donors": nobody has given yet. "not_requested": the creator
+ * didn't ask.
+ */
+const emailResultValidator = v.union(
+  v.literal("queued"),
+  v.literal("throttled"),
+  v.literal("unavailable"),
+  v.literal("no_donors"),
+  v.literal("not_requested"),
+);
+
 export const postUpdate = mutation({
-  args: { fundraiserId: v.id("fundraisers"), body: v.string() },
-  returns: v.object({ updateId: v.id("fundraiserUpdates") }),
+  args: {
+    fundraiserId: v.id("fundraisers"),
+    body: v.string(),
+    // Whether to also email the fundraiser's donors. Off unless asked for.
+    emailDonors: v.optional(v.boolean()),
+  },
+  returns: v.object({
+    updateId: v.id("fundraiserUpdates"),
+    email: emailResultValidator,
+  }),
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
     const fundraiser = await ctx.db.get(args.fundraiserId);
@@ -148,7 +173,35 @@ export const postUpdate = mutation({
       createdAt: Date.now(),
     });
     await changeUpdatesCount(ctx, fundraiser._id, 1);
-    return { updateId };
+
+    let email:
+      "queued" | "throttled" | "unavailable" | "no_donors" | "not_requested" =
+      "not_requested";
+    if (args.emailDonors) {
+      if (!canEmailDonorsAbout(fundraiser)) {
+        email = "unavailable";
+      } else if (fundraiser.donorCount <= 0) {
+        // Don't spend the day's allowance on nobody.
+        email = "no_donors";
+      } else {
+        const emailLimit = await consumeRateLimit(
+          ctx,
+          `updateEmail:${fundraiser._id}`,
+          { max: 1, windowMs: UPDATE_EMAIL_WINDOW_MS },
+        );
+        if (!emailLimit.allowed) {
+          email = "throttled";
+        } else {
+          email = "queued";
+          await ctx.db.patch(updateId, { notifiedAt: Date.now() });
+          await ctx.scheduler.runAfter(0, internal.updateEmails.fanOut, {
+            updateId,
+            cursor: null,
+          });
+        }
+      }
+    }
+    return { updateId, email };
   },
 });
 

@@ -11,6 +11,14 @@ export const MAX_UPDATES_PER_DAY = 10;
 export const UPDATE_RATE_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 /**
+ * Donors are emailed about at most one update per fundraiser in this long.
+ * Posting more is fine; the extra ones just aren't emailed. It keeps a
+ * fundraiser from filling its donors' inboxes, and keeps our email bill and
+ * sending reputation in check.
+ */
+export const UPDATE_EMAIL_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+/**
  * The fundraiser statuses that can have an update posted. It starts once the
  * fundraiser has been approved and carries on after it closes: the thank-you
  * at the end is one of the most useful updates there is.

@@ -1,7 +1,8 @@
 // Sending email through Resend, for the emails GoUplift sends on its own
-// (receipts first). The password reset email in auth.ts has its own copy of
-// the request because Better Auth wants it to throw; this one reports what
-// happened instead, so the caller can decide whether to try again.
+// (receipts, and fundraiser updates for donors). The password reset email in
+// auth.ts has its own copy of the request because Better Auth wants it to
+// throw; this one reports what happened instead, so the caller can decide
+// whether to try again.
 
 // One place for who the mail comes from, so changing the sending domain is a
 // one-line change.
@@ -56,6 +57,8 @@ export async function sendEmail(input: {
   html: string;
   text: string;
   idempotencyKey: string;
+  // Extra mail headers, such as List-Unsubscribe.
+  headers?: Record<string, string>;
 }): Promise<EmailOutcome> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
@@ -84,6 +87,9 @@ export async function sendEmail(input: {
         subject: input.subject,
         html: input.html,
         text: input.text,
+        ...(input.headers && Object.keys(input.headers).length > 0
+          ? { headers: input.headers }
+          : {}),
       }),
       signal: controller.signal,
     });

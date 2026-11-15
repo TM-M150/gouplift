@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
@@ -26,14 +27,32 @@ export type HiddenUpdate = FunctionReturnType<
   typeof api.fundraiserUpdates.listHidden
 >[number];
 type UpdateId = Update["_id"];
+/** What became of the request to email donors, as the server reports it. */
+export type EmailResult = FunctionReturnType<
+  typeof api.fundraiserUpdates.postUpdate
+>["email"];
 
 /** Everything the section can do. The real ones call Convex. */
 export interface UpdateActions {
-  post: (body: string) => Promise<unknown>;
+  post: (body: string, emailDonors: boolean) => Promise<{ email: EmailResult }>;
   edit: (updateId: UpdateId, body: string) => Promise<unknown>;
   remove: (updateId: UpdateId) => Promise<unknown>;
   hide: (updateId: UpdateId, reason: string) => Promise<unknown>;
   restore: (updateId: UpdateId) => Promise<unknown>;
+}
+
+/** What to tell the creator once their update is up. */
+export function postedMessage(email: EmailResult): string {
+  switch (email) {
+    case "queued":
+      return "Your update is posted, and your donors are being emailed.";
+    case "throttled":
+      return "Your update is posted. Donors weren't emailed again, because they were already emailed about an update in the last day.";
+    case "unavailable":
+      return "Your update is posted. Donors can't be emailed about this fundraiser right now.";
+    default:
+      return "Your update is posted.";
+  }
 }
 
 /** The text of an update: line breaks kept, links not made clickable. */
@@ -51,15 +70,19 @@ function UpdateForm({
   onSubmit,
   onCancel,
   autoFocus,
+  offerEmail,
 }: {
   initial?: string;
   submitLabel: string;
-  onSubmit: (body: string) => Promise<void>;
+  onSubmit: (body: string, emailDonors: boolean) => Promise<void>;
   onCancel?: () => void;
   autoFocus?: boolean;
+  /** Offer to email the donors too. Only for a new update. */
+  offerEmail?: boolean;
 }) {
   const id = React.useId();
   const [text, setText] = React.useState(initial);
+  const [emailDonors, setEmailDonors] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
 
@@ -74,8 +97,9 @@ function UpdateForm({
     setError(null);
     setSubmitting(true);
     try {
-      await onSubmit(checked.body);
+      await onSubmit(checked.body, offerEmail === true && emailDonors);
       setText("");
+      setEmailDonors(true);
     } catch (err) {
       setError(errorMessage(err));
     } finally {
@@ -105,6 +129,29 @@ function UpdateForm({
           {MAX_UPDATE_LENGTH.toLocaleString("en-US")}
         </p>
       </div>
+
+      {offerEmail && (
+        <div className="flex items-start gap-3 rounded-lg border bg-background p-3">
+          <Checkbox
+            id={`${id}-email`}
+            checked={emailDonors}
+            onCheckedChange={(checked) => setEmailDonors(checked === true)}
+            disabled={submitting}
+            className="mt-0.5"
+          />
+          <div className="space-y-1">
+            <Label htmlFor={`${id}-email`} className="leading-snug">
+              Email the people who donated
+            </Label>
+            <p className="text-xs text-muted-foreground">
+              They get a short email that there is a new update, with a link to
+              read it here. The email doesn&apos;t include what you wrote.
+              Donors are emailed about one update a day at most, and each email
+              lets them unsubscribe.
+            </p>
+          </div>
+        </div>
+      )}
 
       {error && (
         <p role="alert" className="text-sm text-destructive">
@@ -322,6 +369,8 @@ export interface FundraiserUpdatesViewProps {
   isStaff: boolean;
   /** Whether this fundraiser's status allows a new update. */
   canPost: boolean;
+  /** Whether anyone has donated yet, so there is someone to email. */
+  hasDonors: boolean;
   actions: UpdateActions;
 }
 
@@ -336,6 +385,7 @@ export function FundraiserUpdatesView({
   isOwner,
   isStaff,
   canPost,
+  hasDonors,
   actions,
 }: FundraiserUpdatesViewProps) {
   const loadingFirst = updates.status === "LoadingFirstPage";
@@ -368,9 +418,10 @@ export function FundraiserUpdatesView({
           <p className="text-sm font-medium">Post an update</p>
           <UpdateForm
             submitLabel="Post update"
-            onSubmit={async (body) => {
-              await actions.post(body);
-              toast.success("Your update is posted.");
+            offerEmail={hasDonors}
+            onSubmit={async (body, emailDonors) => {
+              const { email } = await actions.post(body, emailDonors);
+              toast.success(postedMessage(email));
             }}
           />
         </div>
@@ -429,10 +480,12 @@ export function FundraiserUpdates({
   fundraiserId,
   creatorId,
   canPost,
+  hasDonors,
 }: {
   fundraiserId: Id<"fundraisers">;
   creatorId: Id<"users">;
   canPost: boolean;
+  hasDonors: boolean;
 }) {
   const me = useQuery(api.users.getCurrentUser);
   const isOwner = !!me && me._id === creatorId;
@@ -456,7 +509,7 @@ export function FundraiserUpdates({
 
   const actions = React.useMemo<UpdateActions>(
     () => ({
-      post: (body) => post({ fundraiserId, body }),
+      post: (body, emailDonors) => post({ fundraiserId, body, emailDonors }),
       edit: (updateId, body) => edit({ updateId, body }),
       remove: (updateId) => remove({ updateId }),
       hide: (updateId, reason) => hide({ updateId, reason }),
@@ -472,6 +525,7 @@ export function FundraiserUpdates({
       isOwner={isOwner}
       isStaff={isStaff}
       canPost={canPost}
+      hasDonors={hasDonors}
       actions={actions}
     />
   );

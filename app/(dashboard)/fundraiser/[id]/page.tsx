@@ -141,7 +141,10 @@ export default async function FundraiserPage({
   return (
     <main className="min-h-screen max-w-5xl mx-auto w-full pt-24 px-4 pb-16">
       {donationId && <DonationStatusBanner donationId={donationId} />}
-      <div className="grid gap-8 lg:grid-cols-3">
+      {/* grid-cols-1, not the implicit auto column: that one grows to fit its
+          widest unbreakable content (a long link in an update, say), and the
+          whole page then scrolls sideways on a phone. */}
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
         <section className="space-y-6 lg:col-span-2">
           <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-muted">
             {fundraiser.coverImageUrl ? (
@@ -203,7 +206,7 @@ export default async function FundraiserPage({
             </p>
           </div>
 
-          <p className="whitespace-pre-wrap text-base leading-relaxed">
+          <p className="whitespace-pre-wrap break-words text-base leading-relaxed">
             {fundraiser.story}
           </p>
 
@@ -211,6 +214,7 @@ export default async function FundraiserPage({
             fundraiserId={fundraiser._id}
             creatorId={fundraiser.creatorId}
             canPost={UPDATE_POSTING_STATUSES.has(fundraiser.status)}
+            hasDonors={fundraiser.donorCount > 0}
           />
         </section>
 

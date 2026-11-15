@@ -540,12 +540,64 @@ export default defineSchema({
     hiddenBy: v.optional(v.id("users")),
     hiddenAt: v.optional(v.number()),
     hiddenReason: v.optional(v.string()),
+    // Set when the creator asked for donors to be emailed about this update
+    // and it was allowed (see updateEmails.ts), with how many were queued.
+    notifiedAt: v.optional(v.number()),
+    emailQueuedCount: v.optional(v.number()),
     createdAt: v.number(),
   }).index("by_fundraiserId_and_status_and_createdAt", [
     "fundraiserId",
     "status",
     "createdAt",
   ]),
+
+  // One row per donor emailed about an update, the way donationReceipts is one
+  // row per receipt. It keeps the donor's address (lower-case) so a donor who
+  // gave twice is emailed once, and a random token for the unsubscribe link,
+  // so no address ever appears in a URL. The row is kept after sending: a link
+  // in an old email has to keep working.
+  updateEmailDeliveries: defineTable({
+    updateId: v.id("fundraiserUpdates"),
+    fundraiserId: v.id("fundraisers"),
+    email: v.string(),
+    token: v.string(),
+    status: v.union(
+      v.literal("PENDING"), // queued, not yet tried
+      v.literal("RETRYING"), // tried, will try again at nextAttemptAt
+      v.literal("SENT"),
+      v.literal("FAILED"), // gave up; `updateEmails:requeueFailed` tries again
+      v.literal("SKIPPED"), // deliberately not sent, see skippedReason
+    ),
+    skippedReason: v.optional(
+      v.union(
+        v.literal("UPDATE_NOT_PUBLISHED"),
+        v.literal("NOT_VISIBLE"),
+        v.literal("OPTED_OUT"),
+      ),
+    ),
+    attempts: v.number(),
+    // Goes up each time a failed email is queued again, so the retry isn't
+    // mistaken by the email service for a repeat of the failed request.
+    generation: v.number(),
+    lastError: v.optional(v.string()),
+    lastStatusCode: v.optional(v.number()),
+    lastAttemptAt: v.optional(v.number()),
+    nextAttemptAt: v.optional(v.number()),
+    emailId: v.optional(v.string()), // Resend's id for the sent email
+    sentAt: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index("by_updateId_and_email", ["updateId", "email"])
+    .index("by_token", ["token"])
+    .index("by_status", ["status"]),
+
+  // Who has asked not to get update emails. A row with a fundraiser means that
+  // fundraiser only; a row without one means every fundraiser.
+  updateEmailOptOuts: defineTable({
+    email: v.string(), // lower-case
+    fundraiserId: v.optional(v.id("fundraisers")),
+    createdAt: v.number(),
+  }).index("by_email_and_fundraiserId", ["email", "fundraiserId"]),
 
   adminAuditLog: defineTable({
     actorId: v.id("users"),

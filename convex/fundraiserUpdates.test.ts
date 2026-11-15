@@ -653,3 +653,127 @@ describe("reading updates", () => {
     ).toEqual([]);
   });
 });
+
+describe("asking for donors to be emailed", () => {
+  const setDonors = (
+    s: S,
+    fundraiserId: Id<"fundraisers">,
+    donorCount: number,
+  ) => s.t.run((ctx) => ctx.db.patch(fundraiserId, { donorCount }));
+
+  const postWithEmail = (
+    s: S,
+    emailDonors: boolean | undefined,
+    fundraiserId = s.ids.fundraiserId,
+  ) =>
+    s.owner.mutation(api.fundraiserUpdates.postUpdate, {
+      fundraiserId,
+      body: GOOD,
+      emailDonors,
+    });
+
+  const emailJobs = async (s: S) =>
+    (
+      await s.t.run((ctx) =>
+        ctx.db.system.query("_scheduled_functions").collect(),
+      )
+    ).filter((job) => job.name.includes("fanOut"));
+
+  it("does not email anyone unless the creator asks", async () => {
+    const s = await setup();
+    await setDonors(s, s.ids.fundraiserId, 5);
+
+    for (const asked of [undefined, false]) {
+      const { updateId, email } = await postWithEmail(s, asked);
+      expect(email).toBe("not_requested");
+      const row = await s.t.run((ctx) => ctx.db.get(updateId));
+      expect(row?.notifiedAt).toBeUndefined();
+    }
+    expect(await emailJobs(s)).toHaveLength(0);
+  });
+
+  it("starts emailing the donors when asked", async () => {
+    const s = await setup();
+    await setDonors(s, s.ids.fundraiserId, 5);
+
+    const before = Date.now();
+    const { updateId, email } = await postWithEmail(s, true);
+
+    expect(email).toBe("queued");
+    const row = await s.t.run((ctx) => ctx.db.get(updateId));
+    expect(Math.abs((row?.notifiedAt ?? 0) - before)).toBeLessThan(1000);
+    const jobs = await emailJobs(s);
+    expect(jobs).toHaveLength(1);
+    expect(jobs[0].args).toEqual([{ updateId, cursor: null }]);
+  });
+
+  it("emails donors about one update a day: the next is posted, not emailed", async () => {
+    const s = await setup();
+    await setDonors(s, s.ids.fundraiserId, 5);
+
+    expect((await postWithEmail(s, true)).email).toBe("queued");
+    const second = await postWithEmail(s, true);
+
+    expect(second.email).toBe("throttled");
+    expect(await listBodies(s.owner, s.ids.fundraiserId)).toHaveLength(2);
+    expect(await count(s)).toBe(2);
+    expect(await emailJobs(s)).toHaveLength(1);
+
+    // Tomorrow it is allowed again.
+    vi.setSystemTime(Date.now() + DAY_MS + 1000);
+    expect((await postWithEmail(s, true)).email).toBe("queued");
+    expect(await emailJobs(s)).toHaveLength(2);
+  });
+
+  it("does not use up the day's email on a post that wasn't emailed", async () => {
+    const s = await setup();
+    await setDonors(s, s.ids.fundraiserId, 5);
+
+    await postWithEmail(s, false);
+
+    expect((await postWithEmail(s, true)).email).toBe("queued");
+  });
+
+  it("says there is nobody to email yet, and saves the day's email for later", async () => {
+    const s = await setup();
+
+    const first = await postWithEmail(s, true);
+    expect(first.email).toBe("no_donors");
+    expect(await listBodies(s.owner, s.ids.fundraiserId)).toHaveLength(1);
+    expect(await emailJobs(s)).toHaveLength(0);
+
+    await setDonors(s, s.ids.fundraiserId, 1);
+    expect((await postWithEmail(s, true)).email).toBe("queued");
+  });
+
+  it("posts the update but doesn't email for a private or flagged fundraiser", async () => {
+    const s = await setup();
+    await setDonors(s, s.ids.privateId, 5);
+    await setDonors(s, s.ids.fundraiserId, 5);
+    await s.t.run((ctx) =>
+      ctx.db.patch(s.ids.fundraiserId, { isFlagged: true }),
+    );
+
+    for (const fundraiserId of [s.ids.privateId, s.ids.fundraiserId]) {
+      const { email } = await postWithEmail(s, true, fundraiserId);
+      expect(email).toBe("unavailable");
+      expect(await count(s, fundraiserId)).toBe(1);
+    }
+    expect(await emailJobs(s)).toHaveLength(0);
+
+    // Once the flag is lifted the allowance is still there.
+    await s.t.run((ctx) =>
+      ctx.db.patch(s.ids.fundraiserId, { isFlagged: false }),
+    );
+    expect((await postWithEmail(s, true)).email).toBe("queued");
+  });
+
+  it("keeps the email allowance per fundraiser", async () => {
+    const s = await setup();
+    await setDonors(s, s.ids.fundraiserId, 5);
+    await setDonors(s, s.ids.pausedId, 5);
+
+    expect((await postWithEmail(s, true)).email).toBe("queued");
+    expect((await postWithEmail(s, true, s.ids.pausedId)).email).toBe("queued");
+  });
+});
