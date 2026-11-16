@@ -109,7 +109,7 @@ export function escapeHtml(value: string): string {
 
 // A header can't contain a line break, and a long title would push the amount
 // out of the preview.
-function oneLine(value: string, max: number): string {
+export function oneLine(value: string, max: number): string {
   const flat = value.replace(/[\u0000-\u001f\u007f\u2028\u2029]+/g, " ").trim();
   return flat.length > max ? `${flat.slice(0, max - 1).trimEnd()}…` : flat;
 }
@@ -119,7 +119,7 @@ export function isPlausibleEmail(value: string): boolean {
   return /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(value) && value.length <= 254;
 }
 
-function firstName(name: string | null): string | null {
+export function firstName(name: string | null): string | null {
   const first = name?.trim().split(/\s+/)[0];
   return first ? oneLine(first, 40) : null;
 }

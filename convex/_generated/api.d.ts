@@ -11,6 +11,8 @@
 import type * as admin from "../admin.js";
 import type * as auth from "../auth.js";
 import type * as beneficialOwners from "../beneficialOwners.js";
+import type * as commentEmails from "../commentEmails.js";
+import type * as commentUnsubscribe from "../commentUnsubscribe.js";
 import type * as crons from "../crons.js";
 import type * as customerRisk from "../customerRisk.js";
 import type * as documentUploads from "../documentUploads.js";
@@ -24,6 +26,7 @@ import type * as kyc from "../kyc.js";
 import type * as kycReview from "../kycReview.js";
 import type * as lib_adminAudit from "../lib/adminAudit.js";
 import type * as lib_beneficialOwnerValidators from "../lib/beneficialOwnerValidators.js";
+import type * as lib_commentEmail from "../lib/commentEmail.js";
 import type * as lib_constants from "../lib/constants.js";
 import type * as lib_documentFiles from "../lib/documentFiles.js";
 import type * as lib_donationGate from "../lib/donationGate.js";
@@ -93,6 +96,8 @@ declare const fullApi: ApiFromModules<{
   admin: typeof admin;
   auth: typeof auth;
   beneficialOwners: typeof beneficialOwners;
+  commentEmails: typeof commentEmails;
+  commentUnsubscribe: typeof commentUnsubscribe;
   crons: typeof crons;
   customerRisk: typeof customerRisk;
   documentUploads: typeof documentUploads;
@@ -106,6 +111,7 @@ declare const fullApi: ApiFromModules<{
   kycReview: typeof kycReview;
   "lib/adminAudit": typeof lib_adminAudit;
   "lib/beneficialOwnerValidators": typeof lib_beneficialOwnerValidators;
+  "lib/commentEmail": typeof lib_commentEmail;
   "lib/constants": typeof lib_constants;
   "lib/documentFiles": typeof lib_documentFiles;
   "lib/donationGate": typeof lib_donationGate;

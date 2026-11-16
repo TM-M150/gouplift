@@ -1,5 +1,6 @@
 import { httpRouter } from "convex/server";
 import { authComponent, createAuth } from "./auth";
+import { unsubscribeRoute as commentUnsubscribeRoute } from "./commentUnsubscribe";
 import { donationCallback } from "./donations";
 import { paypalWebhook } from "./paypal";
 import { unsubscribeRoute } from "./unsubscribe";
@@ -36,6 +37,20 @@ http.route({
   pathPrefix: "/email/unsubscribe/",
   method: "GET",
   handler: unsubscribeRoute,
+});
+
+// The unsubscribe link in comment emails (see commentUnsubscribe.ts). The
+// trailing slash keeps this from matching the update emails' prefix above.
+http.route({
+  pathPrefix: "/email/unsubscribe-comments/",
+  method: "POST",
+  handler: commentUnsubscribeRoute,
+});
+
+http.route({
+  pathPrefix: "/email/unsubscribe-comments/",
+  method: "GET",
+  handler: commentUnsubscribeRoute,
 });
 
 // Public read-only API (see publicApi.ts). The more specific prefix wins, so
