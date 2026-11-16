@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { Suspense, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm, UseFormRegisterReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Eye, EyeOff } from "lucide-react";
@@ -23,6 +23,11 @@ import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { signInSchema, SignInValues } from "@/lib/validations/auth";
 import { authClient } from "@/lib/auth-client";
+import {
+  AFTER_SIGN_IN_DEFAULT,
+  safeNextPath,
+  signUpHref,
+} from "@/lib/safe-redirect";
 import { FaGoogle } from "react-icons/fa6";
 
 // Local Input Helper
@@ -106,9 +111,12 @@ function FormPasswordField({
   );
 }
 
-export default function SignInForm() {
+function SignInForm() {
   const [serverError, setServerError] = useState<string | null>(null);
   const router = useRouter();
+  // Where to go afterwards: the page that sent them here, if it was one of ours.
+  const requestedNext = useSearchParams().get("next");
+  const next = safeNextPath(requestedNext);
 
   const {
     register,
@@ -149,9 +157,12 @@ export default function SignInForm() {
       toast.error("Sign in failed", { description: errorMsg });
     } else {
       toast.success("Welcome back!", {
-        description: "Redirecting your profile...",
+        description:
+          next === AFTER_SIGN_IN_DEFAULT
+            ? "Redirecting your profile..."
+            : "Taking you back...",
       });
-      router.push("/profile");
+      router.push(next);
     }
   };
 
@@ -235,7 +246,7 @@ export default function SignInForm() {
                     onClick={() =>
                       authClient.signIn.social({
                         provider: "google",
-                        callbackURL: "/profile",
+                        callbackURL: next,
                       })
                     }
                   >
@@ -245,7 +256,7 @@ export default function SignInForm() {
                   <FieldDescription className="text-center">
                     Don&apos;t have an account?{" "}
                     <Link
-                      href="/sign-up"
+                      href={signUpHref(requestedNext)}
                       className="underline underline-offset-4"
                     >
                       Sign up
@@ -279,5 +290,15 @@ export default function SignInForm() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function SignInPage() {
+  // useSearchParams needs a Suspense boundary so the page can still be built
+  // ahead of time.
+  return (
+    <Suspense>
+      <SignInForm />
+    </Suspense>
   );
 }
