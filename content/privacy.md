@@ -36,6 +36,13 @@ We collect only what we need for the purposes set out in this policy. What we co
 - Every one of these emails has a link to unsubscribe, either from that fundraiser or from the update emails of every fundraiser. Your receipts are not affected.
 - For each update email we keep a record of your email address, whether it was sent, and a random code that is part of the unsubscribe link, so that the link in an old email keeps working. If you unsubscribe, we keep your email address on a list of people not to email, and the fundraiser if you only unsubscribed from that one, so that we do not email you again.
 
+### If You Leave a Comment on a Fundraiser
+
+- If you are signed in and have donated to a fundraiser, you can leave a comment on its page. Anyone who can see the fundraiser can read it. It is shown with your first name and the initial of your last name, or as “Anonymous donor” if all your donations to that fundraiser were anonymous. The name is copied when you post, so changing your name later does not change it on comments you have already left.
+- We keep the text of the comment, when you posted and last edited it, and which of your donations let you comment. You can edit or remove a comment at any time. Removing it takes it off the page, but we keep a copy so that we can deal with reports and complaints.
+- The fundraiser’s organiser and our team can hide a comment. A hidden comment is not shown to the public, but you, the organiser, and our team can still see it.
+- Anyone who is signed in can report a comment. If someone reports yours, our team reads the comment and the reason that was given. We keep a record of who reported it and why, but we do not tell you or the organiser who it was.
+
 ### If You Raise Money
 
 - The details of your fundraiser: its title, story, pictures, the amount you want to raise, who it is for, and its dates.
@@ -117,6 +124,7 @@ We keep Personal Data only for as long as we need it for the purposes in this po
 - Account and fundraiser information: while your account is open, and for a reasonable time afterwards.
 - Verification, risk, and payout records: for as long as the law requires, which can be several years after you stop using the Services.
 - Newsletter sign-ups: until you ask us to remove you.
+- Comments on fundraisers, and reports about them: for as long as we need them to show the comment and to deal with reports and complaints.
 - Records of update emails, and the list of people who have unsubscribed from them: for as long as the unsubscribe links in those emails need to keep working, and, for the list, for as long as we need it to make sure we do not email someone who asked us not to.
 
 When we no longer need Personal Data, and the law does not require us to keep it, we delete it or make it anonymous.

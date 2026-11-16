@@ -3,6 +3,7 @@ import {
   Heart,
   Landmark,
   LayoutDashboard,
+  MessageSquare,
   Quote,
   ShieldCheck,
   Undo2,
@@ -42,6 +43,12 @@ export const adminNav: AdminNavItem[] = [
     title: "Testimonials",
     href: "/admin/testimonials",
     icon: Quote,
+    ready: true,
+  },
+  {
+    title: "Comments",
+    href: "/admin/comments",
+    icon: MessageSquare,
     ready: true,
   },
   {

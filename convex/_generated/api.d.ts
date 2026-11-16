@@ -16,6 +16,7 @@ import type * as customerRisk from "../customerRisk.js";
 import type * as documentUploads from "../documentUploads.js";
 import type * as donations from "../donations.js";
 import type * as fundraiser from "../fundraiser.js";
+import type * as fundraiserComments from "../fundraiserComments.js";
 import type * as fundraiserExpiry from "../fundraiserExpiry.js";
 import type * as fundraiserUpdates from "../fundraiserUpdates.js";
 import type * as http from "../http.js";
@@ -97,6 +98,7 @@ declare const fullApi: ApiFromModules<{
   documentUploads: typeof documentUploads;
   donations: typeof donations;
   fundraiser: typeof fundraiser;
+  fundraiserComments: typeof fundraiserComments;
   fundraiserExpiry: typeof fundraiserExpiry;
   fundraiserUpdates: typeof fundraiserUpdates;
   http: typeof http;

@@ -11,6 +11,7 @@ import type { Metadata } from "next";
 import { DonationStatusBanner } from "@/components/web/donate/donation-status-banner";
 import { DonateButton } from "@/components/web/donate/donate-button";
 import { EditFundraiserButton } from "@/components/web/fundraiser/edit-fundraiser-button";
+import { FundraiserComments } from "@/components/web/fundraiser/fundraiser-comments";
 import { FundraiserUpdates } from "@/components/web/fundraiser/fundraiser-updates";
 import { PayoutVerificationNotice } from "@/components/web/fundraiser/payout-verification-notice";
 import { WithdrawNotice } from "@/components/web/fundraiser/withdraw-notice";
@@ -224,6 +225,11 @@ export default async function FundraiserPage({
             creatorId={fundraiser.creatorId}
             canPost={UPDATE_POSTING_STATUSES.has(fundraiser.status)}
             hasDonors={fundraiser.donorCount > 0}
+          />
+
+          <FundraiserComments
+            fundraiserId={fundraiser._id}
+            creatorId={fundraiser.creatorId}
           />
         </section>
 
