@@ -19,6 +19,7 @@ import {
   REPORT_RATE_WINDOW_MS,
 } from "../lib/comments";
 import { publicAuthorName } from "../lib/testimonials";
+import { noteNewComment } from "./commentEmails";
 import {
   cleanNote,
   logAction,
@@ -300,6 +301,7 @@ export const postComment = mutation({
 
     // Named, unless every donation they made here was given anonymously.
     const named = donations.some((donation) => !donation.isAnonymous);
+    const createdAt = Date.now();
     const commentId = await ctx.db.insert("fundraiserComments", {
       fundraiserId: fundraiser._id,
       authorUserId: user._id,
@@ -309,9 +311,11 @@ export const postComment = mutation({
         : ANONYMOUS_DONOR_NAME,
       body: checked.body,
       status: "PUBLISHED",
-      createdAt: Date.now(),
+      createdAt,
     });
     await changeCommentsCount(ctx, fundraiser._id, 1);
+    // Lets the organizer know, in a digest rather than one email per comment.
+    await noteNewComment(ctx, fundraiser, user._id, createdAt);
     return commentId;
   },
 });

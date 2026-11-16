@@ -58,6 +58,9 @@ export default defineSchema({
     ),
     isPrivate: v.boolean(),
     isVerified: v.boolean(),
+    // Whether to email this person when donors comment on their fundraisers.
+    // Unset means yes; only an explicit false turns it off.
+    commentEmails: v.optional(v.boolean()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -661,6 +664,58 @@ export default defineSchema({
     fundraiserId: v.optional(v.id("fundraisers")),
     createdAt: v.number(),
   }).index("by_email_and_fundraiserId", ["email", "fundraiserId"]),
+
+  // Where each fundraiser is in sending its organizer comment emails (see
+  // commentEmails.ts). One row per fundraiser, made by its first comment.
+  commentEmailState: defineTable({
+    fundraiserId: v.id("fundraisers"),
+    // Comments made after this have not been emailed about yet.
+    notifiedUpTo: v.number(),
+    // When the last email was queued; the next waits a day after it.
+    lastSentAt: v.optional(v.number()),
+    // When the next email is due, while one is waiting to be made.
+    pendingFor: v.optional(v.number()),
+  }).index("by_fundraiserId", ["fundraiserId"]),
+
+  // One email to an organizer about new comments on one fundraiser. Like a
+  // receipt, it is sent by a scheduled step and tried again if it fails.
+  commentEmailDeliveries: defineTable({
+    fundraiserId: v.id("fundraisers"),
+    recipientUserId: v.id("users"),
+    // What the unsubscribe link carries. Unguessable, and all it can do is
+    // stop these emails.
+    token: v.string(),
+    // How many new comments the email says, and whether there were more.
+    count: v.number(),
+    hasMore: v.boolean(),
+    status: v.union(
+      v.literal("PENDING"), // queued, not yet tried
+      v.literal("RETRYING"), // tried, will try again at nextAttemptAt
+      v.literal("SENT"),
+      v.literal("FAILED"), // gave up; `commentEmails:requeueFailed` tries again
+      v.literal("SKIPPED"), // deliberately not sent, see skippedReason
+    ),
+    skippedReason: v.optional(
+      v.union(
+        v.literal("NOT_VISIBLE"),
+        v.literal("OPTED_OUT"),
+        v.literal("NO_EMAIL"),
+      ),
+    ),
+    attempts: v.number(),
+    // Goes up each time a failed email is queued again, so the retry isn't
+    // mistaken by the email service for a repeat of the failed request.
+    generation: v.number(),
+    lastError: v.optional(v.string()),
+    lastStatusCode: v.optional(v.number()),
+    lastAttemptAt: v.optional(v.number()),
+    nextAttemptAt: v.optional(v.number()),
+    emailId: v.optional(v.string()), // Resend's id for the sent email
+    sentAt: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index("by_token", ["token"])
+    .index("by_status", ["status"]),
 
   adminAuditLog: defineTable({
     actorId: v.id("users"),

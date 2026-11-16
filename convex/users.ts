@@ -163,7 +163,33 @@ export const getCurrentUserProfile = query({
       website: user.website ?? "",
       email: user.email,
       phoneNumber: user.phoneNumber ?? "",
+      // On unless they have turned it off.
+      commentEmails: user.commentEmails !== false,
     };
+  },
+});
+
+/** Turns the emails about new comments on the person's fundraisers on or off. */
+export const setCommentEmails = mutation({
+  args: { enabled: v.boolean() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+    if (!authUser) {
+      throw new ConvexError("You must be signed in to change this setting.");
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authUserId", (q) => q.eq("authUserId", authUser._id))
+      .unique();
+    if (!user) throw new ConvexError("Profile not found");
+
+    await ctx.db.patch(user._id, {
+      commentEmails: args.enabled,
+      updatedAt: Date.now(),
+    });
+    return null;
   },
 });
 

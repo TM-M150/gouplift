@@ -27,6 +27,7 @@ import {
   ChangePasswordValues,
 } from "@/lib/validations/auth";
 import { authClient } from "@/lib/auth-client";
+import { NotificationSettingsCard } from "@/components/web/profile/notification-settings-card";
 
 const accountDetailsSchema = profileSchema.pick({
   username: true,
@@ -40,6 +41,7 @@ export function SettingsTab() {
     <div className="space-y-6 p-1">
       <AccountDetailsCard />
       <ContactInfoCard />
+      <NotificationSettingsCard />
       <ChangePasswordCard />
     </div>
   );
