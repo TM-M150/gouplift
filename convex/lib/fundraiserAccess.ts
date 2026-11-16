@@ -1,4 +1,5 @@
 import type { Doc } from "../_generated/dataModel";
+import { COMMENT_STATUSES } from "../../lib/comments";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { getCurrentUserDoc } from "./staff";
 
@@ -16,6 +17,20 @@ export function isPubliclyVisible(fundraiser: Doc<"fundraisers">): boolean {
  */
 export function canEmailDonorsAbout(fundraiser: Doc<"fundraisers">): boolean {
   return isPubliclyVisible(fundraiser) && !fundraiser.isFlagged;
+}
+
+/**
+ * Whether donors may leave comments on this fundraiser right now: one people
+ * can open, not under review after a report, still in a state that takes
+ * comments, and with comments not switched off by its creator.
+ */
+export function canCommentOn(fundraiser: Doc<"fundraisers">): boolean {
+  return (
+    isPubliclyVisible(fundraiser) &&
+    !fundraiser.isFlagged &&
+    fundraiser.commentsEnabled !== false &&
+    COMMENT_STATUSES.has(fundraiser.status)
+  );
 }
 
 /**

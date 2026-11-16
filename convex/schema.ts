@@ -138,6 +138,8 @@ export default defineSchema({
     shareCount: v.optional(v.number()),
     commentsEnabled: v.optional(v.boolean()),
     updatesCount: v.optional(v.number()),
+    // How many of its comments are PUBLISHED.
+    commentsCount: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -247,6 +249,8 @@ export default defineSchema({
     .index("by_fundraiserId", ["fundraiserId"])
     .index("by_fundraiserId_and_status", ["fundraiserId", "status"])
     .index("by_donorUserId", ["donorUserId"])
+    // Whether a signed-in person has given to a fundraiser (who may comment).
+    .index("by_donorUserId_and_fundraiserId", ["donorUserId", "fundraiserId"])
     .index("by_status", ["status"])
     .index("by_checkoutRequestId", ["checkoutRequestId"])
     .index("by_payoutStatus", ["payoutStatus"])
@@ -551,6 +555,65 @@ export default defineSchema({
     "createdAt",
   ]),
 
+  // A comment a donor leaves on a fundraiser they gave to. Plain text. Only a
+  // signed-in person with a completed donation to that fundraiser can post one
+  // (checked when it is posted, not afterwards). PUBLISHED ones are shown;
+  // HIDDEN means the fundraiser's creator or staff took it down (hiddenBy says
+  // which; staff can put back any, the creator only their own); REMOVED means
+  // its author deleted it. The fundraiser's `commentsCount` counts the
+  // PUBLISHED ones. authorName is a snapshot taken when it was posted.
+  fundraiserComments: defineTable({
+    fundraiserId: v.id("fundraisers"),
+    authorUserId: v.id("users"),
+    // The completed donation that allowed the comment.
+    donationId: v.id("donations"),
+    authorName: v.string(), // first name and last initial, or "Anonymous donor"
+    body: v.string(),
+    status: v.union(
+      v.literal("PUBLISHED"),
+      v.literal("HIDDEN"),
+      v.literal("REMOVED"),
+    ),
+    editedAt: v.optional(v.number()),
+    // Set while HIDDEN. The reason is kept for staff and the audit log only.
+    hiddenBy: v.optional(v.union(v.literal("CREATOR"), v.literal("STAFF"))),
+    hiddenByUserId: v.optional(v.id("users")),
+    hiddenAt: v.optional(v.number()),
+    hiddenReason: v.optional(v.string()),
+    createdAt: v.number(),
+  }).index("by_fundraiserId_and_status_and_createdAt", [
+    "fundraiserId",
+    "status",
+    "createdAt",
+  ]),
+
+  // Someone telling staff a comment shouldn't be there. One per person per
+  // comment. OPEN ones are what staff work through; hiding the comment marks
+  // them ACTIONED, and dismissing them marks them DISMISSED.
+  fundraiserCommentReports: defineTable({
+    commentId: v.id("fundraiserComments"),
+    fundraiserId: v.id("fundraisers"),
+    reporterUserId: v.id("users"),
+    reason: v.union(
+      v.literal("SPAM"),
+      v.literal("ABUSIVE"),
+      v.literal("OFF_PLATFORM_PAYMENT"),
+      v.literal("PRIVATE_INFO"),
+      v.literal("OTHER"),
+    ),
+    status: v.union(
+      v.literal("OPEN"),
+      v.literal("ACTIONED"),
+      v.literal("DISMISSED"),
+    ),
+    resolvedBy: v.optional(v.id("users")),
+    resolvedAt: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index("by_commentId_and_reporterUserId", ["commentId", "reporterUserId"])
+    .index("by_commentId_and_status", ["commentId", "status"])
+    .index("by_status_and_createdAt", ["status", "createdAt"]),
+
   // One row per donor emailed about an update, the way donationReceipts is one
   // row per receipt. It keeps the donor's address (lower-case) so a donor who
   // gave twice is emailed once, and a random token for the unsubscribe link,
@@ -629,12 +692,16 @@ export default defineSchema({
       v.literal("DONATION_REFUNDED"),
       v.literal("FUNDRAISER_UPDATE_HIDDEN"),
       v.literal("FUNDRAISER_UPDATE_RESTORED"),
+      v.literal("FUNDRAISER_COMMENT_HIDDEN"),
+      v.literal("FUNDRAISER_COMMENT_RESTORED"),
+      v.literal("FUNDRAISER_COMMENT_REPORTS_DISMISSED"),
     ),
     organizationId: v.optional(v.id("organizations")),
     fundraiserId: v.optional(v.id("fundraisers")),
     donationId: v.optional(v.id("donations")),
     testimonialId: v.optional(v.id("testimonials")),
     fundraiserUpdateId: v.optional(v.id("fundraiserUpdates")),
+    fundraiserCommentId: v.optional(v.id("fundraiserComments")),
     payoutId: v.optional(v.id("payouts")),
     kycSubmissionId: v.optional(v.id("kycSubmissions")),
     payoutAccountId: v.optional(v.id("payoutAccounts")),
