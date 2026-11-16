@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { Suspense, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm, UseFormRegisterReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { FaApple, FaGoogle, FaMeta } from "react-icons/fa6";
@@ -25,6 +25,11 @@ import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { signUpSchema, SignUpValues } from "@/lib/validations/auth";
 import { authClient } from "@/lib/auth-client";
+import {
+  AFTER_SIGN_IN_DEFAULT,
+  safeNextPath,
+  signInHref,
+} from "@/lib/safe-redirect";
 
 // Local Input Helper
 interface BaseFieldProps {
@@ -110,10 +115,13 @@ function toProperCase(str: string): string {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
-export default function SignupForm() {
+function SignupForm() {
   const [serverError, setServerError] = useState<string | null>(null);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const router = useRouter();
+  // Where to go afterwards: the page that sent them here, if it was one of ours.
+  const requestedNext = useSearchParams().get("next");
+  const next = safeNextPath(requestedNext);
 
   const {
     register,
@@ -160,9 +168,12 @@ export default function SignupForm() {
       toast.error("Sign up failed", { description: errorMsg });
     } else {
       toast.success("Account created successfully!", {
-        description: "Redirecting you to the home page...",
+        description:
+          next === AFTER_SIGN_IN_DEFAULT
+            ? "Redirecting you to your profile..."
+            : "Taking you back...",
       });
-      router.push("/profile");
+      router.push(next);
     }
   };
 
@@ -294,7 +305,7 @@ export default function SignupForm() {
                       onClick={() =>
                         authClient.signIn.social({
                           provider: "google",
-                          callbackURL: "/profile",
+                          callbackURL: next,
                         })
                       }
                     >
@@ -304,7 +315,7 @@ export default function SignupForm() {
 
                   <FieldDescription className="text-center">
                     Already have an account?{" "}
-                    <Link href="/sign-in">Sign in</Link>
+                    <Link href={signInHref(requestedNext)}>Sign in</Link>
                   </FieldDescription>
                 </FieldGroup>
               </form>
@@ -328,5 +339,15 @@ export default function SignupForm() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function SignupPage() {
+  // useSearchParams needs a Suspense boundary so the page can still be built
+  // ahead of time.
+  return (
+    <Suspense>
+      <SignupForm />
+    </Suspense>
   );
 }

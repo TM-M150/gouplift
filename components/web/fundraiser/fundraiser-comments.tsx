@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   useConvexAuth,
   useMutation,
@@ -38,6 +39,7 @@ import {
   REPORT_REASONS,
   type ReportReason,
 } from "@/lib/comments";
+import { signInHref } from "@/lib/safe-redirect";
 
 export type CommentRow = FunctionReturnType<
   typeof api.fundraiserComments.list
@@ -267,12 +269,15 @@ function CommentItem({
   isOwner,
   isStaff,
   signedIn,
+  signInLink,
   actions,
 }: {
   comment: CommentRow;
   isOwner: boolean;
   isStaff: boolean;
   signedIn: boolean;
+  /** Where signing in leads back to this section. */
+  signInLink: string;
   actions: CommentActions;
 }) {
   const [editing, setEditing] = React.useState(false);
@@ -361,7 +366,7 @@ function CommentItem({
               </Button>
             ) : (
               <Link
-                href="/sign-in"
+                href={signInLink}
                 title="Sign in to report this comment"
                 className={buttonVariants({ size: "sm", variant: "ghost" })}
               >
@@ -498,12 +503,18 @@ function HiddenItem({
 }
 
 /** What stands in place of the comment box for someone who can't use it. */
-function WhyNotComment({ access }: { access: CommentAccess }) {
+function WhyNotComment({
+  access,
+  signInLink,
+}: {
+  access: CommentAccess;
+  signInLink: string;
+}) {
   if (access === "SIGNED_OUT") {
     return (
       <p className="text-sm text-muted-foreground">
         Donated to this fundraiser?{" "}
-        <Link href="/sign-in" className="underline underline-offset-2">
+        <Link href={signInLink} className="underline underline-offset-2">
           Sign in
         </Link>{" "}
         to leave a comment.
@@ -552,6 +563,10 @@ export function FundraiserCommentsView({
   isStaff,
   actions,
 }: FundraiserCommentsViewProps) {
+  // Signing in from here brings them back to this section.
+  const pathname = usePathname();
+  const signInLink = signInHref(`${pathname ?? ""}#comments`);
+
   // Wait for everything before showing anything, so the comment box doesn't
   // flash "sign in" at someone who is signed in.
   if (comments.status === "LoadingFirstPage" || access === undefined) {
@@ -599,7 +614,7 @@ export function FundraiserCommentsView({
           />
         </div>
       ) : (
-        <WhyNotComment access={access} />
+        <WhyNotComment access={access} signInLink={signInLink} />
       )}
 
       {comments.results.length === 0 && access === "CAN_COMMENT" && (
@@ -617,6 +632,7 @@ export function FundraiserCommentsView({
               isOwner={isOwner}
               isStaff={isStaff}
               signedIn={signedIn}
+              signInLink={signInLink}
               actions={actions}
             />
           ))}

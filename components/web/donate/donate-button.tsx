@@ -47,6 +47,7 @@ export function DonateButton({
   const [amount, setAmount] = React.useState<number | "">("");
   const [email, setEmail] = React.useState("");
   const [message, setMessage] = React.useState("");
+  const [isAnonymous, setIsAnonymous] = React.useState(false);
   const [shareAsTestimonial, setShareAsTestimonial] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -58,9 +59,11 @@ export function DonateButton({
   }
 
   // Only a signed-in donor can offer their message as a testimonial, and only
-  // when there is a message to offer. Unticked by default.
+  // when there is a message to offer and they are giving under their name.
+  // Unticked by default.
   const { data: session } = authClient.useSession();
-  const canShareMessage = Boolean(session) && message.trim().length > 0;
+  const canShareMessage =
+    Boolean(session) && message.trim().length > 0 && !isAnonymous;
   const shareRequested = canShareMessage && shareAsTestimonial;
 
   const presets =
@@ -92,7 +95,7 @@ export function DonateButton({
           donorEmail: email.trim(),
           message: message.trim() || undefined,
           shareAsTestimonial: shareRequested,
-          isAnonymous: false,
+          isAnonymous,
           origin: window.location.origin,
           source,
         });
@@ -104,7 +107,7 @@ export function DonateButton({
           donorEmail: email.trim(),
           message: message.trim() || undefined,
           shareAsTestimonial: shareRequested,
-          isAnonymous: false,
+          isAnonymous,
           origin: window.location.origin,
           source,
         });
@@ -131,7 +134,9 @@ export function DonateButton({
       >
         {disabled ? "Donations closed" : "Donate now"}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-sm">
+      {/* Taller than a short phone screen once the options are shown, so it
+          scrolls inside the screen instead of running off the top and bottom. */}
+      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-sm">
         <DialogHeader>
           <DialogTitle>Make a donation</DialogTitle>
           <DialogDescription>
@@ -214,6 +219,27 @@ export function DonateButton({
               }}
               maxLength={MAX_TESTIMONIAL_LENGTH}
             />
+          </div>
+
+          <div className="flex items-start gap-3 rounded-lg border p-3">
+            <Checkbox
+              id="donate-anonymous"
+              checked={isAnonymous}
+              onCheckedChange={(checked) => setIsAnonymous(checked === true)}
+              className="mt-0.5"
+            />
+            <div className="space-y-1">
+              <Label htmlFor="donate-anonymous" className="leading-snug">
+                Give anonymously
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Your name isn&apos;t shown with this gift. If all your gifts to
+                a fundraiser are anonymous, your comments on it show as
+                &ldquo;Anonymous donor&rdquo;, and organizations that are told
+                about donations aren&apos;t given your name or message. We still
+                keep your details for your receipt and for legal checks.
+              </p>
+            </div>
           </div>
 
           {canShareMessage && (
