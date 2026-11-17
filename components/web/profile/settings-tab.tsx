@@ -28,6 +28,7 @@ import {
 } from "@/lib/validations/auth";
 import { authClient } from "@/lib/auth-client";
 import { NotificationSettingsCard } from "@/components/web/profile/notification-settings-card";
+import { SignInMethodsCard } from "@/components/web/profile/sign-in-methods-card";
 
 const accountDetailsSchema = profileSchema.pick({
   username: true,
@@ -43,6 +44,7 @@ export function SettingsTab() {
       <ContactInfoCard />
       <NotificationSettingsCard />
       <ChangePasswordCard />
+      <SignInMethodsCard />
     </div>
   );
 }
