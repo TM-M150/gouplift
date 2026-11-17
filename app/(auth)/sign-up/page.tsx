@@ -302,10 +302,13 @@ function SignupForm() {
                     <Button
                       variant="outline"
                       type="button"
+                      aria-label="Continue with Google"
                       onClick={() =>
                         authClient.signIn.social({
                           provider: "google",
                           callbackURL: next,
+                          // Google errors are explained on the sign-in page.
+                          errorCallbackURL: signInHref(requestedNext),
                         })
                       }
                     >

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Suspense, useState } from "react";
+import React, { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -26,8 +26,10 @@ import { authClient } from "@/lib/auth-client";
 import {
   AFTER_SIGN_IN_DEFAULT,
   safeNextPath,
+  signInHref,
   signUpHref,
 } from "@/lib/safe-redirect";
+import { signInErrorNotice, type SignInNotice } from "@/lib/sign-in-errors";
 import { FaGoogle } from "react-icons/fa6";
 
 // Local Input Helper
@@ -114,9 +116,24 @@ function FormPasswordField({
 function SignInForm() {
   const [serverError, setServerError] = useState<string | null>(null);
   const router = useRouter();
+  const searchParams = useSearchParams();
   // Where to go afterwards: the page that sent them here, if it was one of ours.
-  const requestedNext = useSearchParams().get("next");
+  const requestedNext = searchParams.get("next");
   const next = safeNextPath(requestedNext);
+
+  // Google sends people back here with `?error=...` when it couldn't sign them
+  // in. We keep the notice (our own words, from the code) and tidy the address,
+  // so a refresh doesn't show it again.
+  const [notice, setNotice] = useState<SignInNotice | null>(() =>
+    signInErrorNotice(searchParams.get("error")),
+  );
+  const hasErrorInAddress =
+    searchParams.has("error") || searchParams.has("error_description");
+  useEffect(() => {
+    if (hasErrorInAddress) {
+      router.replace(signInHref(requestedNext), { scroll: false });
+    }
+  }, [hasErrorInAddress, requestedNext, router]);
 
   const {
     register,
@@ -132,6 +149,7 @@ function SignInForm() {
 
   const onSubmit = async (data: SignInValues) => {
     setServerError(null);
+    setNotice(null);
 
     const input = data.identifier.trim();
     // Check if input looks like an email or a phone number
@@ -185,6 +203,29 @@ function SignInForm() {
                         </span>
                       </FieldDescription>
                     </div>
+
+                    {notice && (
+                      <div
+                        role={notice.tone === "error" ? "alert" : "status"}
+                        data-tone={notice.tone}
+                        className={
+                          notice.tone === "error"
+                            ? "rounded-md bg-destructive/15 p-3 text-sm text-destructive"
+                            : "rounded-md bg-muted p-3 text-sm text-foreground"
+                        }
+                      >
+                        <p className="font-medium">{notice.title}</p>
+                        <p
+                          className={
+                            notice.tone === "error"
+                              ? "mt-1 text-xs"
+                              : "mt-1 text-xs text-muted-foreground"
+                          }
+                        >
+                          {notice.message}
+                        </p>
+                      </div>
+                    )}
 
                     {serverError && (
                       <div className="rounded-md bg-destructive/15 p-3 text-center text-xs font-medium text-destructive">
@@ -243,12 +284,18 @@ function SignInForm() {
                   <Button
                     variant="outline"
                     type="button"
-                    onClick={() =>
-                      authClient.signIn.social({
+                    aria-label="Continue with Google"
+                    onClick={() => {
+                      setNotice(null);
+                      // If Google can't sign them in, they come back to this
+                      // page (still heading where they were going) and are
+                      // told why.
+                      void authClient.signIn.social({
                         provider: "google",
                         callbackURL: next,
-                      })
-                    }
+                        errorCallbackURL: signInHref(requestedNext),
+                      });
+                    }}
                   >
                     <FaGoogle className="size-5 text-[#EA4335]" />
                   </Button>

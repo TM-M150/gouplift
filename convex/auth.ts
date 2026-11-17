@@ -181,6 +181,13 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
 
     database: authComponent.adapter(ctx),
 
+    // Where better-auth sends people when sign-in fails somewhere it can't
+    // return them to the page they started from (a Google sign-in opened in a
+    // different browser, say). The sign-in page explains it from the code.
+    onAPIError: {
+      errorURL: `${siteUrl}/sign-in`,
+    },
+
     emailAndPassword: {
       enabled: true,
       requireEmailVerification: false,
