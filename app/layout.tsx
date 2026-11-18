@@ -12,6 +12,7 @@ import {
 } from "@/lib/site";
 import { ConvexClientProvider } from "@/components/providers/convex-provider";
 import { Toaster } from "@/components/ui/sonner";
+import { AuthNoticeToast } from "@/components/web/auth-notice-toast";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
@@ -68,6 +69,7 @@ export default function RootLayout({
         <ConvexClientProvider>
           <TooltipProvider>{children}</TooltipProvider>
           <Toaster position="bottom-right" richColors />
+          <AuthNoticeToast />
           <Analytics />
           <SpeedInsights />
         </ConvexClientProvider>

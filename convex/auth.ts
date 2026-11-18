@@ -10,6 +10,7 @@ import { betterAuth } from "better-auth/minimal";
 import { DataModel } from "./_generated/dataModel";
 import authConfig from "./auth.config";
 import { EMAIL_FROM } from "./lib/email";
+import { googleLinkingOptions } from "./lib/googleAutoLink";
 
 const siteUrl = process.env.SITE_URL || "http://localhost:3000";
 
@@ -203,12 +204,8 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
       },
     },
 
-    account: {
-      accountLinking: {
-        enabled: true,
-        trustedProviders: ["google"],
-      },
-    },
+    // Google sign-in joining an account made with a password (see the file).
+    ...googleLinkingOptions,
 
     advanced: {
       useSecureCookies: true,

@@ -62,6 +62,18 @@ export function signInErrorNotice(
           "It may have expired, or been opened in a different browser or app from the one you started in. Please try again from this page.",
       };
 
+    // Google was asked to join an existing account and we stopped it: Google
+    // hadn't confirmed the email address, or something failed along the way.
+    // If it failed part-way the old password may already be gone, so the
+    // message doesn't promise it still works.
+    case "unable_to_link_account":
+      return {
+        tone: "error",
+        title: "We couldn't connect Google to your account",
+        message:
+          "Try signing in with your email and password below. If that doesn't work, choose “Forgot password?” to set a new one, then try Google again.",
+      };
+
     case "email_not_found":
       return {
         tone: "error",
