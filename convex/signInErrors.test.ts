@@ -62,6 +62,25 @@ describe("a sign-in that was started in one place and finished in another", () =
   });
 });
 
+describe("Google being stopped from joining an existing account", () => {
+  const notice = signInErrorNotice("unable_to_link_account");
+
+  it("says what happened, as a problem", () => {
+    expect(notice?.tone).toBe("error");
+    expect(notice?.title).toBe("We couldn't connect Google to your account");
+  });
+
+  it("offers the password, and a way back if the password is gone", () => {
+    expect(notice?.message).toMatch(/email and password/);
+    expect(notice?.message).toMatch(/Forgot password/);
+  });
+
+  it("does not promise that nothing changed", () => {
+    // If it failed part-way, the old password may already have been removed.
+    expect(notice?.message).not.toMatch(/nothing was changed/i);
+  });
+});
+
 describe("Google not giving an email address", () => {
   it("says why that matters and offers another way in", () => {
     const notice = signInErrorNotice("email_not_found");
@@ -110,6 +129,7 @@ describe("every notice", () => {
     "account_not_linked",
     "access_denied",
     "state_mismatch",
+    "unable_to_link_account",
     "email_not_found",
     "anything_else",
   ];
@@ -119,7 +139,7 @@ describe("every notice", () => {
       const notice = signInErrorNotice(code);
       expect(notice?.title.length, code).toBeGreaterThan(0);
       expect(notice?.message.length, code).toBeGreaterThan(0);
-      expect(notice?.message, code).toMatch(/sign in|try again|Sign-in/i);
+      expect(notice?.message, code).toMatch(/sign(ing)? in|try again|Sign-in/i);
     }
   });
 
