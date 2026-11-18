@@ -35,6 +35,7 @@ import type * as lib_email from "../lib/email.js";
 import type * as lib_fundraiserAccess from "../lib/fundraiserAccess.js";
 import type * as lib_fundraiserTotals from "../lib/fundraiserTotals.js";
 import type * as lib_fx from "../lib/fx.js";
+import type * as lib_googleAutoLink from "../lib/googleAutoLink.js";
 import type * as lib_kycTier from "../lib/kycTier.js";
 import type * as lib_kycValidators from "../lib/kycValidators.js";
 import type * as lib_mlro from "../lib/mlro.js";
@@ -120,6 +121,7 @@ declare const fullApi: ApiFromModules<{
   "lib/fundraiserAccess": typeof lib_fundraiserAccess;
   "lib/fundraiserTotals": typeof lib_fundraiserTotals;
   "lib/fx": typeof lib_fx;
+  "lib/googleAutoLink": typeof lib_googleAutoLink;
   "lib/kycTier": typeof lib_kycTier;
   "lib/kycValidators": typeof lib_kycValidators;
   "lib/mlro": typeof lib_mlro;
