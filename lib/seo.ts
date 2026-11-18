@@ -42,6 +42,8 @@ export const PRIVATE_PATHS = [
   "/sign-up",
   "/forgot-password",
   "/reset-password",
+  // The page the link in the confirmation email lands on.
+  "/email-confirmed",
   "/profile",
   "/payouts",
   "/verification",

@@ -25,6 +25,7 @@ import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { signUpSchema, SignUpValues } from "@/lib/validations/auth";
 import { authClient } from "@/lib/auth-client";
+import { confirmationCallbackURL } from "@/lib/email-confirmation";
 import {
   AFTER_SIGN_IN_DEFAULT,
   safeNextPath,
@@ -160,6 +161,8 @@ function SignupForm() {
       password: data.password,
       name: fullName,
       phoneNumber: data.phoneNumber,
+      // Where the link in the confirmation email lands.
+      callbackURL: confirmationCallbackURL(requestedNext),
     } as any);
 
     if (error) {
@@ -168,10 +171,11 @@ function SignupForm() {
       toast.error("Sign up failed", { description: errorMsg });
     } else {
       toast.success("Account created successfully!", {
-        description:
+        description: `We sent a confirmation link to ${data.email}. ${
           next === AFTER_SIGN_IN_DEFAULT
             ? "Redirecting you to your profile..."
-            : "Taking you back...",
+            : "Taking you back..."
+        }`,
       });
       router.push(next);
     }

@@ -128,6 +128,7 @@ describe("robots rules", () => {
       "/sign-up",
       "/forgot-password",
       "/reset-password",
+      "/email-confirmed",
       "/profile",
       "/payouts",
       "/verification",

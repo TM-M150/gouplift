@@ -101,3 +101,21 @@ export async function consumeRateLimit(
   await ctx.db.patch(existing._id, { count: existing.count + 1 });
   return { allowed: true };
 }
+
+/**
+ * `consumeRateLimit` for callers that are not inside a mutation, such as the
+ * sign-in code, which runs in an HTTP action and can only call a mutation.
+ */
+export const consume = internalMutation({
+  args: { key: v.string(), max: v.number(), windowMs: v.number() },
+  returns: v.union(
+    v.object({ allowed: v.literal(true) }),
+    v.object({ allowed: v.literal(false), retryAfterMs: v.number() }),
+  ),
+  handler: async (ctx, args) => {
+    return await consumeRateLimit(ctx, args.key, {
+      max: args.max,
+      windowMs: args.windowMs,
+    });
+  },
+});

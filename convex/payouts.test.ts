@@ -23,13 +23,22 @@ import {
 
 // The real auth component needs a running Better Auth deployment. These tests
 // only need `safeGetAuthUser`, so it reads the identity convex-test attaches.
+// Everyone has a confirmed email unless a test lists them in `unconfirmed`.
+const unconfirmed = vi.hoisted(() => new Set<string>());
+// People whose account says nothing about it either way.
+const unanswered = vi.hoisted(() => new Set<string>());
 vi.mock("./auth", () => ({
   authComponent: {
     safeGetAuthUser: async (ctx: {
       auth: { getUserIdentity: () => Promise<{ subject: string } | null> };
     }) => {
       const identity = await ctx.auth.getUserIdentity();
-      return identity ? { _id: identity.subject } : null;
+      if (!identity) return null;
+      if (unanswered.has(identity.subject)) return { _id: identity.subject };
+      return {
+        _id: identity.subject,
+        emailVerified: !unconfirmed.has(identity.subject),
+      };
     },
   },
 }));
@@ -37,6 +46,8 @@ vi.mock("./auth", () => ({
 const modules = import.meta.glob("./**/*.ts");
 
 beforeEach(() => {
+  unconfirmed.clear();
+  unanswered.clear();
   vi.useFakeTimers();
   vi.setSystemTime(new Date("2026-11-04T00:00:00Z"));
 });
@@ -145,6 +156,53 @@ describe("requestPayout", () => {
       );
     }
     expect((await balanceOf(w.t, w.ids.fundraiser))?.reserved).toBe(0);
+  });
+
+  describe("when the email address hasn't been confirmed", () => {
+    it("waits for the owner to confirm it, then goes through", async () => {
+      const w = await setup(10_000);
+      unconfirmed.add("auth_owner");
+
+      await expect(request(w, 1000)).rejects.toThrow(
+        /confirm your email address first/,
+      );
+      // Nothing was set aside or recorded.
+      expect((await balanceOf(w.t, w.ids.fundraiser))?.reserved).toBe(0);
+      expect(await w.t.run((ctx) => ctx.db.query("payouts").collect())).toEqual(
+        [],
+      );
+
+      unconfirmed.delete("auth_owner");
+      await expect(request(w, 1000)).resolves.toBeDefined();
+    });
+
+    it("counts an account that doesn't say as not confirmed", async () => {
+      // Better to ask someone to confirm again than to let money move.
+      const w = await setup(10_000);
+      unanswered.add("auth_owner");
+
+      await expect(request(w, 1000)).rejects.toThrow(
+        /confirm your email address first/,
+      );
+    });
+
+    it("is the person asking who needs it, not somebody else", async () => {
+      const w = await setup(10_000);
+      unconfirmed.add("auth_stranger");
+
+      await expect(request(w, 1000)).resolves.toBeDefined();
+    });
+
+    it("is also asked of someone withdrawing for an organization", async () => {
+      const w = await setup(10_000);
+      unconfirmed.add("auth_owner");
+      const org = await addOrganizationFundraiser(w.t, w.ids);
+      await fund(w.t, org.fundraiserId, 5000);
+
+      await expect(request(w, 1000, org.fundraiserId)).rejects.toThrow(
+        /confirm your email address first/,
+      );
+    });
   });
 
   it("refuses amounts that aren't a whole payout", async () => {
@@ -442,6 +500,18 @@ describe("cancelPayoutRequest", () => {
     expect((await figures(w.t, w.ids.fundraiser)).reserved).toBe(0);
     expect((await overview(w))?.available).toBe(10_000);
     await expect(request(w, 10_000)).resolves.toBeDefined();
+  });
+
+  it("still works when the email address isn't confirmed", async () => {
+    // A request made before confirmation was asked for can always be taken back.
+    const w = await setup(10_000);
+    const payoutId = await request(w, 4000);
+    unconfirmed.add("auth_owner");
+
+    await w.asOwner.mutation(api.payouts.cancelPayoutRequest, { payoutId });
+
+    expect(await payoutRow(w.t, payoutId)).toMatchObject({ status: "CANCELLED" });
+    expect((await figures(w.t, w.ids.fundraiser)).reserved).toBe(0);
   });
 
   it("can't take back what staff have approved, or cancel twice", async () => {
