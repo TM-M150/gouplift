@@ -18,8 +18,9 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { authClient } from "@/lib/auth-client";
-import { MAX_TESTIMONIAL_LENGTH } from "@/lib/testimonials";
+
+// The longest message the box takes.
+const MAX_MESSAGE_LENGTH = 300;
 
 const AMOUNT_PRESETS_KES = [500, 1000, 2500, 5000];
 const AMOUNT_PRESETS_USD = [5, 10, 25, 50];
@@ -48,7 +49,6 @@ export function DonateButton({
   const [email, setEmail] = React.useState("");
   const [message, setMessage] = React.useState("");
   const [isAnonymous, setIsAnonymous] = React.useState(false);
-  const [shareAsTestimonial, setShareAsTestimonial] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -57,14 +57,6 @@ export function DonateButton({
     setAmount("");
     setError(null);
   }
-
-  // Only a signed-in donor can offer their message as a testimonial, and only
-  // when there is a message to offer and they are giving under their name.
-  // Unticked by default.
-  const { data: session } = authClient.useSession();
-  const canShareMessage =
-    Boolean(session) && message.trim().length > 0 && !isAnonymous;
-  const shareRequested = canShareMessage && shareAsTestimonial;
 
   const presets =
     provider === "SASAPAY" ? AMOUNT_PRESETS_KES : AMOUNT_PRESETS_USD;
@@ -94,7 +86,6 @@ export function DonateButton({
           grossAmount,
           donorEmail: email.trim(),
           message: message.trim() || undefined,
-          shareAsTestimonial: shareRequested,
           isAnonymous,
           origin: window.location.origin,
           source,
@@ -106,7 +97,6 @@ export function DonateButton({
           amountUsd: grossAmount,
           donorEmail: email.trim(),
           message: message.trim() || undefined,
-          shareAsTestimonial: shareRequested,
           isAnonymous,
           origin: window.location.origin,
           source,
@@ -212,12 +202,8 @@ export function DonateButton({
               id="donate-message"
               placeholder="Leave a message of support…"
               value={message}
-              onChange={(event) => {
-                setMessage(event.target.value);
-                // Clearing the message withdraws the offer to share it.
-                if (!event.target.value.trim()) setShareAsTestimonial(false);
-              }}
-              maxLength={MAX_TESTIMONIAL_LENGTH}
+              onChange={(event) => setMessage(event.target.value)}
+              maxLength={MAX_MESSAGE_LENGTH}
             />
           </div>
 
@@ -241,33 +227,6 @@ export function DonateButton({
               </p>
             </div>
           </div>
-
-          {canShareMessage && (
-            <div className="flex items-start gap-3 rounded-lg border p-3">
-              <Checkbox
-                id="donate-share-message"
-                checked={shareAsTestimonial}
-                onCheckedChange={(checked) =>
-                  setShareAsTestimonial(checked === true)
-                }
-                className="mt-0.5"
-              />
-              <div className="space-y-1">
-                <Label
-                  htmlFor="donate-share-message"
-                  className="leading-snug"
-                >
-                  Share my message as a testimonial
-                </Label>
-                <p className="text-xs text-muted-foreground">
-                  Only people with approved identity verification can be
-                  featured, and our team reviews every message first. You can
-                  withdraw it any time from your profile. Your message stays
-                  private otherwise.
-                </p>
-              </div>
-            </div>
-          )}
 
           {error && (
             <p role="alert" className="text-sm text-destructive">
