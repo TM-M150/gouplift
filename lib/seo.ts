@@ -59,6 +59,8 @@ export const PRIVATE_PATHS = [
   "/users/",
   // The link in an update email: its address holds a secret.
   "/unsubscribe/",
+  // The link in a receipt that lets a guest comment: its address holds a secret.
+  "/comment/",
 ] as const;
 
 /** Google reads at most 50,000 URLs from one sitemap. */

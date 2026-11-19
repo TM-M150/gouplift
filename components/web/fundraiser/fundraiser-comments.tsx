@@ -264,7 +264,7 @@ function ReportDialog({
   );
 }
 
-function CommentItem({
+export function CommentItem({
   comment,
   isOwner,
   isStaff,
@@ -517,7 +517,7 @@ function WhyNotComment({
         <Link href={signInLink} className="underline underline-offset-2">
           Sign in
         </Link>{" "}
-        to leave a comment.
+        to leave a comment. {"If you gave without an account, use the “Leave a comment” link in your receipt email."}
       </p>
     );
   }

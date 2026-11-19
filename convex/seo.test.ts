@@ -139,6 +139,7 @@ describe("robots rules", () => {
       "/organizations/kajiado-youth-trust/developers",
       "/users/abc",
       "/unsubscribe/Zm9vYmFy",
+      "/comment/Zm9vYmFyYmF6cXV4",
     ]) {
       // "/admin" has no trailing slash: it is the admin home itself.
       expect(

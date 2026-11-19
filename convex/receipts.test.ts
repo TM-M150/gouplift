@@ -141,6 +141,58 @@ const sentEmails = () =>
     },
   }));
 
+describe("the link to leave a comment, in the sent receipt", () => {
+  const linkIn = (email: { text: string; html: string }) =>
+    email.text.match(/\/comment\/([A-Za-z0-9_-]+)/)?.[1];
+
+  it("goes to a donor who gave without an account, and is the one stored", async () => {
+    const s = await setup();
+    const donationId = await paidDonation(s);
+
+    await queue(s, donationId);
+    await settle(s.t);
+
+    const [email] = sentEmails();
+    const row = await receiptFor(s.t, donationId);
+    expect(row?.commentToken).toBeTypeOf("string");
+    expect(linkIn(email.body)).toBe(row?.commentToken);
+    expect(email.body.html).toContain(`/comment/${row?.commentToken}`);
+  });
+
+  it("is not in a signed-in donor's receipt", async () => {
+    const s = await setup();
+    const donationId = await paidDonation(s, { donorUserId: s.ids.owner });
+
+    await queue(s, donationId);
+    await settle(s.t);
+
+    const [email] = sentEmails();
+    expect(email.body.text).not.toContain("/comment/");
+    expect(email.body.html).not.toContain("/comment/");
+  });
+
+  it("is the same link when a failed receipt is sent again, and never in the idempotency key", async () => {
+    const s = await setup();
+    const donationId = await paidDonation(s);
+    fetchMock.mockImplementation(async () => reply(400, "bad request"));
+
+    await queue(s, donationId);
+    await settle(s.t);
+    const failed = await receiptFor(s.t, donationId);
+    expect(failed?.status).toBe("FAILED");
+    const token = failed?.commentToken;
+
+    fetchMock.mockReset();
+    fetchMock.mockImplementation(async () => ok());
+    await s.t.mutation(internal.receipts.requeueFailed, {});
+    await settle(s.t);
+
+    const [email] = sentEmails();
+    expect(linkIn(email.body)).toBe(token);
+    expect(email.headers["Idempotency-Key"]).not.toContain(token as string);
+  });
+});
+
 describe("queueing a receipt", () => {
   it("creates one receipt for the donation and sends it", async () => {
     const s = await setup();

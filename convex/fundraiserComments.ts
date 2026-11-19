@@ -30,10 +30,12 @@ import { consumeRateLimit } from "./lib/rateLimit";
 import { getCurrentUserDoc, getStaffUser, requireStaff } from "./lib/staff";
 
 // Comments: a person who has donated to a fundraiser can say something on its
-// page. Anyone who may see the fundraiser may read them. Their author may edit
-// or remove one; the fundraiser's creator and staff may hide one (staff can put
-// any back, the creator only the ones they hid); anyone signed in may report
-// one, and staff work through the reports.
+// page. (Someone who gave without an account does it through the private link
+// in their receipt: see guestComments.ts.) Anyone who may see the fundraiser
+// may read them. Their author may edit or remove one; the fundraiser's creator
+// and staff may hide one (staff can put any back, the creator only the ones
+// they hid); anyone signed in may report one, and staff work through the
+// reports.
 
 const PAGE_LIMIT = 50;
 const HIDDEN_LIMIT = 30;
@@ -86,7 +88,7 @@ async function requireUser(ctx: QueryCtx | MutationCtx) {
 }
 
 /** Keeps the fundraiser's count of published comments in step. */
-async function changeCommentsCount(
+export async function changeCommentsCount(
   ctx: MutationCtx,
   fundraiserId: Id<"fundraisers">,
   change: 1 | -1,
@@ -536,6 +538,8 @@ export const listReported = query({
       fundraiserId: v.id("fundraisers"),
       fundraiserTitle: v.string(),
       authorName: v.string(),
+      // A guest has no account, so staff can't look the person up.
+      isGuest: v.boolean(),
       body: v.string(),
       createdAt: v.number(),
       reportCount: v.number(),
@@ -590,6 +594,7 @@ export const listReported = query({
         fundraiserId: comment.fundraiserId,
         fundraiserTitle: fundraiser?.title ?? "Deleted fundraiser",
         authorName: comment.authorName,
+        isGuest: comment.authorUserId === undefined,
         body: comment.body,
         createdAt: comment.createdAt,
         reportCount: reasons.reduce((sum, item) => sum + item.count, 0),

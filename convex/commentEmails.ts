@@ -102,10 +102,11 @@ export function wantsCommentEmails(user: Doc<"users">): boolean {
 export async function noteNewComment(
   ctx: MutationCtx,
   fundraiser: Doc<"fundraisers">,
-  authorUserId: Id<"users">,
+  // Null for a guest, who has no account and so can't be the organizer.
+  authorUserId: Id<"users"> | null,
   createdAt: number,
 ): Promise<void> {
-  if (authorUserId === fundraiser.creatorId) return;
+  if (authorUserId !== null && authorUserId === fundraiser.creatorId) return;
 
   const now = Date.now();
   const state = await ctx.db

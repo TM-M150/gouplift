@@ -31,6 +31,9 @@ function ReportedComment({ row }: { row: Row }) {
 
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
         <span className="font-medium text-foreground">{row.authorName}</span>
+        {row.isGuest && (
+          <Badge variant="outline">Guest (no account)</Badge>
+        )}
         <span>
           on{" "}
           <Link
