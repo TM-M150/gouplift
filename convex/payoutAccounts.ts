@@ -12,6 +12,7 @@ import { payoutAccountDetailsSchema } from "../lib/validations/payout-account";
 import { logAction } from "./lib/adminAudit";
 import { claimRegisteredFile } from "./lib/documentFiles";
 import { getApprovedKycSubmissions, highestKycTier } from "./lib/kycTier";
+import { requireConfirmedEmail } from "./lib/emailConfirmed";
 import { getOwnerAccess, NOT_ORGANIZATION_OWNER } from "./lib/orgAccess";
 import {
   getFundraiserPayoutSelection,
@@ -225,6 +226,7 @@ export const addPayoutAccount = mutation({
   },
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
+    await requireConfirmedEmail(ctx);
 
     if (args.organizationId) {
       const access = await getOwnerAccess(ctx, args.organizationId);
@@ -373,6 +375,7 @@ export const setFundraiserPayoutAccount = mutation({
   },
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
+    await requireConfirmedEmail(ctx);
 
     const fundraiser = await ctx.db.get(args.fundraiserId);
     const mayChoose = fundraiser

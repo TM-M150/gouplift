@@ -13,13 +13,22 @@ import { insertRiskProfile } from "./risk.fixtures";
 
 // The real auth component needs a running Better Auth deployment. These tests
 // only need `safeGetAuthUser`, so it reads the identity convex-test attaches.
+// Everyone has a confirmed email unless a test lists them in `unconfirmed`.
+const unconfirmed = vi.hoisted(() => new Set<string>());
+// People whose account says nothing about it either way.
+const unanswered = vi.hoisted(() => new Set<string>());
 vi.mock("./auth", () => ({
   authComponent: {
     safeGetAuthUser: async (ctx: {
       auth: { getUserIdentity: () => Promise<{ subject: string } | null> };
     }) => {
       const identity = await ctx.auth.getUserIdentity();
-      return identity ? { _id: identity.subject } : null;
+      if (!identity) return null;
+      if (unanswered.has(identity.subject)) return { _id: identity.subject };
+      return {
+        _id: identity.subject,
+        emailVerified: !unconfirmed.has(identity.subject),
+      };
     },
   },
 }));
@@ -38,6 +47,8 @@ const ALL_CHECKS = [
 const OWN_CHECKS = ["ACCOUNT_NAME_MATCHES", "PROOF_GENUINE"] as const;
 
 beforeEach(() => {
+  unconfirmed.clear();
+  unanswered.clear();
   vi.useFakeTimers();
   vi.setSystemTime(new Date("2026-11-04T00:00:00Z"));
 });
@@ -307,6 +318,35 @@ describe("addPayoutAccount: who may add what", () => {
     await expect(
       s.asBob.mutation(api.payoutAccounts.addPayoutAccount, { ...MPESA }),
     ).rejects.toThrow(/Verify your identity/);
+    expect(await accounts(s.t)).toHaveLength(0);
+  });
+
+  it("needs a confirmed email address, and works once it is", async () => {
+    const s = await setup();
+    unconfirmed.add("auth_alice");
+
+    await expect(addVerifiedPhone(s.asAlice)).rejects.toThrow(
+      /confirm your email address first/,
+    );
+    expect(await accounts(s.t)).toHaveLength(0);
+
+    unconfirmed.delete("auth_alice");
+    const result = await addVerifiedPhone(s.asAlice);
+    expect(result.status).toBe("VERIFIED");
+  });
+
+  it("asks for the email before anything else, an organization's included", async () => {
+    const s = await setup();
+    unconfirmed.add("auth_carol");
+    const proof = await proofFor(s.t, s.ids.carol);
+
+    await expect(
+      s.asCarol.mutation(api.payoutAccounts.addPayoutAccount, {
+        ...MPESA,
+        organizationId: s.ids.org,
+        proof,
+      }),
+    ).rejects.toThrow(/confirm your email address first/);
     expect(await accounts(s.t)).toHaveLength(0);
   });
 
@@ -682,6 +722,19 @@ describe("closePayoutAccount", () => {
     ).rejects.toThrow(/can't be removed/);
   });
 
+  it("still works when the email address isn't confirmed", async () => {
+    // Closing an account only ever reduces where money can go.
+    const s = await setup();
+    const payoutAccountId = await aliceWithVerifiedAccount(s);
+    unconfirmed.add("auth_alice");
+
+    await s.asAlice.mutation(api.payoutAccounts.closePayoutAccount, {
+      payoutAccountId,
+    });
+
+    expect(await accounts(s.t)).toMatchObject([{ status: "CLOSED" }]);
+  });
+
   it("is for the owner only", async () => {
     const s = await setup();
     const payoutAccountId = await aliceWithVerifiedAccount(s);
@@ -750,6 +803,27 @@ describe("setFundraiserPayoutAccount", () => {
     expect(selection.changedAt).toBeUndefined();
     expect(await auditEntries(s.t)).toHaveLength(1); // only the automatic verification
     expect(await eligible(s.t, s.ids.aliceFundraiser)).toBe("allowed");
+  });
+
+  it("needs a confirmed email address, and changes nothing without one", async () => {
+    const s = await setup();
+    const payoutAccountId = await aliceWithVerifiedAccount(s);
+    unconfirmed.add("auth_alice");
+
+    await expect(
+      s.asAlice.mutation(api.payoutAccounts.setFundraiserPayoutAccount, {
+        fundraiserId: s.ids.aliceFundraiser,
+        payoutAccountId,
+      }),
+    ).rejects.toThrow(/confirm your email address first/);
+    expect(await selections(s.t)).toHaveLength(0);
+
+    unconfirmed.delete("auth_alice");
+    await s.asAlice.mutation(api.payoutAccounts.setFundraiserPayoutAccount, {
+      fundraiserId: s.ids.aliceFundraiser,
+      payoutAccountId,
+    });
+    expect(await selections(s.t)).toHaveLength(1);
   });
 
   it("lets an account that is still waiting for review be chosen, but not paid to", async () => {

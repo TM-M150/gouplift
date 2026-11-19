@@ -9,7 +9,8 @@ import { components, internal } from "./_generated/api";
 import { betterAuth } from "better-auth/minimal";
 import { DataModel } from "./_generated/dataModel";
 import authConfig from "./auth.config";
-import { EMAIL_FROM } from "./lib/email";
+import { EMAIL_FROM, sendEmail } from "./lib/email";
+import { emailConfirmationOptions } from "./lib/emailConfirmation";
 import { googleLinkingOptions } from "./lib/googleAutoLink";
 
 const siteUrl = process.env.SITE_URL || "http://localhost:3000";
@@ -191,11 +192,34 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
 
     emailAndPassword: {
       enabled: true,
+      // Not required to sign in: people get in straight away and confirm later.
+      // Only withdrawals wait for a confirmed address (see emailConfirmed.ts).
+      // It couldn't be a real lock anyway: signing in with a phone number and
+      // password doesn't pass through this check.
       requireEmailVerification: false,
       sendResetPassword: async ({ user, url }) => {
         await sendPasswordResetEmail(user.email, url, user.name);
       },
+      // Whoever resets a password is signed out everywhere else. If someone
+      // else had got into the account, a reset now puts them out.
+      revokeSessionsOnPasswordReset: true,
     },
+
+    // The "confirm your email" message sent at sign-up and again from the
+    // banner. See emailConfirmation.ts for the settings and for what happens
+    // when sending fails.
+    ...emailConfirmationOptions({
+      consume: async (key, limit) => {
+        // Only queries lack runMutation, and nothing here runs in a query.
+        // If it ever did, nothing is sent rather than sending without a limit.
+        if (!("runMutation" in ctx)) return { allowed: false, retryAfterMs: 0 };
+        return await ctx.runMutation(internal.lib.rateLimit.consume, {
+          key,
+          ...limit,
+        });
+      },
+      send: sendEmail,
+    }),
 
     socialProviders: {
       google: {

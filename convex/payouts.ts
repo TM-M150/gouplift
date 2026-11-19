@@ -29,6 +29,7 @@ import {
   MIN_REJECTION_REASON_LENGTH,
 } from "./lib/adminAudit";
 import { getApprovedKycSubmissions, getKycTier } from "./lib/kycTier";
+import { requireConfirmedEmail } from "./lib/emailConfirmed";
 import { getOwnerAccess } from "./lib/orgAccess";
 import {
   getBalance,
@@ -196,6 +197,7 @@ export const requestPayout = mutation({
   returns: v.id("payouts"),
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
+    await requireConfirmedEmail(ctx);
     const fundraiser = await ctx.db.get(args.fundraiserId);
     if (!fundraiser || !(await maySpendFundraiser(ctx, user, fundraiser))) {
       throw new ConvexError("You can't withdraw from this fundraiser.");

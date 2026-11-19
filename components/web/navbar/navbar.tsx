@@ -23,7 +23,7 @@ import { MobileNavigationSection } from "./mobile-navigation-section";
 import { ActionButtons } from "./action-buttons";
 import { fundraise, donate, about } from "./navigation-data";
 
-export function Navbar() {
+export function Navbar({ children }: { children?: React.ReactNode }) {
   const [menuState, setMenuState] = React.useState(false);
 
   useEffect(() => {
@@ -161,6 +161,8 @@ export function Navbar() {
             </div>
           </div>
         </div>
+        {/* Anything that belongs directly under the bar, and moves with it. */}
+        {children}
       </nav>
     </header>
   );
