@@ -16,6 +16,7 @@ import {
   isPlausibleEmail,
   type ReceiptData,
 } from "./lib/receiptEmail";
+import { newToken } from "./lib/randomToken";
 import { SITE_URL } from "../lib/site";
 
 // The receipt email for a completed donation.
@@ -79,6 +80,9 @@ export const queueReceipt = internalMutation({
       status: "PENDING",
       attempts: 0,
       generation: 0,
+      // Someone who gave without an account has no other way to comment, so
+      // their receipt carries a private link for it.
+      commentToken: donation.donorUserId ? undefined : newToken(),
       createdAt: now,
     });
     await ctx.scheduler.runAfter(0, internal.receipts.send, { receiptId });
@@ -143,6 +147,7 @@ export const getReceiptJob = internalQuery({
           donation.providerTransactionCode ?? donation.paypalCaptureId ?? null,
         isMonthly: donation.isSubscriptionPayment === true,
         completedAt: donation.completedAt ?? donation.createdAt,
+        commentToken: receipt.commentToken ?? null,
       },
     };
   },

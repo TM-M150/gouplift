@@ -126,7 +126,8 @@ type Client = S["donor"];
 function donate(
   s: S,
   fundraiserId: Id<"fundraisers">,
-  donorUserId: Id<"users">,
+  // Missing for a guest, who gave without an account.
+  donorUserId: Id<"users"> | undefined,
 ) {
   return s.t.run((ctx) => {
     const now = Date.now();
@@ -210,6 +211,23 @@ function expectAround(actual: number | undefined, expected: number) {
   expect(actual).toBeDefined();
   expect(actual!).toBeGreaterThanOrEqual(expected);
   expect(actual!).toBeLessThan(expected + 1000);
+}
+
+/** A guest's donation, with the private link in its receipt, and the link. */
+async function guestLink(s: S, fundraiserId = s.ids.fundraiserId) {
+  const donationId = await donate(s, fundraiserId, undefined);
+  const token = "guest-link-token-for-the-digest-test";
+  await s.t.run((ctx) =>
+    ctx.db.insert("donationReceipts", {
+      donationId,
+      status: "SENT",
+      attempts: 1,
+      generation: 0,
+      commentToken: token,
+      createdAt: Date.now(),
+    }),
+  );
+  return token;
 }
 
 /** Posts one comment from a donor and lets the digest go out. */
@@ -1170,5 +1188,48 @@ describe("the setting on the profile", () => {
     await comment(s.donor2, s.ids.fundraiserId);
     await settle(s.t);
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("a comment from a guest", () => {
+  it("is counted and emailed about like any other, without saying who or what", async () => {
+    const s = await setup();
+    const token = await guestLink(s);
+
+    await s.t.mutation(api.guestComments.post, {
+      token,
+      body: GOOD,
+      name: "Zawadi",
+    });
+    await settle(s.t);
+
+    const [row] = await deliveries(s.t);
+    expect(row).toMatchObject({
+      fundraiserId: s.ids.fundraiserId,
+      recipientUserId: s.ids.owner,
+      count: 1,
+      status: "SENT",
+    });
+    const [email] = sentEmails();
+    expect(email.body.subject).toBe("1 new comment on Water for Kajiado");
+    expect(email.body.text + email.body.html).not.toContain("Zawadi");
+    expect(email.body.text + email.body.html).not.toContain(GOOD);
+  });
+
+  it("is counted next to the organizer's own comment, which is not", async () => {
+    const s = await setup();
+    await donate(s, s.ids.fundraiserId, s.ids.owner);
+    const token = await guestLink(s);
+
+    await comment(s.owner, s.ids.fundraiserId);
+    await s.t.mutation(api.guestComments.post, {
+      token,
+      body: GOOD,
+      name: "Grace",
+    });
+    await settle(s.t);
+
+    const [row] = await deliveries(s.t);
+    expect(row.count).toBe(1);
   });
 });

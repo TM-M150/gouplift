@@ -38,6 +38,9 @@ export interface ReceiptData {
   reference: string | null;
   isMonthly: boolean;
   completedAt: number;
+  // The secret in the "Leave a comment" link, for a donation made without
+  // signing in. Left out for everyone else, who can comment from their account.
+  commentToken?: string | null;
 }
 
 export interface BuiltEmail {
@@ -169,6 +172,13 @@ export function buildReceiptEmail(
   const total = kes(data.grossAmount);
   const name = firstName(data.donorName);
   const rows = detailRows(data);
+  const commentUrl = data.commentToken
+    ? `${base}/comment/${encodeURIComponent(data.commentToken)}`
+    : null;
+  const commentLead = "Want to say a few words to the person you gave to?";
+  const commentNote = `This link is private to you, so please don't share it.${
+    data.isAnonymous ? ' Your comment will show as "Anonymous donor".' : ""
+  }`;
 
   const subject = `Your GoUplift receipt: ${total} to ${oneLine(title, 60)}`;
 
@@ -190,6 +200,9 @@ export function buildReceiptEmail(
     ...(monthlyNote ? [monthlyNote, ""] : []),
     `See the fundraiser: ${fundraiserUrl}`,
     "",
+    ...(commentUrl
+      ? [commentLead, `Leave a comment: ${commentUrl}`, commentNote, ""]
+      : []),
     "Keep this email as your record of the donation.",
     `Questions? ${helpUrl}`,
     "",
@@ -249,7 +262,18 @@ export function buildReceiptEmail(
               <td style="padding:20px 28px 28px 28px;">
                 <a href="${escapeHtml(fundraiserUrl)}" style="display:inline-block;background:${BRAND_DARK};color:#ffffff;text-decoration:none;font-size:15px;line-height:20px;font-weight:bold;padding:12px 20px;border-radius:8px;">See the fundraiser</a>
               </td>
-            </tr>
+            </tr>${
+              commentUrl
+                ? `
+            <tr>
+              <td style="padding:0 28px 28px 28px;font-size:14px;line-height:21px;color:${TEXT};">
+                ${escapeHtml(commentLead)}<br />
+                <a href="${escapeHtml(commentUrl)}" style="color:${BRAND_DARK};font-weight:bold;">Leave a comment</a><br />
+                <span style="color:${MUTED};">${escapeHtml(commentNote)}</span>
+              </td>
+            </tr>`
+                : ""
+            }
             <tr>
               <td style="padding:16px 28px 24px 28px;border-top:1px solid ${BORDER};font-size:12px;line-height:18px;color:${MUTED};">
                 Keep this email as your record of the donation. Questions? Visit our <a href="${escapeHtml(helpUrl)}" style="color:${MUTED};">help page</a>.<br />

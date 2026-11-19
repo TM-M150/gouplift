@@ -294,3 +294,58 @@ describe("text typed by people", () => {
     expect(text).toContain('"a fundraiser"');
   });
 });
+
+describe("the link to leave a comment", () => {
+  const TOKEN = "Zk3_x-9QaB7mN2pL5vR8tY1wC4eH6jD0";
+  const LINK = `${SITE}/comment/${TOKEN}`;
+
+  it("is in both versions of a guest's receipt, and nowhere else", () => {
+    const email = build({ commentToken: TOKEN });
+    expect(email.text).toContain(`Leave a comment: ${LINK}`);
+    expect(email.html).toContain(`href="${LINK}"`);
+    expect(email.html).toMatch(/>Leave a comment<\/a>/);
+    // Only in the link: not in the subject, and only once in each version.
+    expect(email.subject).not.toContain(TOKEN);
+    expect(email.text.split(TOKEN)).toHaveLength(2);
+    expect(email.html.split(TOKEN)).toHaveLength(2);
+  });
+
+  it("says the link is private, and says what an anonymous donor will be shown as", () => {
+    const named = build({ commentToken: TOKEN });
+    expect(named.text).toMatch(/private to you, so please don't share it/);
+    expect(named.text).not.toMatch(/Anonymous donor/);
+
+    const anonymous = build({ commentToken: TOKEN, isAnonymous: true });
+    expect(anonymous.text).toMatch(/Your comment will show as "Anonymous donor"/);
+    expect(anonymous.html).toMatch(/Anonymous donor/);
+  });
+
+  it("is left out when there is no link, so a signed-in donor's receipt is as before", () => {
+    for (const commentToken of [undefined, null, ""]) {
+      const email = build({ commentToken });
+      expect(email.text).not.toMatch(/Leave a comment|say a few words/);
+      expect(email.html).not.toMatch(/Leave a comment|say a few words/);
+    }
+    // Nothing else about the email changed: same text apart from the link.
+    expect(build({ commentToken: null }).text).toBe(build().text);
+  });
+
+  it("goes on the site it was given, whatever trailing slash it has", () => {
+    const email = buildReceiptEmail(
+      { ...mobileMoney, commentToken: TOKEN },
+      `${SITE}/`,
+    );
+    expect(email.text).toContain(`Leave a comment: ${LINK}`);
+  });
+
+  it("can't break out of the link, even if a token had odd characters in it", () => {
+    const email = build({ commentToken: `a"><script>alert(1)</script>` });
+    expect(email.html).not.toContain("<script>");
+    expect(email.html).toContain("/comment/a%22%3E%3Cscript%3E");
+
+    // An apostrophe is the one quote that encoding the token leaves as it is.
+    const quoted = build({ commentToken: "a'b" });
+    expect(quoted.html).toContain('href="' + SITE + '/comment/a&#39;b"');
+    expect(quoted.html).not.toContain("/comment/a'b");
+  });
+});

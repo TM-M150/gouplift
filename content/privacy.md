@@ -25,7 +25,7 @@ We collect only what we need for the purposes set out in this policy. What we co
 
 ### If You Donate
 
-- Your name (which you can choose to keep anonymous) and your email address. We use your email address to send you a receipt.
+- Your name (which you can choose to keep anonymous) and your email address. We use your email address to send you a receipt. If you gave without an account, the receipt also has a private link that lets you leave a comment (see below).
 - For M-Pesa and Airtel Money payments, your mobile number.
 - The amount, the date, the payment method, the payment reference or transaction code, and the message you write, if any.
 - We do not receive or store your card number, your M-Pesa or Airtel Money PIN, or your PayPal password. Those are handled by SasaPay and PayPal.
@@ -41,6 +41,9 @@ We collect only what we need for the purposes set out in this policy. What we co
 - If you are signed in and have donated to a fundraiser, you can leave a comment on its page. Anyone who can see the fundraiser can read it. It is shown with your first name and the initial of your last name, or as “Anonymous donor” if all your donations to that fundraiser were anonymous. The name is copied when you post, so changing your name later does not change it on comments you have already left.
 - We keep the text of the comment, when you posted and last edited it, and which of your donations let you comment. You can edit or remove a comment at any time. Removing it takes it off the page, but we keep a copy so that we can deal with reports and complaints.
 - The fundraiser’s organiser and our team can hide a comment. A hidden comment is not shown to the public, but you, the organiser, and our team can still see it.
+- If you gave without an account, you can still leave a comment, using the private link in your receipt email. You type your first name when you comment, and it is shown as that first name with the initial of your last name if you type one, or as “Anonymous donor” if your donation was anonymous. We do not check that the name is yours. The comment is shown straight away.
+- That link is private to you. It does not contain your email address, but anyone who has it can leave comments as you, and edit or remove the comments made with it, so please do not share it. We keep the random code that is part of the link with the record of your receipt. We do not confirm who is using the link.
+- If a comment made with that link is hidden, the page behind the link tells you how many of your comments are hidden, but it does not show them. Everything else above, including what we keep and who can report a comment, applies to these comments too.
 - Anyone who is signed in can report a comment. If someone reports yours, our team reads the comment and the reason that was given. We keep a record of who reported it and why, but we do not tell you or the organiser who it was.
 
 ### If You Raise Money
@@ -127,6 +130,7 @@ We keep Personal Data only for as long as we need it for the purposes in this po
 - Verification, risk, and payout records: for as long as the law requires, which can be several years after you stop using the Services.
 - Newsletter sign-ups: until you ask us to remove you.
 - Comments on fundraisers, and reports about them: for as long as we need them to show the comment and to deal with reports and complaints.
+- The private comment link in a receipt: for as long as we keep the record of that receipt.
 - Records of update emails, and the list of people who have unsubscribed from them: for as long as the unsubscribe links in those emails need to keep working, and, for the list, for as long as we need it to make sure we do not email someone who asked us not to.
 - Records of comment emails: for as long as the unsubscribe links in those emails need to keep working.
 
@@ -153,7 +157,7 @@ If you are unhappy with how we have handled your Personal Data, please contact u
 You can browse the Services, and donate, without creating an account. Giving us your Personal Data is otherwise your choice, but some things depend on it:
 
 - To receive money, you must be verified. We need to know who we are paying, to protect donors and to meet our legal duties, so we cannot pay you out if you do not give us the verification information we ask for.
-- If you donate without giving an email address, we cannot send you a receipt.
+- If you donate without giving an email address, we cannot send you a receipt, or the link to comment that comes with it if you have no account.
 - If you do not give the details a payment needs, such as a mobile number for M-Pesa, we cannot take the payment.
 
 ## Children

@@ -289,10 +289,16 @@ export default defineSchema({
     nextAttemptAt: v.optional(v.number()),
     emailId: v.optional(v.string()), // Resend's id for the sent email
     sentAt: v.optional(v.number()),
+    // For a donation made without signing in: the secret in the "Leave a
+    // comment" link in the receipt. Whoever has the link may comment as this
+    // donor, so it is random, goes only in that email, and is never logged.
+    // Missing on receipts made before guest comments, and on signed-in donors'.
+    commentToken: v.optional(v.string()),
     createdAt: v.number(),
   })
     .index("by_donationId", ["donationId"])
-    .index("by_status", ["status"]),
+    .index("by_status", ["status"])
+    .index("by_commentToken", ["commentToken"]),
 
   paypalSubscriptions: defineTable({
     fundraiserId: v.id("fundraisers"),
@@ -559,15 +565,19 @@ export default defineSchema({
   ]),
 
   // A comment a donor leaves on a fundraiser they gave to. Plain text. Only a
-  // signed-in person with a completed donation to that fundraiser can post one
-  // (checked when it is posted, not afterwards). PUBLISHED ones are shown;
+  // person with a completed donation to that fundraiser can post one (checked
+  // when it is posted, not afterwards): signed in, or as a guest through the
+  // private link in the receipt for a donation made without an account.
+  // PUBLISHED ones are shown;
   // HIDDEN means the fundraiser's creator or staff took it down (hiddenBy says
   // which; staff can put back any, the creator only their own); REMOVED means
   // its author deleted it. The fundraiser's `commentsCount` counts the
   // PUBLISHED ones. authorName is a snapshot taken when it was posted.
   fundraiserComments: defineTable({
     fundraiserId: v.id("fundraisers"),
-    authorUserId: v.id("users"),
+    // Missing for a comment left by a guest, who has no account: they got to it
+    // through the private link in their receipt (donationReceipts.commentToken).
+    authorUserId: v.optional(v.id("users")),
     // The completed donation that allowed the comment.
     donationId: v.id("donations"),
     authorName: v.string(), // first name and last initial, or "Anonymous donor"
@@ -584,11 +594,14 @@ export default defineSchema({
     hiddenAt: v.optional(v.number()),
     hiddenReason: v.optional(v.string()),
     createdAt: v.number(),
-  }).index("by_fundraiserId_and_status_and_createdAt", [
-    "fundraiserId",
-    "status",
-    "createdAt",
-  ]),
+  })
+    .index("by_fundraiserId_and_status_and_createdAt", [
+      "fundraiserId",
+      "status",
+      "createdAt",
+    ])
+    // A guest's comments are found through the donation behind their link.
+    .index("by_donationId", ["donationId"]),
 
   // Someone telling staff a comment shouldn't be there. One per person per
   // comment. OPEN ones are what staff work through; hiding the comment marks

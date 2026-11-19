@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { normalizePlainText } from "./plain-text";
+import { publicAuthorName } from "./testimonials";
 
 // Shared by the comment form (client) and the Convex functions, so both agree
 // on what a comment may say and who may leave one.
@@ -72,4 +73,56 @@ export function checkCommentBody(
     ok: false,
     problem: parsed.error.issues[0]?.message ?? "Write your comment first.",
   };
+}
+
+// ---- Guests ---------------------------------------------------------------
+// Someone who gave without an account comments through the private link in
+// their receipt, and types the name they want shown.
+
+export const MIN_GUEST_NAME_LENGTH = 2;
+export const MAX_GUEST_NAME_LENGTH = 40;
+
+// Letters, spaces and the marks that appear in names. No digits, links or
+// symbols: a name is not a place to put a phone number or an address.
+const NAME_CHARACTERS = /^[\p{L}\p{M}][\p{L}\p{M}'\u2019 -]*$/u;
+
+// Names that would make a comment look as if it came from GoUplift. A guest has
+// no account to check, so anyone could type one of these.
+const LOOKS_OFFICIAL =
+  /go\s*-?\s*up\s*-?\s*lift|\b(?:admins?|administrators?|moderators?|staff|support|official|organi[sz]ers?)\b/i;
+
+/**
+ * The name to show on a guest's comment, from what they typed: a first name,
+ * and if they typed more, the initial of the last (so "Wanjiru Kamau" is shown
+ * as "Wanjiru K.", the way a signed-in donor is), or the first thing wrong.
+ */
+export function checkGuestName(
+  raw: string,
+): { ok: true; name: string } | { ok: false; problem: string } {
+  const cleaned = normalizePlainText(raw).replace(/\s+/g, " ").trim();
+  if (cleaned.length < MIN_GUEST_NAME_LENGTH) {
+    return { ok: false, problem: "Enter your first name." };
+  }
+  if (cleaned.length > MAX_GUEST_NAME_LENGTH) {
+    return {
+      ok: false,
+      problem: `Keep your name to ${MAX_GUEST_NAME_LENGTH} characters or fewer.`,
+    };
+  }
+  if (!NAME_CHARACTERS.test(cleaned)) {
+    return { ok: false, problem: "Use only letters in your name." };
+  }
+  if (LOOKS_OFFICIAL.test(cleaned)) {
+    return { ok: false, problem: "Please use your own first name." };
+  }
+  return { ok: true, name: publicAuthorName(cleaned) };
+}
+
+/** The first name in what the donor typed when they gave, to start the field with. */
+export function suggestedGuestName(
+  donorName: string | null | undefined,
+): string {
+  const first = donorName?.trim().split(/\s+/)[0] ?? "";
+  const checked = checkGuestName(first);
+  return checked.ok ? checked.name : "";
 }
