@@ -424,7 +424,12 @@ describe("the real sign-in setup", () => {
   const source = readFileSync(new URL("./auth.ts", import.meta.url), "utf8");
 
   it("uses the same linking settings and hooks as these tests", () => {
-    expect(source).toContain("...googleLinkingOptions");
+    // Through signInRules, which joins them with the phone number rules so
+    // neither replaces the other (convex/kenyanPhone.test.ts checks the join).
+    expect(source).toContain("...signInRules");
+    expect(
+      readFileSync(new URL("./lib/signInRules.ts", import.meta.url), "utf8"),
+    ).toContain("...googleLinkingOptions");
   });
 
   it("has no linking settings of its own that could differ", () => {
