@@ -253,6 +253,8 @@ export default defineSchema({
     .index("by_fundraiserId", ["fundraiserId"])
     .index("by_fundraiserId_and_status", ["fundraiserId", "status"])
     .index("by_donorUserId", ["donorUserId"])
+    // A person's completed donations, for the Impact tab.
+    .index("by_donorUserId_and_status", ["donorUserId", "status"])
     // Whether a signed-in person has given to a fundraiser (who may comment).
     .index("by_donorUserId_and_fundraiserId", ["donorUserId", "fundraiserId"])
     .index("by_status", ["status"])
