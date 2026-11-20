@@ -16,8 +16,10 @@ import { reverseDonationCredit } from "./payoutBalance";
 //  - organizations with webhooks are told (donation.refunded), as a separate
 //    scheduled step so webhooks can never undo or delay the refund.
 //
-// Testimonials need nothing here: the public list and the review queue both
-// check the donation is still COMPLETED, so one comes down by itself.
+// Testimonials need nothing here. One written from a profile has no donation
+// behind it. An older one that came from a donation is checked by the public
+// list and the review queue, which both look that the donation is still
+// COMPLETED, so it comes down by itself.
 //
 // payoutStatus is left alone. It says whether the donation was swept into a
 // payout, and a refund doesn't change that; it is the balance that holds the

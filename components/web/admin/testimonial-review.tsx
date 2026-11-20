@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DecisionDialog } from "@/components/web/admin/decision-dialog";
 import { formatDateTime } from "@/components/web/admin/utils";
+import { StarRating } from "@/components/web/testimonials/star-rating";
 
 type QueueStatus = "PENDING" | "APPROVED" | "REJECTED";
 type Row = FunctionReturnType<typeof api.testimonials.listForReview>[number];
@@ -25,11 +26,17 @@ export const TESTIMONIAL_TABS: Array<{
     label: "Pending",
     empty: "No testimonials are waiting for review.",
   },
-  { value: "APPROVED", label: "Showing", empty: "Nothing is on the homepage." },
+  { value: "APPROVED", label: "Approved", empty: "Nothing has been approved." },
   { value: "REJECTED", label: "Rejected", empty: "No rejected testimonials." },
 ];
 
-function TestimonialCard({ row, status }: { row: Row; status: QueueStatus }) {
+export function TestimonialCard({
+  row,
+  status,
+}: {
+  row: Row;
+  status: QueueStatus;
+}) {
   const approve = useMutation(api.testimonials.approveTestimonial);
   const reject = useMutation(api.testimonials.rejectTestimonial);
   const [approveOpen, setApproveOpen] = React.useState(false);
@@ -37,22 +44,43 @@ function TestimonialCard({ row, status }: { row: Row; status: QueueStatus }) {
 
   return (
     <article className="space-y-3 rounded-xl border bg-background p-4">
+      {row.rating !== null && <StarRating rating={row.rating} />}
       <blockquote className="text-sm whitespace-pre-line break-words">
         “{row.message}”
       </blockquote>
 
+      {row.recommendation && (
+        <div className="space-y-1 rounded-lg border border-dashed bg-muted/30 p-3">
+          <p className="text-xs font-medium">
+            Suggestion for the team (private, never shown)
+          </p>
+          <p className="text-sm whitespace-pre-line break-words text-muted-foreground">
+            {row.recommendation}
+          </p>
+        </div>
+      )}
+
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
         <span className="font-medium text-foreground">{row.authorName}</span>
-        <span>
-          on{" "}
-          <Link
-            href={`/fundraiser/${row.fundraiserId}`}
-            className="underline underline-offset-2"
-          >
-            {row.fundraiserTitle}
-          </Link>
-        </span>
+        {row.authorDisplayName !== row.authorName && (
+          <span>Account: {row.authorDisplayName}</span>
+        )}
+        <Badge variant={row.authorVerified ? "default" : "outline"}>
+          {row.authorVerified ? "Identity verified" : "Not verified"}
+        </Badge>
+        {row.fundraiserId && (
+          <span>
+            on{" "}
+            <Link
+              href={`/fundraiser/${row.fundraiserId}`}
+              className="underline underline-offset-2"
+            >
+              {row.fundraiserTitle}
+            </Link>
+          </span>
+        )}
         <span>{formatDateTime(row.createdAt)}</span>
+        {row.editedAt !== null && <span>Edited {formatDateTime(row.editedAt)}</span>}
       </div>
 
       {row.blocker && status !== "REJECTED" && (
@@ -60,6 +88,14 @@ function TestimonialCard({ row, status }: { row: Row; status: QueueStatus }) {
           {status === "APPROVED"
             ? `Not being shown: ${row.blocker}`
             : `Can't be approved: ${row.blocker}`}
+        </p>
+      )}
+
+      {!row.blocker && row.shownBlocker && status !== "REJECTED" && (
+        <p role="status" className="text-sm text-muted-foreground">
+          {status === "APPROVED"
+            ? `Not being shown yet: ${row.shownBlocker}`
+            : `You can approve the words, but it won't show on the homepage yet: ${row.shownBlocker}`}
         </p>
       )}
 
@@ -93,11 +129,11 @@ function TestimonialCard({ row, status }: { row: Row; status: QueueStatus }) {
       <DecisionDialog
         open={approveOpen}
         onOpenChange={setApproveOpen}
-        title="Show this on the homepage?"
-        description="Anyone can read it, under the author's first name and last initial. The author can withdraw it at any time, and it comes down by itself if their donation is refunded."
+        title="Approve this testimonial?"
+        description="Once its author holds approved identity verification, anyone can read it on the homepage under their first name and last initial. The author can withdraw it at any time. If they change the rating or the words, it comes back here for review."
         confirmLabel="Approve"
         onConfirm={async () => {
-          await approve({ testimonialId: row._id });
+          await approve({ testimonialId: row._id, version: row.version });
           toast.success("The testimonial is now showing.");
         }}
       />

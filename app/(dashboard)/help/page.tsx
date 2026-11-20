@@ -83,11 +83,29 @@ const faqs: Array<{ question: string; answer: React.ReactNode }> = [
       <>
         <p>It isn&apos;t shown publicly.</p>
         <p>
-          If you are signed in and have completed identity verification, you can
-          tick a box to offer your message as a testimonial. Our team reads it
-          before it appears on the homepage, under your first name and the
-          initial of your last name. You can withdraw it any time from your
-          profile.
+          To say something on the fundraiser&apos;s page, leave a comment once
+          your donation is complete. If you gave without an account, use the
+          &ldquo;Leave a comment&rdquo; link in your receipt email.
+        </p>
+      </>
+    ),
+  },
+  {
+    question: "Can I leave a testimonial about GoUplift?",
+    answer: (
+      <>
+        <p>
+          Yes. If you have an account, open your profile, choose the Impact tab,
+          and fill in &ldquo;Your testimonial&rdquo;: a star rating, a few
+          words, and, if you like, a private suggestion for our team.
+        </p>
+        <p>
+          Our team reads every testimonial before it can appear on the homepage,
+          under your first name and the initial of your last name, and only for
+          accounts with approved identity verification, such as people approved
+          to receive payouts. Your suggestion is only ever read by our team. You
+          can change or withdraw your testimonial any time; changing the rating
+          or the words sends it back for review.
         </p>
       </>
     ),

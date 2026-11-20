@@ -65,9 +65,10 @@ We collect only what we need for the purposes set out in this policy. What we co
 
 - Your email address and the date you signed up.
 
-### If You Offer Your Message as a Testimonial
+### If You Write a Testimonial
 
-- The message you wrote when you donated. If you tick the box to offer it, our team reads it before it can appear on our website. If it is approved, it is shown with your first name and the initial of your last name. You can withdraw it at any time from your profile.
+- What you write when you write a testimonial from your profile: a star rating, a few words about GoUplift, and, if you choose, a suggestion for our team. Our team reads every testimonial before it can appear on our website. If it is approved, and your identity has been verified, your rating and words are shown with your first name and the initial of your last name. Your suggestion is only ever seen by our team and is never shown on our website. You can change or withdraw your testimonial at any time from your profile. If you change the rating or the words, it goes back to our team for review and comes off our website until it is approved again.
+- Earlier, a message written when donating could be offered as a testimonial. Any that were offered are held, shown, and withdrawn in the same way, and can still be withdrawn from your profile.
 
 ### Information From Our Checks and From How the Services Are Used
 
@@ -95,7 +96,7 @@ We may combine information into totals and statistics that do not identify anyon
 - **To meet our legal duties.** To verify identity, prevent fraud, money laundering, and terrorist financing, keep records, and respond to lawful requests from authorities.
 - **To keep the Services safe and working.** To prevent abuse, fix problems, and understand how the Services are used so that we can improve them. We do this because it is in our legitimate interests, and yours, to have a secure and reliable service.
 - **To contact you.** About your account, your donations, your fundraisers, and your withdrawals, to tell you about updates on fundraisers you have given to and about comments on your own fundraisers (you can unsubscribe from both at any time), and, if you have signed up, to send you our newsletter.
-- **Where you have chosen it.** For example, if you sign up for the newsletter or offer your message as a testimonial. You can withdraw your consent at any time.
+- **Where you have chosen it.** For example, if you sign up for the newsletter or write a testimonial. You can withdraw your consent at any time.
 
 We do not sell your Personal Data.
 
@@ -146,7 +147,7 @@ Under the Data Protection Act you have the right to:
 - ask us to correct Personal Data that is false or misleading; and
 - ask us to delete Personal Data that is false or misleading, and other Personal Data we no longer need.
 
-You can also withdraw any consent you have given us, for example to receive our newsletter or to show your message as a testimonial, and you can object to update emails about a fundraiser, or to emails about comments on your own fundraisers, at any time using the link in the email.
+You can also withdraw any consent you have given us, for example to receive our newsletter or to show your testimonial, and you can object to update emails about a fundraiser, or to emails about comments on your own fundraisers, at any time using the link in the email.
 
 To use any of these rights, contact us using the details below. We may need to confirm who you are first. Some records, such as verification and payout records, we must keep by law even if you ask us to delete them. If that applies, we will tell you.
 

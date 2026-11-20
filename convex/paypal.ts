@@ -18,7 +18,6 @@ import {
 } from "./lib/donationSource";
 import { creditCompletedDonation } from "./lib/fundraiserTotals";
 import { recordCompletedDonation } from "./lib/payoutBalance";
-import { resolveTestimonialOptIn } from "../lib/testimonials";
 
 const PAYPAL_BASE_URL = "https://api-m.sandbox.paypal.com"; // Switch to https://api-m.paypal.com for production
 
@@ -73,7 +72,6 @@ export const createPendingPayPalDonation = internalMutation({
     netAmountKes: v.number(),
     platformFeeRate: v.number(),
     message: v.optional(v.string()),
-    shareAsTestimonial: v.optional(v.boolean()),
     source: v.optional(donationSourceValidator),
   },
   returns: v.id("donations"),
@@ -94,7 +92,6 @@ export const createPendingPayPalDonation = internalMutation({
       platformFeeAmount: args.platformFeeAmountKes,
       netAmount: args.netAmountKes,
       message: args.message,
-      shareAsTestimonial: args.shareAsTestimonial,
       source: args.source,
       currency: "KES",
       provider: "PAYPAL",
@@ -118,7 +115,7 @@ export const startPayPalCheckout = action({
     isAnonymous: v.boolean(),
     amountUsd: v.number(),
     message: v.optional(v.string()),
-    // Only honoured for a signed-in donor; see resolveTestimonialOptIn.
+    // Ignored; see startDonationCheckout.
     shareAsTestimonial: v.optional(v.boolean()),
     origin: v.string(), // window.location.origin from the client
     // Attribution only. Omit for a normal GoUplift checkout.
@@ -185,12 +182,6 @@ export const startPayPalCheckout = action({
         netAmountKes,
         platformFeeRate: PLATFORM_FEE_RATE,
         message: args.message,
-        shareAsTestimonial: resolveTestimonialOptIn({
-          requested: args.shareAsTestimonial,
-          signedIn: donorUserId !== undefined,
-          isAnonymous: args.isAnonymous,
-          message: args.message,
-        }),
         source: args.source,
       },
     );
@@ -365,13 +356,6 @@ export const completePayPalDonation = internalMutation({
     await ctx.scheduler.runAfter(0, internal.receipts.queueReceipt, {
       donationId: args.donationId,
     });
-
-    // A separate, scheduled step so testimonials can't touch the payment.
-    if (donation.shareAsTestimonial === true) {
-      await ctx.scheduler.runAfter(0, internal.testimonials.queueFromDonation, {
-        donationId: args.donationId,
-      });
-    }
 
     return null;
   },

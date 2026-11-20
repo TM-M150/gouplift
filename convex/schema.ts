@@ -181,9 +181,10 @@ export default defineSchema({
     exchangeRate: v.optional(v.number()), // USD->KES rate used at capture time
 
     message: v.optional(v.string()),
-    // The donor ticked "share my message as a testimonial". Only ever set for
-    // a signed-in donor with a message, and only a request: the testimonials
-    // table decides whether it is queued, and staff decide whether it is shown.
+    // No longer set, and nothing reads it: a donation message used to be
+    // offered as a testimonial with a tick-box on the donate form. Testimonials
+    // are now written from the profile (see the testimonials table). Kept so
+    // donations made before that still match the schema.
     shareAsTestimonial: v.optional(v.boolean()),
 
     // Where the donation was started. Missing on every donation made before
@@ -503,20 +504,30 @@ export default defineSchema({
     .index("by_storageId", ["storageId"])
     .index("by_userId", ["userId"]),
 
-  // Who did what in the admin area. Written by every staff decision so a
-  // verification (which later unlocks payouts) can always be traced.
-  // A donor's message, offered as a public testimonial. One row per donation,
-  // created only when the donor opted in and was an approved-KYC person at the
-  // time. Nothing is shown until staff approve it, and the public list checks
-  // again that the donation still stands and the author is still verified.
-  // message and authorName are snapshots, so later edits to a profile or
-  // donation can't change what staff approved.
+  // What a person says about GoUplift: a star rating, a few words for the
+  // homepage, and a private suggestion for our team. One per person, written
+  // from their profile (source PROFILE). Anyone with an account can write one.
+  // Nothing is shown until staff approve it, and the public list checks again
+  // that the author still holds an approved identity verification, so an
+  // approved testimonial from someone who isn't verified yet simply waits.
+  // Changing the rating or the words sends it back to PENDING; the suggestion
+  // is never shown, so changing only that doesn't. authorName and message are
+  // snapshots, so a later change to the profile can't alter what staff approved.
+  //
+  // Older rows came from a donor offering their donation message (source
+  // missing, or DONATION): they carry the donation and fundraiser, have no
+  // rating or suggestion, and are no longer created. They are still shown, held
+  // and withdrawn the same way, and also come down when their donation is
+  // refunded.
   testimonials: defineTable({
-    donationId: v.id("donations"),
+    source: v.optional(v.union(v.literal("DONATION"), v.literal("PROFILE"))),
+    donationId: v.optional(v.id("donations")),
+    fundraiserId: v.optional(v.id("fundraisers")),
     authorUserId: v.id("users"),
-    fundraiserId: v.id("fundraisers"),
     authorName: v.string(), // first name and last initial only
     message: v.string(),
+    rating: v.optional(v.number()), // 1 to 5; always set for PROFILE
+    recommendation: v.optional(v.string()), // private: staff only
     status: v.union(
       v.literal("PENDING"),
       v.literal("APPROVED"),
@@ -527,12 +538,15 @@ export default defineSchema({
     reviewedAt: v.optional(v.number()),
     reviewNote: v.optional(v.string()), // the reason, when rejected
     approvedAt: v.optional(v.number()),
+    // When the author last changed the rating or the words.
+    editedAt: v.optional(v.number()),
     createdAt: v.number(),
   })
     .index("by_donationId", ["donationId"])
     .index("by_status_and_createdAt", ["status", "createdAt"])
     .index("by_status_and_approvedAt", ["status", "approvedAt"])
-    .index("by_authorUserId", ["authorUserId"]),
+    .index("by_authorUserId", ["authorUserId"])
+    .index("by_authorUserId_and_source", ["authorUserId", "source"]),
 
   // A progress update the creator posts on their fundraiser, for donors to
   // read. Plain text only. PUBLISHED ones are shown; HIDDEN means staff took
@@ -730,6 +744,8 @@ export default defineSchema({
     .index("by_token", ["token"])
     .index("by_status", ["status"]),
 
+  // Who did what in the admin area. Written by every staff decision so a
+  // verification (which later unlocks payouts) can always be traced.
   adminAuditLog: defineTable({
     actorId: v.id("users"),
     action: v.union(
