@@ -23,6 +23,7 @@ import type * as fundraiserExpiry from "../fundraiserExpiry.js";
 import type * as fundraiserUpdates from "../fundraiserUpdates.js";
 import type * as guestComments from "../guestComments.js";
 import type * as http from "../http.js";
+import type * as impact from "../impact.js";
 import type * as kyc from "../kyc.js";
 import type * as kycReview from "../kycReview.js";
 import type * as lib_adminAudit from "../lib/adminAudit.js";
@@ -114,6 +115,7 @@ declare const fullApi: ApiFromModules<{
   fundraiserUpdates: typeof fundraiserUpdates;
   guestComments: typeof guestComments;
   http: typeof http;
+  impact: typeof impact;
   kyc: typeof kyc;
   kycReview: typeof kycReview;
   "lib/adminAudit": typeof lib_adminAudit;
