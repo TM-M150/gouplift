@@ -1,4 +1,10 @@
 import { z } from "zod";
+import {
+  KENYAN_MOBILE_MESSAGE,
+  SIGN_IN_IDENTIFIER_MESSAGE,
+  normalizeKenyanMobile,
+  parseSignInIdentifier,
+} from "../phone";
 
 export const signUpSchema = z
   .object({
@@ -23,11 +29,15 @@ export const signUpSchema = z
       .trim()
       .toLowerCase()
       .pipe(z.string().email("Please enter a valid email address")),
-    phoneNumber: z
-      .string()
-      .trim()
-      .min(10, "Phone number must be at least 10 digits")
-      .regex(/^[+0-9\s-]+$/, "Please enter a valid phone number"),
+    // A Kenyan mobile number, stored as +254XXXXXXXXX whichever way it is typed.
+    phoneNumber: z.string().transform((value, ctx) => {
+      const normalized = normalizeKenyanMobile(value);
+      if (!normalized) {
+        ctx.addIssue({ code: "custom", message: KENYAN_MOBILE_MESSAGE });
+        return z.NEVER;
+      }
+      return normalized;
+    }),
     password: z
       .string()
       .min(8, "Password must be at least 8 characters long")
@@ -43,7 +53,14 @@ export const signUpSchema = z
 export type SignUpValues = z.infer<typeof signUpSchema>;
 
 export const signInSchema = z.object({
-  identifier: z.string().min(1, "Email or phone number is required"),
+  identifier: z
+    .string()
+    .trim()
+    .min(1, "Email or phone number is required")
+    .refine(
+      (value) => parseSignInIdentifier(value) !== null,
+      SIGN_IN_IDENTIFIER_MESSAGE,
+    ),
   password: z.string().min(1, "Password is required"),
 });
 

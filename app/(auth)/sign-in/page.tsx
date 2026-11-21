@@ -24,6 +24,10 @@ import { Spinner } from "@/components/ui/spinner";
 import { signInSchema, SignInValues } from "@/lib/validations/auth";
 import { authClient } from "@/lib/auth-client";
 import {
+  SIGN_IN_IDENTIFIER_MESSAGE,
+  parseSignInIdentifier,
+} from "@/lib/phone";
+import {
   AFTER_SIGN_IN_DEFAULT,
   safeNextPath,
   signInHref,
@@ -151,22 +155,25 @@ function SignInForm() {
     setServerError(null);
     setNotice(null);
 
-    const input = data.identifier.trim();
-    // Check if input looks like an email or a phone number
-    const isEmail = input.includes("@");
-
-    let response;
-    if (isEmail) {
-      response = await authClient.signIn.email({
-        email: input,
-        password: data.password,
-      });
-    } else {
-      response = await authClient.signIn.phoneNumber({
-        phoneNumber: input,
-        password: data.password,
-      });
+    // An email address, or a Kenyan mobile number tidied to +254XXXXXXXXX so it
+    // matches however it was typed when the account was made. The form has
+    // already turned anything else away.
+    const identifier = parseSignInIdentifier(data.identifier);
+    if (!identifier) {
+      setServerError(SIGN_IN_IDENTIFIER_MESSAGE);
+      return;
     }
+
+    const response =
+      identifier.kind === "email"
+        ? await authClient.signIn.email({
+            email: identifier.email,
+            password: data.password,
+          })
+        : await authClient.signIn.phoneNumber({
+            phoneNumber: identifier.phoneNumber,
+            password: data.password,
+          });
 
     if (response.error) {
       const errorMsg =
@@ -238,7 +245,7 @@ function SignInForm() {
                         id="identifier"
                         type="text"
                         label="Email or Phone Number"
-                        placeholder="e.g., johndoe@gmail.com or +254..."
+                        placeholder="e.g., johndoe@gmail.com or 0712 345 678"
                         autoComplete="username"
                         registration={register("identifier")}
                         error={errors.identifier?.message}

@@ -251,7 +251,7 @@ function SignupForm() {
                         id="phoneNumber"
                         type="tel"
                         label="Phone Number"
-                        placeholder="e.g., +254700000000"
+                        placeholder="e.g., 0712 345 678"
                         autoComplete="tel"
                         registration={register("phoneNumber")}
                         error={errors.phoneNumber?.message}

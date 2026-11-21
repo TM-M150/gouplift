@@ -11,7 +11,7 @@ import { DataModel } from "./_generated/dataModel";
 import authConfig from "./auth.config";
 import { EMAIL_FROM, sendEmail } from "./lib/email";
 import { emailConfirmationOptions } from "./lib/emailConfirmation";
-import { googleLinkingOptions } from "./lib/googleAutoLink";
+import { signInRules } from "./lib/signInRules";
 
 const siteUrl = process.env.SITE_URL || "http://localhost:3000";
 
@@ -228,8 +228,9 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
       },
     },
 
-    // Google sign-in joining an account made with a password (see the file).
-    ...googleLinkingOptions,
+    // Google sign-in joining an account made with a password, and phone
+    // numbers having to be Kenyan mobile numbers (see the files).
+    ...signInRules,
 
     advanced: {
       useSecureCookies: true,
