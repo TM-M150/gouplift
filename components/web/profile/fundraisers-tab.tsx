@@ -97,13 +97,19 @@ export function FundraisersTab() {
                     No photo
                   </div>
                 )}
+                {/* A suspended fundraiser says so here, whatever its status,
+                    so the organizer isn't left guessing why it stopped. */}
                 <Badge
                   className={`absolute left-2 top-2 border-0 ${
-                    STATUS_STYLES[fundraiser.status] ??
-                    "bg-muted text-muted-foreground"
+                    fundraiser.suspended
+                      ? STATUS_STYLES.REJECTED
+                      : (STATUS_STYLES[fundraiser.status] ??
+                        "bg-muted text-muted-foreground")
                   }`}
                 >
-                  {STATUS_LABELS[fundraiser.status] ?? fundraiser.status}
+                  {fundraiser.suspended
+                    ? "Under review"
+                    : (STATUS_LABELS[fundraiser.status] ?? fundraiser.status)}
                 </Badge>
               </div>
 

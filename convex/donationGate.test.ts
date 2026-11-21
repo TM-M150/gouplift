@@ -122,6 +122,16 @@ describe("isAcceptingDonations", () => {
     expect(isAcceptingDonations(null)).toBe(false);
   });
 
+  it("is false for a suspended fundraiser, however open it is otherwise", () => {
+    expect(isAcceptingDonations({ status: "ACTIVE", isFlagged: true })).toBe(
+      false,
+    );
+    expect(isAcceptingDonations({ status: "ACTIVE", isFlagged: false })).toBe(
+      true,
+    );
+    expect(isAcceptingDonations({ status: "ACTIVE" })).toBe(true);
+  });
+
   it("stays open until the end date", () => {
     const now = 1_000_000;
     expect(isAcceptingDonations({ status: "ACTIVE", endDate: now + 1 }, now)).toBe(

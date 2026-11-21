@@ -14,6 +14,8 @@ import { EditFundraiserButton } from "@/components/web/fundraiser/edit-fundraise
 import { FundraiserComments } from "@/components/web/fundraiser/fundraiser-comments";
 import { FundraiserUpdates } from "@/components/web/fundraiser/fundraiser-updates";
 import { PayoutVerificationNotice } from "@/components/web/fundraiser/payout-verification-notice";
+import { ReportFundraiser } from "@/components/web/fundraiser/report-fundraiser";
+import { UnderReviewNotice } from "@/components/web/fundraiser/under-review-notice";
 import { WithdrawNotice } from "@/components/web/fundraiser/withdraw-notice";
 import {
   describeTimeLeft,
@@ -82,6 +84,19 @@ const loadFundraiser = cache(async (id: string) => {
   }
 });
 
+// Whether the fundraiser is one that has been suspended, which the page says
+// instead of acting as if it doesn't exist. Like loadFundraiser, a failure
+// reads as "no".
+const loadUnderReview = cache(async (id: string) => {
+  try {
+    return await fetchQuery(api.fundraiserReports.isUnderReview, {
+      fundraiserId: id as Id<"fundraisers">,
+    });
+  } catch {
+    return false;
+  }
+});
+
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
@@ -89,6 +104,14 @@ export async function generateMetadata({
   const fundraiser = await loadFundraiser(id);
 
   if (!fundraiser) {
+    // A suspended fundraiser gives away nothing (no title, no photo) and is
+    // kept out of search results while it is looked into.
+    if (await loadUnderReview(id)) {
+      return {
+        title: "Fundraiser under review",
+        robots: { index: false, follow: false },
+      };
+    }
     return { title: "Fundraiser not found" };
   }
 
@@ -118,6 +141,14 @@ export default async function FundraiserPage({
   const fundraiser = await loadFundraiser(id);
 
   if (!fundraiser) {
+    if (await loadUnderReview(id)) {
+      return (
+        <main className="min-h-screen max-w-5xl mx-auto w-full pt-24 px-4 pb-16">
+          {donationId && <DonationStatusBanner donationId={donationId} />}
+          <UnderReviewNotice fundraiserId={id as Id<"fundraisers">} />
+        </main>
+      );
+    }
     notFound();
   }
 
@@ -234,42 +265,50 @@ export default async function FundraiserPage({
         </section>
 
         <section className="lg:col-span-1">
-          <Card className="sticky top-20 py-6">
-            <CardContent className="space-y-4">
-              <div className="space-y-1.5">
-                <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                  <div
-                    className="h-full rounded-full bg-primary transition-[width]"
-                    style={{ width: `${progress}%` }}
-                  />
+          {/* Sticky as one piece, so the report link stays under the card. */}
+          <div className="sticky top-20 space-y-3">
+            <Card className="py-6">
+              <CardContent className="space-y-4">
+                <div className="space-y-1.5">
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full rounded-full bg-primary transition-[width]"
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-2xl font-semibold">
+                      {currencyFormatter.format(fundraiser.amountRaised)}
+                    </span>
+                    <span className="text-sm text-muted-foreground">
+                      of {currencyFormatter.format(fundraiser.goalAmount)}
+                    </span>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    {fundraiser.donorCount}{" "}
+                    {fundraiser.donorCount === 1 ? "donation" : "donations"} ·{" "}
+                    {progress}% funded
+                  </p>
+                  {endNote && (
+                    <p className="text-sm text-muted-foreground">{endNote}</p>
+                  )}
                 </div>
-                <div className="flex items-baseline justify-between">
-                  <span className="text-2xl font-semibold">
-                    {currencyFormatter.format(fundraiser.amountRaised)}
-                  </span>
-                  <span className="text-sm text-muted-foreground">
-                    of {currencyFormatter.format(fundraiser.goalAmount)}
-                  </span>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  {fundraiser.donorCount}{" "}
-                  {fundraiser.donorCount === 1 ? "donation" : "donations"} ·{" "}
-                  {progress}% funded
-                </p>
-                {endNote && (
-                  <p className="text-sm text-muted-foreground">{endNote}</p>
-                )}
-              </div>
 
-              <DonateButton
-                fundraiserId={fundraiser._id}
-                disabled={status !== "ACTIVE"}
-                // The embed widget links here with ?source=embed. This only
-                // labels the donation; it grants nothing.
-                source={source === "embed" ? "EMBED" : undefined}
-              />
-            </CardContent>
-          </Card>
+                <DonateButton
+                  fundraiserId={fundraiser._id}
+                  disabled={status !== "ACTIVE"}
+                  // The embed widget links here with ?source=embed. This only
+                  // labels the donation; it grants nothing.
+                  source={source === "embed" ? "EMBED" : undefined}
+                />
+              </CardContent>
+            </Card>
+
+            <ReportFundraiser
+              fundraiserId={fundraiser._id}
+              creatorId={fundraiser.creatorId}
+            />
+          </div>
         </section>
       </div>
     </main>

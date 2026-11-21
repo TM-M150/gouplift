@@ -5,6 +5,7 @@ import {
   Banknote,
   Building2,
   ClipboardCheck,
+  Flag,
   Heart,
   Percent,
   Users,
@@ -22,6 +23,7 @@ export default function AdminOverviewPage() {
 
   const orgs = attention?.orgsAwaitingVerification;
   const reviews = attention?.fundraisersAwaitingReview;
+  const reported = attention?.fundraisersReported;
 
   const anyCapped =
     !!totals &&
@@ -52,7 +54,16 @@ export default function AdminOverviewPage() {
             highlight={!!orgs && orgs.count > 0}
             href="/admin/organizations"
           />
-          {/* Add href="/admin/fundraisers" once that page exists. */}
+          <StatCard
+            title="Reported fundraisers"
+            icon={Flag}
+            value={reported && formatCount(reported.count, reported.capped)}
+            hint="Donors have asked staff to take a look"
+            highlight={!!reported && reported.count > 0}
+            href="/admin/fundraisers"
+          />
+          {/* No href: the Fundraisers page covers reports and suspensions, not
+              approving new fundraisers. */}
           <StatCard
             title="Fundraisers awaiting review"
             icon={ClipboardCheck}

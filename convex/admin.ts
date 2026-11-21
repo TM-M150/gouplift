@@ -9,6 +9,7 @@ import {
   MIN_REJECTION_REASON_LENGTH,
 } from "./lib/adminAudit";
 import { getActivePayoutHold } from "./lib/payoutEligibility";
+import { placePayoutHoldFor } from "./lib/payoutHold";
 import { availableBalance } from "../lib/payouts";
 import {
   getVerificationBlockers,
@@ -560,21 +561,10 @@ export const placePayoutHold = mutation({
       throw new ConvexError("Payouts for this fundraiser are already on hold.");
     }
 
-    await ctx.db.insert("fundraiserPayoutHolds", {
+    await placePayoutHoldFor(ctx, {
       fundraiserId: fundraiser._id,
-      status: "ACTIVE",
+      staffId: staff._id,
       reason,
-      placedBy: staff._id,
-      placedAt: Date.now(),
-    });
-
-    await logAction(ctx, {
-      actorId: staff._id,
-      action: "PAYOUT_HOLD_PLACED",
-      fundraiserId: fundraiser._id,
-      statusBefore: "NO_HOLD",
-      statusAfter: "ON_HOLD",
-      note: reason,
     });
   },
 });
@@ -655,7 +645,7 @@ export const getAttentionCounts = query({
   handler: async (ctx) => {
     await requireStaff(ctx);
 
-    const [orgs, fundraisers] = await Promise.all([
+    const [orgs, fundraisers, reports] = await Promise.all([
       ctx.db
         .query("organizations")
         .withIndex("by_verificationStatus", (q) =>
@@ -666,11 +656,23 @@ export const getAttentionCounts = query({
         .query("fundraisers")
         .withIndex("by_status", (q) => q.eq("status", "PENDING_REVIEW"))
         .take(QUEUE_CAP + 1),
+      // Open reports on fundraisers; several on one fundraiser count once.
+      ctx.db
+        .query("fundraiserReports")
+        .withIndex("by_status_and_createdAt", (q) => q.eq("status", "OPEN"))
+        .take(QUEUE_CAP + 1),
     ]);
 
     return {
       orgsAwaitingVerification: tally(orgs, QUEUE_CAP),
       fundraisersAwaitingReview: tally(fundraisers, QUEUE_CAP),
+      fundraisersReported: {
+        count: Math.min(
+          new Set(reports.map((report) => report.fundraiserId)).size,
+          QUEUE_CAP,
+        ),
+        capped: reports.length > QUEUE_CAP,
+      },
     };
   },
 });

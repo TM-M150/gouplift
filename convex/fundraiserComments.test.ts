@@ -395,13 +395,9 @@ describe("which fundraisers take comments", () => {
     }
   });
 
-  it("refuses them while it is cancelled, flagged, or has comments switched off", async () => {
+  it("refuses them while it is cancelled or has comments switched off", async () => {
     const s = await setup();
-    for (const id of [
-      s.ids.cancelledId,
-      s.ids.flaggedId,
-      s.ids.commentsOffId,
-    ]) {
+    for (const id of [s.ids.cancelledId, s.ids.commentsOffId]) {
       await donate(s, id, s.ids.donor);
       await expect(comment(s.donor, id)).rejects.toThrow(/closed/);
     }
@@ -409,11 +405,14 @@ describe("which fundraisers take comments", () => {
 
   it("answers 'not found' for one the person can't see, not 'closed'", async () => {
     const s = await setup();
+    // A suspended fundraiser is one of these: off the public site, as if it
+    // weren't there, while staff look into a report.
     for (const id of [
       s.ids.privateId,
       s.ids.draftId,
       s.ids.pendingId,
       s.ids.rejectedId,
+      s.ids.flaggedId,
     ]) {
       await donate(s, id, s.ids.donor);
       await expect(comment(s.donor, id)).rejects.toThrow(/not found/);
