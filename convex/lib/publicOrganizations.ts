@@ -128,6 +128,8 @@ export async function loadPublicFundraisers(
         .eq("status", "ACTIVE")
         .eq("isPrivate", false),
     )
+    // Not a suspended one: it is off the public site while staff look into it.
+    .filter((q) => q.neq(q.field("isFlagged"), true))
     .order("desc")
     .take(Math.min(limit, PUBLIC_FUNDRAISER_LIMIT));
 

@@ -63,7 +63,11 @@ export const refresh = internalMutation({
         acc.totalRaisedKes += fundraiser.amountRaised;
       }
 
-      if (fundraiser.status === "ACTIVE" && !fundraiser.isPrivate) {
+      if (
+        fundraiser.status === "ACTIVE" &&
+        !fundraiser.isPrivate &&
+        fundraiser.isFlagged !== true
+      ) {
         acc.activeFundraisers += 1;
         acc.categoryCounts[fundraiser.type] =
           (acc.categoryCounts[fundraiser.type] ?? 0) + 1;

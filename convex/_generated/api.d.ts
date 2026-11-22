@@ -20,6 +20,7 @@ import type * as donations from "../donations.js";
 import type * as fundraiser from "../fundraiser.js";
 import type * as fundraiserComments from "../fundraiserComments.js";
 import type * as fundraiserExpiry from "../fundraiserExpiry.js";
+import type * as fundraiserReports from "../fundraiserReports.js";
 import type * as fundraiserUpdates from "../fundraiserUpdates.js";
 import type * as guestComments from "../guestComments.js";
 import type * as http from "../http.js";
@@ -51,6 +52,7 @@ import type * as lib_payoutAccountValidators from "../lib/payoutAccountValidator
 import type * as lib_payoutAccounts from "../lib/payoutAccounts.js";
 import type * as lib_payoutBalance from "../lib/payoutBalance.js";
 import type * as lib_payoutEligibility from "../lib/payoutEligibility.js";
+import type * as lib_payoutHold from "../lib/payoutHold.js";
 import type * as lib_payouts from "../lib/payouts.js";
 import type * as lib_paypalRefunds from "../lib/paypalRefunds.js";
 import type * as lib_phoneBackfill from "../lib/phoneBackfill.js";
@@ -116,6 +118,7 @@ declare const fullApi: ApiFromModules<{
   fundraiser: typeof fundraiser;
   fundraiserComments: typeof fundraiserComments;
   fundraiserExpiry: typeof fundraiserExpiry;
+  fundraiserReports: typeof fundraiserReports;
   fundraiserUpdates: typeof fundraiserUpdates;
   guestComments: typeof guestComments;
   http: typeof http;
@@ -147,6 +150,7 @@ declare const fullApi: ApiFromModules<{
   "lib/payoutAccounts": typeof lib_payoutAccounts;
   "lib/payoutBalance": typeof lib_payoutBalance;
   "lib/payoutEligibility": typeof lib_payoutEligibility;
+  "lib/payoutHold": typeof lib_payoutHold;
   "lib/payouts": typeof lib_payouts;
   "lib/paypalRefunds": typeof lib_paypalRefunds;
   "lib/phoneBackfill": typeof lib_phoneBackfill;

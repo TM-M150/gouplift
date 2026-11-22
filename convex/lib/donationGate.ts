@@ -21,15 +21,22 @@ export const DONATIONS_CLOSED_MESSAGE =
   "This fundraiser isn't accepting donations.";
 
 /**
- * Open means an ACTIVE status and an end date that hasn't passed. The date is
- * checked here as well as by the hourly sweep that marks the fundraiser
- * EXPIRED, so donations stop at the end date and not up to an hour later.
+ * Open means an ACTIVE status, an end date that hasn't passed, and not
+ * suspended. The date is checked here as well as by the hourly sweep that
+ * marks the fundraiser EXPIRED, so donations stop at the end date and not up
+ * to an hour later. A suspended fundraiser (taken down while staff look into
+ * a report) takes no new donations, and says no more about why than any
+ * other closed one.
  */
 export function isAcceptingDonations(
-  fundraiser: Pick<Doc<"fundraisers">, "status" | "endDate"> | null,
+  fundraiser: Pick<
+    Doc<"fundraisers">,
+    "status" | "endDate" | "isFlagged"
+  > | null,
   now: number = Date.now(),
 ): boolean {
   if (!fundraiser || !DONATABLE_STATUSES.has(fundraiser.status)) return false;
+  if (fundraiser.isFlagged === true) return false;
   return !hasEnded(fundraiser.endDate, now);
 }
 

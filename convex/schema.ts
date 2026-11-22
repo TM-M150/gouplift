@@ -646,6 +646,61 @@ export default defineSchema({
     .index("by_commentId_and_status", ["commentId", "status"])
     .index("by_status_and_createdAt", ["status", "createdAt"]),
 
+  // A signed-in person telling staff a fundraiser shouldn't be there (scam,
+  // false story, asking for money away from GoUplift...). Staff only: it holds
+  // who reported, which the fundraiser's creator is never told. A report
+  // changes nothing by itself; staff decide (see fundraiserReports.ts).
+  fundraiserReports: defineTable({
+    fundraiserId: v.id("fundraisers"),
+    reporterUserId: v.id("users"),
+    reason: v.union(
+      v.literal("SCAM"),
+      v.literal("FALSE_STORY"),
+      v.literal("OFF_PLATFORM_PAYMENT"),
+      v.literal("STOLEN_IDENTITY"),
+      v.literal("PROHIBITED"),
+      v.literal("OTHER"),
+    ),
+    details: v.optional(v.string()),
+    status: v.union(
+      v.literal("OPEN"),
+      // The fundraiser was suspended because of it.
+      v.literal("ACTIONED"),
+      // Staff looked and the fundraiser can stay.
+      v.literal("DISMISSED"),
+    ),
+    resolvedBy: v.optional(v.id("users")),
+    resolvedAt: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    // One open report per person per fundraiser.
+    .index("by_fundraiserId_and_reporterUserId_and_status", [
+      "fundraiserId",
+      "reporterUserId",
+      "status",
+    ])
+    .index("by_fundraiserId_and_status", ["fundraiserId", "status"])
+    .index("by_status_and_createdAt", ["status", "createdAt"]),
+
+  // A fundraiser taken off the public site while staff look into it. The
+  // flag that does the hiding is fundraisers.isFlagged; this is why, who and
+  // when. It is kept apart because public queries return the whole
+  // fundraiser document and the reason is for the organizer and staff only.
+  // A lifted suspension stays as history.
+  fundraiserSuspensions: defineTable({
+    fundraiserId: v.id("fundraisers"),
+    status: v.union(v.literal("ACTIVE"), v.literal("LIFTED")),
+    // Shown to the organizer, so written for them.
+    reason: v.string(),
+    placedBy: v.id("users"),
+    placedAt: v.number(),
+    liftedBy: v.optional(v.id("users")),
+    liftedAt: v.optional(v.number()),
+    liftNote: v.optional(v.string()),
+  })
+    .index("by_fundraiserId_and_status", ["fundraiserId", "status"])
+    .index("by_status_and_placedAt", ["status", "placedAt"]),
+
   // One row per donor emailed about an update, the way donationReceipts is one
   // row per receipt. It keeps the donor's address (lower-case) so a donor who
   // gave twice is emailed once, and a random token for the unsubscribe link,
@@ -781,6 +836,9 @@ export default defineSchema({
       v.literal("FUNDRAISER_COMMENT_HIDDEN"),
       v.literal("FUNDRAISER_COMMENT_RESTORED"),
       v.literal("FUNDRAISER_COMMENT_REPORTS_DISMISSED"),
+      v.literal("FUNDRAISER_SUSPENDED"),
+      v.literal("FUNDRAISER_REINSTATED"),
+      v.literal("FUNDRAISER_REPORTS_DISMISSED"),
     ),
     organizationId: v.optional(v.id("organizations")),
     fundraiserId: v.optional(v.id("fundraisers")),

@@ -167,6 +167,8 @@ export const listMyFundraisers = query({
         title: fundraiser.title,
         type: fundraiser.type,
         status: fundraiser.status,
+        // Taken off the site while staff look into a report.
+        suspended: fundraiser.isFlagged === true,
         goalAmount: fundraiser.goalAmount,
         amountRaised: fundraiser.amountRaised,
         currency: fundraiser.currency,
@@ -231,7 +233,12 @@ export const listFundraisersByType = query({
     const fundraisers = await ctx.db
       .query("fundraisers")
       .withIndex("by_status", (q) => q.eq("status", "ACTIVE"))
-      .filter((q) => q.eq(q.field("isPrivate"), false))
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("isPrivate"), false),
+          q.neq(q.field("isFlagged"), true),
+        ),
+      )
       .order("desc")
       .take(SCAN_LIMIT);
 
@@ -331,7 +338,7 @@ export const searchFundraisers = query({
       return [];
     }
 
-    const fundraisers = await ctx.db
+    const found = await ctx.db
       .query("fundraisers")
       .withSearchIndex("search_title", (q) =>
         q
@@ -340,6 +347,9 @@ export const searchFundraisers = query({
           .eq("isPrivate", false),
       )
       .take(20);
+    // A suspended fundraiser is taken off the site while staff look into it,
+    // and the search index has no field for that, so it is dropped here.
+    const fundraisers = found.filter((f) => f.isFlagged !== true);
 
     return Promise.all(
       fundraisers.map(async (fundraiser) => ({
