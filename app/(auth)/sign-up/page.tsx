@@ -6,7 +6,7 @@ import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm, UseFormRegisterReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { FaApple, FaGoogle, FaMeta } from "react-icons/fa6";
+import { FaGoogle } from "react-icons/fa6";
 import { Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { Turnstile } from "@marsidev/react-turnstile";
@@ -163,7 +163,7 @@ function SignupForm() {
       phoneNumber: data.phoneNumber,
       // Where the link in the confirmation email lands.
       callbackURL: confirmationCallbackURL(requestedNext),
-    } as any);
+    } as Parameters<typeof authClient.signUp.email>[0]);
 
     if (error) {
       const errorMsg = error.message || "Failed to create account.";

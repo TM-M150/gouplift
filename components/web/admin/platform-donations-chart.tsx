@@ -64,6 +64,7 @@ export function PlatformDonationsChart() {
   const [timeRange, setTimeRange] = React.useState<RangeKey>("90d");
 
   React.useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Existing pattern, kept as it was; to refactor so state isn't set in an effect.
     if (isMobile) setTimeRange("7d");
   }, [isMobile]);
 

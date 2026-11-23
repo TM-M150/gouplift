@@ -4,6 +4,7 @@ import {
   httpAction,
   internalMutation,
   internalQuery,
+  type ActionCtx,
 } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
@@ -18,6 +19,11 @@ import {
 } from "./lib/donationSource";
 import { creditCompletedDonation } from "./lib/fundraiserTotals";
 import { recordCompletedDonation } from "./lib/payoutBalance";
+import {
+  describeError,
+  recordAlert,
+  reportProblem,
+} from "./lib/systemAlerts";
 
 const PAYPAL_BASE_URL = "https://api-m.sandbox.paypal.com"; // Switch to https://api-m.paypal.com for production
 
@@ -239,7 +245,7 @@ export const startPayPalCheckout = action({
     const links = orderData.links ?? [];
 
     const approveLinkObj = links.find(
-      (link: any) => link.rel === "payer-action" || link.rel === "approve",
+      (link: PayPalOrderResponse["links"][number]) => link.rel === "payer-action" || link.rel === "approve",
     );
 
     if (!approveLinkObj?.href) {
@@ -496,14 +502,23 @@ interface PayPalWebhookEvent {
   summary?: string;
 }
 
+// What came of checking a notification's signature. Told apart because they
+// need different things from us: a stranger's request is nothing to act on, a
+// missing setting or PayPal being unreachable is.
+type WebhookCheck =
+  | { kind: "valid" }
+  | { kind: "not_configured" }
+  | { kind: "rejected"; reason: string }
+  | { kind: "unavailable"; reason: string };
+
 async function verifyPayPalWebhook(
   headers: Headers,
   body: string,
-): Promise<boolean> {
+): Promise<WebhookCheck> {
   const webhookId = process.env.PAYPAL_WEBHOOK_ID;
   if (!webhookId) {
     console.error("PAYPAL_WEBHOOK_ID is not set");
-    return false;
+    return { kind: "not_configured" };
   }
 
   const transmissionId = headers.get("paypal-transmission-id");
@@ -519,9 +534,17 @@ async function verifyPayPalWebhook(
     !certUrl ||
     !authAlgo
   ) {
-    return false;
+    return { kind: "rejected", reason: "It had no PayPal signature headers." };
   }
 
+  let webhookEvent: unknown;
+  try {
+    webhookEvent = JSON.parse(body);
+  } catch {
+    return { kind: "rejected", reason: "Its body wasn't JSON." };
+  }
+
+  // Throws if we can't sign in to PayPal, which the caller reports.
   const token = await getPayPalAccessToken();
 
   const verifyResponse = await fetch(
@@ -539,7 +562,7 @@ async function verifyPayPalWebhook(
         transmission_sig: transmissionSig,
         transmission_time: transmissionTime,
         webhook_id: webhookId,
-        webhook_event: JSON.parse(body),
+        webhook_event: webhookEvent,
       }),
     },
   );
@@ -547,13 +570,27 @@ async function verifyPayPalWebhook(
   if (!verifyResponse.ok) {
     const err = await verifyResponse.text();
     console.error("PayPal webhook verification failed:", err);
-    return false;
+    // PayPal being down, slow, or refusing our own sign-in is our problem. A
+    // refusal of what was sent (a wrong webhook id, a bad certificate address)
+    // is treated like a failed signature.
+    const status = verifyResponse.status;
+    return status >= 500 || status === 401 || status === 403 || status === 429
+      ? {
+          kind: "unavailable",
+          reason: `PayPal's signature check answered HTTP ${status}.`,
+        }
+      : {
+          kind: "rejected",
+          reason: `PayPal's signature check refused it (HTTP ${status}).`,
+        };
   }
 
   const result = (await verifyResponse.json()) as {
     verification_status?: string;
   };
-  return result.verification_status === "SUCCESS";
+  return result.verification_status === "SUCCESS"
+    ? { kind: "valid" }
+    : { kind: "rejected", reason: "PayPal said the signature isn't valid." };
 }
 
 interface PayPalSaleResource {
@@ -568,8 +605,28 @@ interface PayPalSaleResource {
 export const paypalWebhook = httpAction(async (ctx, request) => {
   const body = await request.text();
 
-  const isValid = await verifyPayPalWebhook(request.headers, body);
-  if (!isValid) {
+  let check: WebhookCheck;
+  try {
+    check = await verifyPayPalWebhook(request.headers, body);
+  } catch (error) {
+    // Most likely we couldn't sign in to PayPal to check it.
+    await reportProblem(ctx, {
+      kind: "PAYPAL_WEBHOOK_FAILED",
+      detail: `Could not check the signature: ${describeError(error)}`,
+    });
+    throw error;
+  }
+  if (check.kind !== "valid") {
+    // Every one of these is answered the way it always was: PayPal sends the
+    // real ones again, and a stranger gets nothing.
+    await reportProblem(
+      ctx,
+      check.kind === "not_configured"
+        ? { kind: "PAYPAL_NOT_CONFIGURED" }
+        : check.kind === "unavailable"
+          ? { kind: "PAYPAL_WEBHOOK_FAILED", detail: check.reason }
+          : { kind: "PAYPAL_WEBHOOK_REJECTED", detail: check.reason },
+    );
     return new Response("Invalid signature", { status: 401 });
   }
 
@@ -580,6 +637,24 @@ export const paypalWebhook = httpAction(async (ctx, request) => {
     return new Response("Invalid JSON", { status: 400 });
   }
 
+  // From here it is PayPal's notification. If we fail to handle it, record
+  // that and still fail the same way as before, so PayPal sends it again.
+  try {
+    return await handlePayPalEvent(ctx, event);
+  } catch (error) {
+    await reportProblem(ctx, {
+      kind: "PAYPAL_WEBHOOK_FAILED",
+      reference: typeof event.id === "string" ? event.id : undefined,
+      detail: `${event.event_type}: ${describeError(error)}`,
+    });
+    throw error;
+  }
+});
+
+async function handlePayPalEvent(
+  ctx: ActionCtx,
+  event: PayPalWebhookEvent,
+): Promise<Response> {
   const orderId =
     event.resource?.supplementary_data?.related_ids?.order_id ?? null;
 
@@ -672,6 +747,11 @@ export const paypalWebhook = httpAction(async (ctx, request) => {
       // before the payment's own notification, and one that can't be matched
       // should show in PayPal's failed deliveries rather than vanish.
       if (outcome === "not_found") {
+        await reportProblem(ctx, {
+          kind: "PAYPAL_REFUND_UNMATCHED",
+          reference: event.resource?.id,
+          detail: `${event.event_type}, PayPal id ${event.resource?.id}.`,
+        });
         return new Response("Donation not found", { status: 404 });
       }
       break;
@@ -683,7 +763,7 @@ export const paypalWebhook = httpAction(async (ctx, request) => {
   }
 
   return new Response("OK", { status: 200 });
-});
+}
 
 export const getSubscriptionByPayPalId = internalQuery({
   args: { paypalSubscriptionId: v.string() },
@@ -745,6 +825,13 @@ export const recordSubscriptionPayment = internalMutation({
       console.error(
         `No paypalSubscriptions row for ${args.paypalSubscriptionId}`,
       );
+      // PayPal is told this went fine, so it won't send it again: the money
+      // has moved and this is the only sign of it.
+      await recordAlert(ctx, {
+        kind: "PAYPAL_PAYMENT_UNMATCHED",
+        reference: args.paypalSaleId,
+        detail: `Sale ${args.paypalSaleId} for subscription ${args.paypalSubscriptionId}.`,
+      });
       return;
     }
 

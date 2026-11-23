@@ -62,6 +62,7 @@ export function ChartAreaInteractive({
 
   React.useEffect(() => {
     if (isMobile) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Existing pattern, kept as it was; to refactor so state isn't set in an effect.
       setTimeRange("7d");
     }
   }, [isMobile]);

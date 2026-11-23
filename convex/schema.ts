@@ -1,5 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { SYSTEM_ALERT_KINDS } from "../lib/system-alerts";
 import { donationSourceValidator } from "./lib/donationSource";
 import {
   kycDocumentTypeValidator,
@@ -14,6 +15,7 @@ import {
 } from "./lib/beneficialOwnerValidators";
 import {
   documentTypeValidator,
+  literalUnion,
   organizationTypeValidator,
 } from "./lib/organizationValidators";
 import {
@@ -1218,4 +1220,32 @@ export default defineSchema({
     categories: v.array(v.object({ type: v.string(), count: v.number() })),
     updatedAt: v.number(),
   }).index("by_key", ["key"]),
+
+  // Something that went wrong behind the scenes with a payment (see
+  // lib/system-alerts.ts for the kinds). One open row per problem: the same
+  // problem happening again adds to `count` instead of adding a row, so a
+  // provider retrying a failing notification doesn't bury the page. It holds
+  // no payload and no personal details, only what staff need to find the
+  // payment in the provider's dashboard.
+  systemAlerts: defineTable({
+    kind: literalUnion(SYSTEM_ALERT_KINDS),
+    // What it is about when one kind covers many payments: the provider's id
+    // for the payment or notification. Empty for a problem with the setup.
+    reference: v.optional(v.string()),
+    status: v.union(v.literal("OPEN"), v.literal("RESOLVED")),
+    // From the latest time it happened. Scrubbed of emails and phone numbers.
+    detail: v.optional(v.string()),
+    count: v.number(),
+    firstSeenAt: v.number(),
+    lastSeenAt: v.number(),
+    // When staff were last emailed about it.
+    lastNotifiedAt: v.optional(v.number()),
+    resolvedBy: v.optional(v.id("users")),
+    resolvedAt: v.optional(v.number()),
+    resolveNote: v.optional(v.string()),
+  })
+    // The open rows of one kind, to fold a repeat into the right one.
+    .index("by_kind_and_status", ["kind", "status"])
+    // The admin page (newest first) and the clean-up of old resolved rows.
+    .index("by_status_and_lastSeenAt", ["status", "lastSeenAt"]),
 });

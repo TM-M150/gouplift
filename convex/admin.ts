@@ -11,6 +11,7 @@ import {
 import { getActivePayoutHold } from "./lib/payoutEligibility";
 import { placePayoutHoldFor } from "./lib/payoutHold";
 import { availableBalance } from "../lib/payouts";
+import { SYSTEM_ALERTS } from "../lib/system-alerts";
 import {
   getVerificationBlockers,
   ORGANIZATION_REVIEW_CHECK_LABELS,
@@ -645,7 +646,7 @@ export const getAttentionCounts = query({
   handler: async (ctx) => {
     await requireStaff(ctx);
 
-    const [orgs, fundraisers, reports] = await Promise.all([
+    const [orgs, fundraisers, reports, alerts] = await Promise.all([
       ctx.db
         .query("organizations")
         .withIndex("by_verificationStatus", (q) =>
@@ -661,6 +662,11 @@ export const getAttentionCounts = query({
         .query("fundraiserReports")
         .withIndex("by_status_and_createdAt", (q) => q.eq("status", "OPEN"))
         .take(QUEUE_CAP + 1),
+      // Open problems with payments (see systemAlerts.ts).
+      ctx.db
+        .query("systemAlerts")
+        .withIndex("by_status_and_lastSeenAt", (q) => q.eq("status", "OPEN"))
+        .take(QUEUE_CAP + 1),
     ]);
 
     return {
@@ -672,6 +678,14 @@ export const getAttentionCounts = query({
           QUEUE_CAP,
         ),
         capped: reports.length > QUEUE_CAP,
+      },
+      systemAlerts: {
+        ...tally(alerts, QUEUE_CAP),
+        // The ones that mean money may have gone unrecorded.
+        errors: alerts
+          .slice(0, QUEUE_CAP)
+          .filter((alert) => SYSTEM_ALERTS[alert.kind].severity === "ERROR")
+          .length,
       },
     };
   },

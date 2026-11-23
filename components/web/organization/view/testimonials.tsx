@@ -98,10 +98,7 @@ export function Testimonials() {
               transition={{ duration: 0.3 }}
               className="flex items-center gap-4"
             >
-              <AvatarPlaceholder
-                src={activeTestimonial.avatarSrc}
-                alt={activeTestimonial.author}
-              />
+              <AvatarPlaceholder />
 
               <div className="border-l pl-4">
                 <p className="font-medium">{activeTestimonial.author}</p>
@@ -117,7 +114,7 @@ export function Testimonials() {
   );
 }
 
-function AvatarPlaceholder({ src, alt }: { src?: string; alt?: string }) {
+function AvatarPlaceholder() {
   return (
     <div className="bg-muted text-muted-foreground flex size-12 shrink-0 items-center justify-center rounded-full border">
       <svg
