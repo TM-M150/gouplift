@@ -28,4 +28,12 @@ crons.interval(
   {},
 );
 
+// Resolved payment-problem alerts are only kept for a while.
+crons.interval(
+  "delete old resolved system alerts",
+  { hours: 24 },
+  internal.systemAlerts.prune,
+  {},
+);
+
 export default crons;

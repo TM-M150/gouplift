@@ -5,6 +5,7 @@ import {
   internalMutation,
   internalQuery,
   query,
+  type ActionCtx,
 } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
@@ -17,6 +18,7 @@ import {
 } from "./lib/donationSource";
 import { creditCompletedDonation } from "./lib/fundraiserTotals";
 import { recordCompletedDonation } from "./lib/payoutBalance";
+import { describeError, reportProblem } from "./lib/systemAlerts";
 
 function roundToCents(amount: number): number {
   return Math.round(amount * 100) / 100;
@@ -54,10 +56,39 @@ function mapSourceChannel(
 export const donationCallback = httpAction(async (ctx, request) => {
   const url = new URL(request.url);
   const token = url.searchParams.get("token");
-  if (!token || token !== process.env.SASAPAY_CALLBACK_SECRET) {
+  const secret = process.env.SASAPAY_CALLBACK_SECRET;
+  if (!secret) {
+    // Not a stranger's mistake: until this is set every real notification is
+    // turned away too, and donations stay pending.
+    await reportProblem(ctx, { kind: "SASAPAY_NOT_CONFIGURED" });
+    return new Response("Unauthorized", { status: 401 });
+  }
+  if (!token || token !== secret) {
+    await reportProblem(ctx, {
+      kind: "SASAPAY_CALLBACK_REJECTED",
+      detail: token ? "The token was wrong." : "There was no token.",
+    });
     return new Response("Unauthorized", { status: 401 });
   }
 
+  // From here it is SasaPay's notification. If we fail to handle it, record
+  // that and still fail the same way as before (an error response, so SasaPay
+  // may send it again).
+  try {
+    return await handleSasaPayNotification(ctx, request);
+  } catch (error) {
+    await reportProblem(ctx, {
+      kind: "SASAPAY_CALLBACK_FAILED",
+      detail: describeError(error),
+    });
+    throw error;
+  }
+});
+
+async function handleSasaPayNotification(
+  ctx: ActionCtx,
+  request: Request,
+): Promise<Response> {
   const payload = await request.json();
 
   const checkoutRequestId: string | undefined = payload.CheckoutRequestID;
@@ -67,6 +98,15 @@ export const donationCallback = httpAction(async (ctx, request) => {
   const sourceChannel: string | undefined = payload.SourceChannel;
 
   if (!checkoutRequestId) {
+    // Only the field names are recorded, never the values.
+    await reportProblem(ctx, {
+      kind: "SASAPAY_CALLBACK_FAILED",
+      detail: `The notification had no CheckoutRequestID. Fields it had: ${Object.keys(
+        payload,
+      )
+        .slice(0, 20)
+        .join(", ")}.`,
+    });
     return new Response("Missing CheckoutRequestID", { status: 400 });
   }
 
@@ -79,6 +119,19 @@ export const donationCallback = httpAction(async (ctx, request) => {
     // Nothing on our side matches this — most likely a stale/replayed
     // callback. Acknowledge with 200 so SasaPay stops retrying, but don't
     // touch anything since there's no donation to update.
+    //
+    // A failed payment with no donation is harmless. A successful one means
+    // a donor has paid and nothing was recorded, which is worth a person
+    // looking at; this answer means SasaPay won't send it again.
+    if (resultCode === "0") {
+      await reportProblem(ctx, {
+        kind: "SASAPAY_PAYMENT_UNMATCHED",
+        reference: checkoutRequestId,
+        detail: `CheckoutRequestID ${checkoutRequestId}${
+          transactionCode ? `, transaction ${transactionCode}` : ""
+        }.`,
+      });
+    }
     return new Response("OK", { status: 200 });
   }
 
@@ -104,7 +157,7 @@ export const donationCallback = httpAction(async (ctx, request) => {
   // 200 is the safe default so it doesn't keep retrying a callback
   // you've already handled.
   return new Response("OK", { status: 200 });
-});
+}
 
 export const startDonationCheckout = action({
   args: {

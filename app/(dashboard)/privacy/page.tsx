@@ -70,7 +70,7 @@ function getHeadings(markdown: string) {
     if (!match) continue;
 
     const level = match[1].length;
-    let text = match[2]
+    const text = match[2]
       .replace(/\*\*/g, "")
       .replace(/\*/g, "")
       .replace(/`/g, "")

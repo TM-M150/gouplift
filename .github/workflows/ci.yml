@@ -1,0 +1,53 @@
+name: CI
+
+# Runs on every pull request and every push to main, so the tests don't only
+# run when someone remembers to run them.
+#
+# There is no build step on purpose: `next build` prerenders pages by calling
+# Convex, so building here would call the live backend. Vercel's preview build
+# on each pull request is the build check.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# A newer push to the same branch replaces the run that is still going.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Types, lint and tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      # Node 24 (see .nvmrc) because it brings npm 11. This project's
+      # package.json (`allowScripts`, and the `$` overrides) needs it: `npm ci`
+      # fails on npm 10, which is what Node 22 ships with.
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      # The three checks below run even if an earlier one failed, so one run
+      # shows everything that is wrong rather than the first thing.
+      - name: Types
+        run: npx tsc --noEmit
+
+      - name: Lint
+        if: ${{ !cancelled() }}
+        run: npx eslint --max-warnings 0
+
+      - name: Tests
+        if: ${{ !cancelled() }}
+        run: npm test

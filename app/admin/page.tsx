@@ -2,6 +2,7 @@
 
 import { useQuery } from "convex/react";
 import {
+  Activity,
   Banknote,
   Building2,
   ClipboardCheck,
@@ -24,6 +25,7 @@ export default function AdminOverviewPage() {
   const orgs = attention?.orgsAwaitingVerification;
   const reviews = attention?.fundraisersAwaitingReview;
   const reported = attention?.fundraisersReported;
+  const alerts = attention?.systemAlerts;
 
   const anyCapped =
     !!totals &&
@@ -46,6 +48,21 @@ export default function AdminOverviewPage() {
       <section className="space-y-3">
         <h2 className="text-sm font-semibold">Needs attention</h2>
         <div className="grid gap-4 sm:grid-cols-2">
+          <StatCard
+            title="Payment alerts"
+            icon={Activity}
+            value={alerts && formatCount(alerts.count, alerts.capped)}
+            hint={
+              alerts &&
+              (alerts.errors > 0
+                ? `${formatCount(alerts.errors)} need action: a donor may have paid without it being recorded`
+                : alerts.count > 0
+                  ? "Worth a look, nothing urgent"
+                  : "Nothing has gone wrong that we know of")
+            }
+            highlight={!!alerts && alerts.count > 0}
+            href="/admin/alerts"
+          />
           <StatCard
             title="Organizations awaiting verification"
             icon={Building2}

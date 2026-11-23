@@ -33,6 +33,7 @@ export function AdditionalInfoTab() {
 
   useEffect(() => {
     if (profile && !synced) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Existing pattern, kept as it was; to refactor so state isn't set in an effect.
       setBio(profile.bio);
       setCourses(profile.courses);
       setSynced(true);

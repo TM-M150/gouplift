@@ -1,4 +1,5 @@
 import {
+  Activity,
   Building2,
   Heart,
   Landmark,
@@ -59,5 +60,11 @@ export const adminNav: AdminNavItem[] = [
   },
   { title: "Payouts", href: "/admin/payouts", icon: Wallet, ready: true },
   { title: "Refunds", href: "/admin/refunds", icon: Undo2, ready: true },
+  {
+    title: "Payment alerts",
+    href: "/admin/alerts",
+    icon: Activity,
+    ready: true,
+  },
   { title: "Users", href: "/admin/users", icon: Users, ready: false },
 ];

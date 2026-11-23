@@ -71,6 +71,7 @@ function AccountDetailsCard() {
         location: profile.location || undefined,
         website: profile.website || "",
       });
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Existing pattern, kept as it was; to refactor so state isn't set in an effect.
       setSynced(true);
     }
   }, [profile, synced, reset]);
