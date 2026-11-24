@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import * as Sentry from "@sentry/nextjs";
 import Link from "next/link";
 import { Button, buttonVariants } from "@/components/ui/button";
 import Logo from "@/components/icons/logo";
@@ -26,8 +27,12 @@ export function ErrorContent({
   standalone?: boolean;
 }) {
   React.useEffect(() => {
-    // No error monitoring yet: the browser console and the server logs (by
-    // digest) are where this shows up.
+    // A page that failed on the server has already been reported to Sentry
+    // from there (instrumentation.ts), and the copy that reaches the browser
+    // has its details removed and carries a digest, so reporting it again
+    // would only add a duplicate with less to go on. An error without a digest
+    // happened in the browser, and only this page knows about it.
+    if (!error.digest) Sentry.captureException(error);
     console.error(error);
   }, [error]);
 

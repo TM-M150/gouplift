@@ -12,6 +12,12 @@ const convexSiteUrl = process.env.NEXT_PUBLIC_CONVEX_SITE_URL?.replace(
 );
 
 const nextConfig: NextConfig = {
+  // Which kind of deployment this is: "production", "preview" or, anywhere
+  // that isn't Vercel, "development". Put into the browser code as well, so
+  // lib/sentry.ts only reports errors from the live site.
+  env: {
+    NEXT_PUBLIC_APP_ENV: process.env.VERCEL_ENV ?? "development",
+  },
   // Who may put our pages inside an iframe. Only the embed widget
   // (app/embed, loaded by public/embed.js) is meant to appear on other
   // people's sites; every other page, donation dialog included, may only be

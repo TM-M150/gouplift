@@ -1,5 +1,6 @@
 "use client";
 
+import { SentryTest } from "@/components/web/admin/sentry-test";
 import { SystemAlerts } from "@/components/web/admin/system-alerts";
 
 export default function AdminAlertsPage() {
@@ -19,6 +20,7 @@ export default function AdminAlertsPage() {
       </div>
 
       <SystemAlerts />
+      <SentryTest />
     </div>
   );
 }
