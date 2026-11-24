@@ -22,6 +22,7 @@ import type * as fundraiserComments from "../fundraiserComments.js";
 import type * as fundraiserExpiry from "../fundraiserExpiry.js";
 import type * as fundraiserReports from "../fundraiserReports.js";
 import type * as fundraiserUpdates from "../fundraiserUpdates.js";
+import type * as guardedJobs from "../guardedJobs.js";
 import type * as guestComments from "../guestComments.js";
 import type * as http from "../http.js";
 import type * as impact from "../impact.js";
@@ -122,6 +123,7 @@ declare const fullApi: ApiFromModules<{
   fundraiserExpiry: typeof fundraiserExpiry;
   fundraiserReports: typeof fundraiserReports;
   fundraiserUpdates: typeof fundraiserUpdates;
+  guardedJobs: typeof guardedJobs;
   guestComments: typeof guestComments;
   http: typeof http;
   impact: typeof impact;

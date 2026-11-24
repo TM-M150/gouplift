@@ -94,7 +94,9 @@ export async function recordCompletedDonation(
     { pendingNet: donation.netAmount },
     now,
   );
-  await ctx.scheduler.runAt(dueAt, internal.payoutBalances.settleDonation, {
+  // The guarded version: a failure here would leave the organizer's balance
+  // short and nothing would run it again, so it raises an alert.
+  await ctx.scheduler.runAt(dueAt, internal.guardedJobs.settleDonation, {
     donationId: donation._id,
   });
 }

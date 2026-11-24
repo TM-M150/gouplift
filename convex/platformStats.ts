@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { internalMutation, query } from "./_generated/server";
+import { clearJobAlerts } from "./lib/systemAlerts";
 
 // Fundraisers read per run. Each page is its own transaction and the next
 // page is scheduled, so no single run reads the whole table.
@@ -9,7 +10,7 @@ const PAGE_SIZE = 100;
 // Statuses a fundraiser can sit in without ever having been live.
 const NEVER_LIVE = new Set(["DRAFT", "PENDING_REVIEW", "REJECTED"]);
 
-const accumulatorValidator = v.object({
+export const accumulatorValidator = v.object({
   totalRaisedKes: v.number(),
   totalDonations: v.number(),
   fundraisersLaunched: v.number(),
@@ -75,10 +76,15 @@ export const refresh = internalMutation({
     }
 
     if (!page.isDone) {
-      await ctx.scheduler.runAfter(0, internal.platformStats.refresh, {
-        cursor: page.continueCursor,
-        accumulator: acc,
-      });
+      // The guarded version, so a failure on a later page raises an alert too.
+      await ctx.scheduler.runAfter(
+        0,
+        internal.guardedJobs.refreshPlatformStats,
+        {
+          cursor: page.continueCursor,
+          accumulator: acc,
+        },
+      );
       return null;
     }
 
@@ -106,6 +112,7 @@ export const refresh = internalMutation({
       await ctx.db.insert("platformStats", next);
     }
 
+    await clearJobAlerts(ctx, "JOB_PLATFORM_STATS_FAILED");
     return null;
   },
 });

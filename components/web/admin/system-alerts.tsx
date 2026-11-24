@@ -176,7 +176,7 @@ export function SystemAlertsView({
 
       {ordered.length === 0 ? (
         <p className="py-4 text-sm text-muted-foreground">
-          No payment problems are open.
+          No problems are open.
         </p>
       ) : (
         <div className="space-y-3">

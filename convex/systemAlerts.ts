@@ -19,10 +19,11 @@ import { sendEmail as sendViaResend } from "./lib/email";
 import { literalUnion } from "./lib/organizationValidators";
 import { escapeHtml } from "./lib/receiptEmail";
 import { requireStaff } from "./lib/staff";
-import { recordAlert } from "./lib/systemAlerts";
+import { clearJobAlerts, recordAlert } from "./lib/systemAlerts";
 
-// Problems with payments behind the scenes: what is recorded, who is told, and
-// what staff see. The recording itself is in lib/systemAlerts.ts.
+// Problems behind the scenes (payments, and jobs on a timer): what is
+// recorded, who is told, and what staff see. The recording itself is in
+// lib/systemAlerts.ts.
 
 const LIST_LIMIT = 100;
 const RESOLVED_LIMIT = 20;
@@ -133,7 +134,7 @@ export const sendEmail = internalAction({
     const to = recipients();
     if (to.length === 0) {
       console.warn(
-        "A payment problem was recorded but ALERT_EMAIL_TO isn't set, so no email was sent. Set it with `npx convex env set ALERT_EMAIL_TO you@example.com`.",
+        "A problem was recorded but ALERT_EMAIL_TO isn't set, so no email was sent. Set it with `npx convex env set ALERT_EMAIL_TO you@example.com`.",
       );
       return null;
     }
@@ -279,7 +280,10 @@ export const prune = internalMutation({
       .take(PRUNE_BATCH);
     for (const row of old) await ctx.db.delete(row._id);
     if (old.length === PRUNE_BATCH) {
-      await ctx.scheduler.runAfter(0, internal.systemAlerts.prune, {});
+      // The guarded version, so a failure in a later batch raises an alert too.
+      await ctx.scheduler.runAfter(0, internal.guardedJobs.pruneAlerts, {});
+    } else {
+      await clearJobAlerts(ctx, "JOB_ALERT_PRUNE_FAILED");
     }
     return null;
   },

@@ -49,13 +49,13 @@ export default function AdminOverviewPage() {
         <h2 className="text-sm font-semibold">Needs attention</h2>
         <div className="grid gap-4 sm:grid-cols-2">
           <StatCard
-            title="Payment alerts"
+            title="System alerts"
             icon={Activity}
             value={alerts && formatCount(alerts.count, alerts.capped)}
             hint={
               alerts &&
               (alerts.errors > 0
-                ? `${formatCount(alerts.errors)} need action: a donor may have paid without it being recorded`
+                ? `${formatCount(alerts.errors)} need action`
                 : alerts.count > 0
                   ? "Worth a look, nothing urgent"
                   : "Nothing has gone wrong that we know of")

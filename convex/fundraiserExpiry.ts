@@ -1,6 +1,7 @@
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { internalMutation } from "./_generated/server";
+import { clearJobAlerts } from "./lib/systemAlerts";
 
 // Fundraisers closed per run. A full batch schedules the next one straight
 // away, so a backlog clears without any single run doing unbounded work.
@@ -44,7 +45,10 @@ export const expireEnded = internalMutation({
     }
 
     if (ended.length === BATCH_SIZE) {
-      await ctx.scheduler.runAfter(0, internal.fundraiserExpiry.expireEnded, {});
+      // The guarded version, so a failure in a later batch raises an alert too.
+      await ctx.scheduler.runAfter(0, internal.guardedJobs.expireEnded, {});
+    } else {
+      await clearJobAlerts(ctx, "JOB_EXPIRE_ENDED_FAILED");
     }
     return null;
   },
