@@ -82,6 +82,10 @@ Cookies are small data files that the website puts in your browser. We use cooki
 
 We use Vercel Web Analytics and Vercel Speed Insights to count visits and measure how quickly pages load. We use them for overall figures, not to look at what any one person did. You can read how Vercel handles data at https://vercel.com/legal/privacy-policy.
 
+### Error Monitoring
+
+We use Sentry to find out when something on the website breaks. When an error happens, Sentry receives technical details about it: the error message, the address of the page (without anything after a question mark), and your browser and device type. We set it up not to send what you type into forms, your cookies, or your account details, and to remove email addresses and phone numbers from error messages where it finds them. You can read how Sentry handles data at https://sentry.io/privacy/.
+
 ### Location
 
 We do not collect your device’s location. A location you type into your profile or fundraiser is shown as you entered it.
@@ -114,7 +118,7 @@ We share Personal Data only where it is needed for the purposes above.
 
 - **Payment partners.** SasaPay processes payments in Kenyan shillings (M-Pesa, Airtel Money, SasaPay wallet, and card) and PayPal processes payments in US dollars. They receive the details needed to take and record the payment, and they handle them under their own privacy policies.
 - **Organisations.** We do not publish your donation message. If you donate to a fundraiser that belongs to a verified organisation that has set up notifications, we tell that organisation the amount and the date and, unless you chose to give anonymously, your name and your message. We do not give it your email address or your phone number.
-- **Service providers.** Companies that help us run the Services, only for that purpose and under their own obligations to protect the data: hosting and database services (Convex and Vercel), email delivery (Resend), sign-in (Google), and website analytics (Vercel).
+- **Service providers.** Companies that help us run the Services, only for that purpose and under their own obligations to protect the data: hosting and database services (Convex and Vercel), email delivery (Resend), sign-in (Google), website analytics (Vercel), and error monitoring (Sentry).
 - **Our team.** Access to verification documents is limited to the members of our team who review them, and their reviews are recorded.
 - **Authorities and legal requirements.** We may release Personal Data when legally required or when we reasonably believe disclosure is necessary to (i) meet a legal duty, (ii) safeguard Go-Uplift LTD’s rights or property, (iii) respond to urgent threats to users or public safety, or (iv) protect against legal liability.
 - **Business transfers.** If Go-Uplift LTD buys or sells a business or assets, or is involved in a merger, restructuring, or similar transaction, Personal Data may be included among the assets transferred.

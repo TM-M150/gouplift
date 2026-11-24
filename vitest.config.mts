@@ -17,7 +17,7 @@ export default defineConfig({
   },
   test: {
     environment: "edge-runtime",
-    include: ["convex/**/*.test.ts"],
+    include: ["convex/**/*.test.ts", "lib/**/*.test.ts"],
     // No email key unless a test sets one, so a key exported in a developer's
     // shell can never make a test reach the real email service.
     env: { RESEND_API_KEY: "" },
