@@ -1192,7 +1192,7 @@ describe("clearing out old alerts", () => {
   it("runs every day", async () => {
     const crons = (await import("./crons")).default;
     expect(crons.crons["delete old resolved system alerts"]).toMatchObject({
-      name: "systemAlerts:prune",
+      name: "guardedJobs:pruneAlerts",
       schedule: { type: "interval", hours: 24 },
     });
   });

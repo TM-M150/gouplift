@@ -9,6 +9,7 @@ import {
 } from "./lib/documentFiles";
 import { consumeRateLimit } from "./lib/rateLimit";
 import { getCurrentUserDoc } from "./lib/staff";
+import { clearJobAlerts } from "./lib/systemAlerts";
 
 // Verification documents are national IDs, bank letters and the like, so a
 // file never sits in storage unless it passed the checks and is either waiting
@@ -164,11 +165,14 @@ export const sweepStaleDocumentUploads = internalMutation({
     }
 
     if (stale.length === SWEEP_BATCH) {
+      // The guarded version, so a failure in a later batch raises an alert too.
       await ctx.scheduler.runAfter(
         0,
-        internal.documentUploads.sweepStaleDocumentUploads,
+        internal.guardedJobs.sweepStaleUploads,
         {},
       );
+    } else {
+      await clearJobAlerts(ctx, "JOB_UPLOAD_SWEEP_FAILED");
     }
     return null;
   },

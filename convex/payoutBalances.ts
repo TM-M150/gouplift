@@ -156,7 +156,7 @@ export const rebuildBalance = internalMutation({
       await ctx.db.patch(id, { settledAt: at });
     }
     for (const { id, at } of toSchedule) {
-      await ctx.scheduler.runAt(at, internal.payoutBalances.settleDonation, {
+      await ctx.scheduler.runAt(at, internal.guardedJobs.settleDonation, {
         donationId: id,
       });
     }

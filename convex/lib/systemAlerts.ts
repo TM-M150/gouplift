@@ -151,6 +151,59 @@ export async function reportProblem(
   }
 }
 
+/** The kinds that are about a job on a timer, not a payment. */
+export type JobAlertKind = Extract<SystemAlertKind, `JOB_${string}`>;
+
+/**
+ * Runs a job and, if it throws, records an alert in a mutation of its own,
+ * which survives the job's rollback (an alert written inside the job would be
+ * rolled back with it). Then it throws the same error again, so Convex still
+ * counts the run as failed and the dashboard's logs show it.
+ *
+ * Recording can't itself make things worse: `reportProblem` never throws.
+ */
+export async function guardedJob(
+  ctx: Pick<ActionCtx, "runMutation">,
+  problem: { kind: JobAlertKind; reference?: string },
+  run: () => Promise<unknown>,
+): Promise<null> {
+  try {
+    await run();
+  } catch (error) {
+    await reportProblem(ctx, { ...problem, detail: describeError(error) });
+    throw error;
+  }
+  return null;
+}
+
+/**
+ * For a job to call, inside its own transaction, when a run has done
+ * everything it set out to do: closes the alerts left by earlier failures, so
+ * a problem that fixed itself doesn't wait for someone to tidy up. Being part
+ * of the job's transaction, it only happens if the run really finished. A job
+ * that hands the rest of its work to a next run calls it in the last one.
+ */
+export async function clearJobAlerts(
+  ctx: MutationCtx,
+  kind: JobAlertKind,
+): Promise<void> {
+  const open = await ctx.db
+    .query("systemAlerts")
+    .withIndex("by_kind_and_status", (q) =>
+      q.eq("kind", kind).eq("status", "OPEN"),
+    )
+    .take(MAX_OPEN_PER_KIND);
+  if (open.length === 0) return;
+  const now = Date.now();
+  for (const row of open) {
+    await ctx.db.patch(row._id, {
+      status: "RESOLVED",
+      resolvedAt: now,
+      resolveNote: "Ran again without a problem.",
+    });
+  }
+}
+
 /** An error as one line. Convex puts a request id in server errors' messages. */
 export function describeError(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);

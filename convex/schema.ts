@@ -1205,8 +1205,8 @@ export default defineSchema({
     .index("by_endpointId_and_eventId", ["endpointId", "eventId"]),
 
   // One row (key "global") of public, homepage-facing totals. Rebuilt on a
-  // schedule by internal.platformStats.refresh, so the homepage never scans
-  // fundraisers at request time.
+  // schedule by the platformStats:refresh job (see crons.ts), so the homepage
+  // never scans fundraisers at request time.
   platformStats: defineTable({
     key: v.literal("global"),
     // Sum of amountRaised over KES fundraisers that went live.

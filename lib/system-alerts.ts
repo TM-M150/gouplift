@@ -1,11 +1,16 @@
-// What can go wrong with payments behind the scenes, and what to do about
-// each. Shared by the backend (which records them) and the admin page (which
-// shows them), so the words live in one place.
+// What can go wrong behind the scenes (with payments, and with the jobs that
+// run on a timer), and what to do about each. Shared by the backend (which
+// records them) and the admin page (which shows them), so the words live in
+// one place.
 //
-// An ERROR means money may have moved without the platform recording it, or
-// that payments can't be recorded at all: staff are emailed. A WARNING is
-// something to look at, often someone probing an address: it shows on the
-// admin page and the Overview, and is not emailed.
+// An ERROR means money may have moved without the platform recording it, that
+// payments can't be recorded at all, or that a job people depend on has
+// stopped working: staff are emailed. A WARNING is something to look at, often
+// someone probing an address or a job that can wait: it shows on the admin
+// page and the Overview, and is not emailed.
+//
+// The JOB_ kinds are raised by convex/guardedJobs.ts when a job throws, and
+// clear themselves when the job next finishes.
 
 export const SYSTEM_ALERT_KINDS = [
   "SASAPAY_NOT_CONFIGURED",
@@ -17,6 +22,11 @@ export const SYSTEM_ALERT_KINDS = [
   "PAYPAL_WEBHOOK_FAILED",
   "PAYPAL_PAYMENT_UNMATCHED",
   "PAYPAL_REFUND_UNMATCHED",
+  "JOB_EXPIRE_ENDED_FAILED",
+  "JOB_PLATFORM_STATS_FAILED",
+  "JOB_UPLOAD_SWEEP_FAILED",
+  "JOB_ALERT_PRUNE_FAILED",
+  "JOB_SETTLE_DONATION_FAILED",
 ] as const;
 
 export type SystemAlertKind = (typeof SYSTEM_ALERT_KINDS)[number];
@@ -70,6 +80,31 @@ export const SYSTEM_ALERTS: Record<
     severity: "WARNING",
     title: "PayPal refunded or reversed a payment we can't find",
     help: "A refund or dispute for a payment that isn't in our records. A refund can arrive just before its payment's own notification, and PayPal sends it again, so this often clears itself. If it keeps coming back, find the payment in PayPal.",
+  },
+  JOB_EXPIRE_ENDED_FAILED: {
+    severity: "ERROR",
+    title: "Closing ended fundraisers failed",
+    help: "The hourly job that closes fundraisers past their end date threw an error, so ended fundraisers still show as Active. Donations still stop at the end date. Read the details and fix the cause. It tries again every hour, and this alert clears itself once a run finishes.",
+  },
+  JOB_PLATFORM_STATS_FAILED: {
+    severity: "WARNING",
+    title: "Refreshing the homepage numbers failed",
+    help: "The totals on the homepage are stuck at their last values. It tries again every 30 minutes, and this alert clears itself once a run finishes. If it keeps failing, read the details, or try it yourself with `npx convex run platformStats:refresh`.",
+  },
+  JOB_UPLOAD_SWEEP_FAILED: {
+    severity: "WARNING",
+    title: "Deleting abandoned verification uploads failed",
+    help: "Files uploaded for verification but never submitted aren't being deleted, so they are kept longer than the 24 hours intended. It tries again every 6 hours, and this alert clears itself once a run finishes.",
+  },
+  JOB_ALERT_PRUNE_FAILED: {
+    severity: "WARNING",
+    title: "Deleting old resolved alerts failed",
+    help: "Resolved alerts older than 90 days aren't being cleared out. Nothing else is affected. It tries again every day, and this alert clears itself once a run finishes.",
+  },
+  JOB_SETTLE_DONATION_FAILED: {
+    severity: "ERROR",
+    title: "A PayPal donation didn't become withdrawable",
+    help: 'A donation\'s waiting period ended, but moving it into the organizer\'s withdrawable balance failed, so their balance is missing it. Nothing tries it again. The reference is the donation\'s id: find its fundraiser, run `npx convex run payoutBalances:rebuildBalance \'{"fundraiserId":"<id>","dryRun":true}\'` to see what would change, then run it again without dryRun to fix it. Then resolve this alert.',
   },
 };
 

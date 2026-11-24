@@ -3,11 +3,15 @@ import { internal } from "./_generated/api";
 
 const crons = cronJobs();
 
+// Every job here runs through the guards in guardedJobs.ts, so a run that
+// throws raises an alert instead of only a line in the dashboard's logs. Don't
+// point a cron at a job directly: guardedJobs.test.ts fails if you do.
+
 // Verification documents that were uploaded but never submitted.
 crons.interval(
   "delete stale document uploads",
   { hours: 6 },
-  internal.documentUploads.sweepStaleDocumentUploads,
+  internal.guardedJobs.sweepStaleUploads,
   {},
 );
 
@@ -15,7 +19,7 @@ crons.interval(
 crons.interval(
   "refresh platform stats",
   { minutes: 30 },
-  internal.platformStats.refresh,
+  internal.guardedJobs.refreshPlatformStats,
   {},
 );
 
@@ -24,7 +28,7 @@ crons.interval(
 crons.interval(
   "expire ended fundraisers",
   { hours: 1 },
-  internal.fundraiserExpiry.expireEnded,
+  internal.guardedJobs.expireEnded,
   {},
 );
 
@@ -32,7 +36,7 @@ crons.interval(
 crons.interval(
   "delete old resolved system alerts",
   { hours: 24 },
-  internal.systemAlerts.prune,
+  internal.guardedJobs.pruneAlerts,
   {},
 );
 
