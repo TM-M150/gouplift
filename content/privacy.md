@@ -29,6 +29,7 @@ We collect only what we need for the purposes set out in this policy. What we co
 - For M-Pesa and Airtel Money payments, your mobile number.
 - The amount, the date, the payment method, the payment reference or transaction code, and the message you write, if any.
 - We do not receive or store your card number, your M-Pesa or Airtel Money PIN, or your PayPal password. Those are handled by SasaPay and PayPal.
+- Anyone who can see a fundraiser can see your gift on its page: in a short pop-up when it comes in, and in a list of its recent donations. It shows the amount, how long ago you gave, and a name made of your first name and the initial of your last name (for example “Wanjiru K.”). That name is the one you type in the optional “Your name” box on the donation form, which may be filled in with the name on your account but which you can change or clear. If you leave it empty it is shown as “Someone”, and if you give anonymously it is shown as “Anonymous donor”. We do not show an email address, phone number or web address typed there.
 
 ### If You Get Emails About a Fundraiser You Gave To
 

@@ -19,6 +19,7 @@ import {
 import { creditCompletedDonation } from "./lib/fundraiserTotals";
 import { recordCompletedDonation } from "./lib/payoutBalance";
 import { describeError, reportProblem } from "./lib/systemAlerts";
+import { normalizeDonorName } from "../lib/donation-activity";
 
 function roundToCents(amount: number): number {
   return Math.round(amount * 100) / 100;
@@ -372,7 +373,10 @@ export const createPendingDonation = internalMutation({
     const donationId = await ctx.db.insert("donations", {
       fundraiserId: args.fundraiserId,
       donorUserId: args.donorUserId,
-      donorName: args.donorName,
+      // What the donor typed, tidied: it is shown on the fundraiser (see
+      // lib/donation-activity.ts), so an email or phone number typed in the
+      // name box is dropped here.
+      donorName: normalizeDonorName(args.donorName),
       donorEmail: args.donorEmail,
       donorPhone: args.donorPhone,
       isAnonymous: args.isAnonymous,

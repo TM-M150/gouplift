@@ -16,6 +16,7 @@ import type * as commentUnsubscribe from "../commentUnsubscribe.js";
 import type * as crons from "../crons.js";
 import type * as customerRisk from "../customerRisk.js";
 import type * as documentUploads from "../documentUploads.js";
+import type * as donationActivity from "../donationActivity.js";
 import type * as donations from "../donations.js";
 import type * as fundraiser from "../fundraiser.js";
 import type * as fundraiserComments from "../fundraiserComments.js";
@@ -117,6 +118,7 @@ declare const fullApi: ApiFromModules<{
   crons: typeof crons;
   customerRisk: typeof customerRisk;
   documentUploads: typeof documentUploads;
+  donationActivity: typeof donationActivity;
   donations: typeof donations;
   fundraiser: typeof fundraiser;
   fundraiserComments: typeof fundraiserComments;
