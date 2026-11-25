@@ -10,11 +10,15 @@ import Image from "next/image";
 import type { Metadata } from "next";
 import { DonationStatusBanner } from "@/components/web/donate/donation-status-banner";
 import { DonateButton } from "@/components/web/donate/donate-button";
+import { DonationPopup } from "@/components/web/fundraiser/donation-popup";
 import { EditFundraiserButton } from "@/components/web/fundraiser/edit-fundraiser-button";
 import { FundraiserComments } from "@/components/web/fundraiser/fundraiser-comments";
 import { FundraiserUpdates } from "@/components/web/fundraiser/fundraiser-updates";
+import { LiveFundraiserStats } from "@/components/web/fundraiser/live-fundraiser-stats";
 import { PayoutVerificationNotice } from "@/components/web/fundraiser/payout-verification-notice";
+import { RecentDonations } from "@/components/web/fundraiser/recent-donations";
 import { ReportFundraiser } from "@/components/web/fundraiser/report-fundraiser";
+import { ShareFundraiser } from "@/components/web/fundraiser/share-fundraiser";
 import { UnderReviewNotice } from "@/components/web/fundraiser/under-review-notice";
 import { WithdrawNotice } from "@/components/web/fundraiser/withdraw-notice";
 import {
@@ -23,18 +27,14 @@ import {
   hasEnded,
 } from "@/lib/fundraiser-dates";
 import { shareDescription, shareMetadata } from "@/lib/share";
+import { canShareFundraiser } from "@/lib/share-links";
+import { absoluteUrl } from "@/lib/seo";
 import { UPDATE_POSTING_STATUSES } from "@/lib/updates";
 
 interface PageProps {
   params: Promise<{ id: string }>;
   searchParams: Promise<{ donation?: string; source?: string }>;
 }
-
-const currencyFormatter = new Intl.NumberFormat("en-KE", {
-  style: "currency",
-  currency: "KES",
-  maximumFractionDigits: 0,
-});
 
 const STATUS_LABELS: Record<string, string> = {
   DRAFT: "Draft",
@@ -77,6 +77,19 @@ function beneficiaryLine(fundraiser: {
 const loadFundraiser = cache(async (id: string) => {
   try {
     return await fetchQuery(api.fundraiser.getFundraiserById, {
+      fundraiserId: id as Id<"fundraisers">,
+    });
+  } catch {
+    return null;
+  }
+});
+
+// The totals and the latest donations, as the first draw of the live parts of
+// the page. A failure is not an error here: they then start from the totals on
+// the fundraiser itself and fill in once the live connection is up.
+const loadActivity = cache(async (id: string) => {
+  try {
+    return await fetchQuery(api.donationActivity.forFundraiser, {
       fundraiserId: id as Id<"fundraisers">,
     });
   } catch {
@@ -152,13 +165,19 @@ export default async function FundraiserPage({
     notFound();
   }
 
-  const progress =
-    fundraiser.goalAmount > 0
-      ? Math.min(
-          100,
-          Math.round((fundraiser.amountRaised / fundraiser.goalAmount) * 100),
-        )
-      : 0;
+  const activity = (await loadActivity(id)) ?? {
+    amountRaised: fundraiser.amountRaised,
+    goalAmount: fundraiser.goalAmount,
+    donorCount: fundraiser.donorCount,
+    recent: [],
+  };
+
+  // The same address the link preview names as the page's own, with no query
+  // string, so the preview WhatsApp shows is the one for this fundraiser.
+  const shareUrl = absoluteUrl(
+    `/fundraiser/${encodeURIComponent(fundraiser._id)}`,
+  );
+  const canShare = canShareFundraiser(fundraiser);
 
   // The hourly sweep marks a fundraiser EXPIRED, but donations stop at the
   // end date itself, so the page shows it as ended straight away.
@@ -181,7 +200,14 @@ export default async function FundraiserPage({
 
   return (
     <main className="min-h-screen max-w-5xl mx-auto w-full pt-24 px-4 pb-16">
-      {donationId && <DonationStatusBanner donationId={donationId} />}
+      {donationId && (
+        <DonationStatusBanner
+          donationId={donationId}
+          share={
+            canShare ? { title: fundraiser.title, url: shareUrl } : undefined
+          }
+        />
+      )}
       {/* grid-cols-1, not the implicit auto column: that one grows to fit its
           widest unbreakable content (a long link in an update, say), and the
           whole page then scrolls sideways on a phone. */}
@@ -245,6 +271,17 @@ export default async function FundraiserPage({
               {beneficiaryLine(fundraiser)}
               {fundraiser.location ? ` · ${fundraiser.location}` : ""}
             </p>
+
+            {/* On a phone the donate card is below the whole story, so the
+                share row is here too. The desktop one is in the card. */}
+            {canShare && (
+              <ShareFundraiser
+                layout="inline"
+                title={fundraiser.title}
+                url={shareUrl}
+                className="pt-1 lg:hidden"
+              />
+            )}
           </div>
 
           <p className="whitespace-pre-wrap break-words text-base leading-relaxed">
@@ -269,30 +306,14 @@ export default async function FundraiserPage({
           <div className="sticky top-20 space-y-3">
             <Card className="py-6">
               <CardContent className="space-y-4">
-                <div className="space-y-1.5">
-                  <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                    <div
-                      className="h-full rounded-full bg-primary transition-[width]"
-                      style={{ width: `${progress}%` }}
-                    />
-                  </div>
-                  <div className="flex items-baseline justify-between">
-                    <span className="text-2xl font-semibold">
-                      {currencyFormatter.format(fundraiser.amountRaised)}
-                    </span>
-                    <span className="text-sm text-muted-foreground">
-                      of {currencyFormatter.format(fundraiser.goalAmount)}
-                    </span>
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    {fundraiser.donorCount}{" "}
-                    {fundraiser.donorCount === 1 ? "donation" : "donations"} ·{" "}
-                    {progress}% funded
-                  </p>
+                <LiveFundraiserStats
+                  fundraiserId={fundraiser._id}
+                  initial={activity}
+                >
                   {endNote && (
                     <p className="text-sm text-muted-foreground">{endNote}</p>
                   )}
-                </div>
+                </LiveFundraiserStats>
 
                 <DonateButton
                   fundraiserId={fundraiser._id}
@@ -300,6 +321,19 @@ export default async function FundraiserPage({
                   // The embed widget links here with ?source=embed. This only
                   // labels the donation; it grants nothing.
                   source={source === "embed" ? "EMBED" : undefined}
+                />
+
+                {canShare && (
+                  <ShareFundraiser
+                    title={fundraiser.title}
+                    url={shareUrl}
+                    className="border-t pt-4"
+                  />
+                )}
+
+                <RecentDonations
+                  fundraiserId={fundraiser._id}
+                  initial={activity}
                 />
               </CardContent>
             </Card>
@@ -311,6 +345,8 @@ export default async function FundraiserPage({
           </div>
         </section>
       </div>
+
+      <DonationPopup fundraiserId={fundraiser._id} ownDonationId={donationId} />
     </main>
   );
 }

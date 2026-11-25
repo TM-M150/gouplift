@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
+import { ShareFundraiser } from "@/components/web/fundraiser/share-fundraiser";
 
 const currencyFormatter = new Intl.NumberFormat("en-KE", {
   style: "currency",
@@ -13,10 +14,14 @@ const currencyFormatter = new Intl.NumberFormat("en-KE", {
 
 interface DonationStatusBannerProps {
   donationId: string;
+  // When given, a donor whose payment has gone through is asked to pass the
+  // fundraiser on: the moment they are likeliest to.
+  share?: { title: string; url: string };
 }
 
 export function DonationStatusBanner({
   donationId,
+  share,
 }: DonationStatusBannerProps) {
   const [dismissed, setDismissed] = useState(false);
   const [capturing, setCapturing] = useState(false);
@@ -116,7 +121,25 @@ export function DonationStatusBanner({
 
   if (status.status === "COMPLETED") {
     return (
-      <BannerShell tone="success" onDismiss={() => setDismissed(true)}>
+      <BannerShell
+        tone="success"
+        onDismiss={() => setDismissed(true)}
+        footer={
+          share && (
+            <div className="space-y-2">
+              <p className="font-medium">
+                Know someone who would want to help? Pass it on.
+              </p>
+              <ShareFundraiser
+                layout="inline"
+                title={share.title}
+                url={share.url}
+                className="sm:max-w-md"
+              />
+            </div>
+          )
+        }
+      >
         Thank you! Your donation of{" "}
         {currencyFormatter.format(status.grossAmount)} has been received.
       </BannerShell>
@@ -144,10 +167,13 @@ function BannerShell({
   tone,
   children,
   onDismiss,
+  footer,
 }: {
   tone: "pending" | "success" | "error";
   children: React.ReactNode;
   onDismiss: () => void;
+  // Under the message, outside its paragraph.
+  footer?: React.ReactNode;
 }) {
   const toneClasses = {
     pending:
@@ -160,17 +186,20 @@ function BannerShell({
 
   return (
     <div
-      className={`mb-6 flex items-start justify-between gap-4 rounded-lg border p-4 text-sm ${toneClasses}`}
+      className={`mb-6 space-y-3 rounded-lg border p-4 text-sm ${toneClasses}`}
     >
-      <p>{children}</p>
-      <button
-        type="button"
-        onClick={onDismiss}
-        aria-label="Dismiss"
-        className="shrink-0 opacity-70 hover:opacity-100"
-      >
-        ✕
-      </button>
+      <div className="flex items-start justify-between gap-4">
+        <p className="min-w-0 flex-1">{children}</p>
+        <button
+          type="button"
+          onClick={onDismiss}
+          aria-label="Dismiss"
+          className="shrink-0 opacity-70 hover:opacity-100"
+        >
+          ✕
+        </button>
+      </div>
+      {footer}
     </div>
   );
 }

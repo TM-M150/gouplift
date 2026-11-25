@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useAction } from "convex/react";
+import { useAction, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import {
@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { MAX_DONOR_NAME_LENGTH } from "@/lib/donation-activity";
 
 // The longest message the box takes.
 const MAX_MESSAGE_LENGTH = 300;
@@ -46,6 +47,11 @@ export function DonateButton({
   const [open, setOpen] = React.useState(false);
   const [provider, setProvider] = React.useState<Provider>("SASAPAY");
   const [amount, setAmount] = React.useState<number | "">("");
+  // Null until the donor types in the box, so that until then it shows the
+  // name on their account, if they are signed in. They can change or clear it.
+  const me = useQuery(api.users.getCurrentUser);
+  const [typedName, setTypedName] = React.useState<string | null>(null);
+  const donorName = typedName ?? me?.name ?? "";
   const [email, setEmail] = React.useState("");
   const [message, setMessage] = React.useState("");
   const [isAnonymous, setIsAnonymous] = React.useState(false);
@@ -84,6 +90,7 @@ export function DonateButton({
         const result = await startDonationCheckout({
           fundraiserId,
           grossAmount,
+          donorName: donorName.trim() || undefined,
           donorEmail: email.trim(),
           message: message.trim() || undefined,
           isAnonymous,
@@ -95,6 +102,7 @@ export function DonateButton({
         const result = await startPayPalCheckout({
           fundraiserId,
           amountUsd: grossAmount,
+          donorName: donorName.trim() || undefined,
           donorEmail: email.trim(),
           message: message.trim() || undefined,
           isAnonymous,
@@ -177,6 +185,26 @@ export function DonateButton({
               }
               required
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="donate-name">Your name (optional)</Label>
+            <Input
+              id="donate-name"
+              type="text"
+              autoComplete="name"
+              autoCapitalize="words"
+              placeholder="e.g. Wanjiru Kamau"
+              value={donorName}
+              onChange={(event) => setTypedName(event.target.value)}
+              maxLength={MAX_DONOR_NAME_LENGTH}
+              disabled={isAnonymous}
+            />
+            <p className="text-xs text-muted-foreground">
+              {isAnonymous
+                ? "Not shown, because you're giving anonymously."
+                : "Shown on the fundraiser with your gift, as your first name and the first letter of your last (Wanjiru K.). Leave it empty to show as “Someone”."}
+            </p>
           </div>
 
           <div className="space-y-2">

@@ -24,6 +24,7 @@ import {
   recordAlert,
   reportProblem,
 } from "./lib/systemAlerts";
+import { normalizeDonorName } from "../lib/donation-activity";
 
 const PAYPAL_BASE_URL = "https://api-m.sandbox.paypal.com"; // Switch to https://api-m.paypal.com for production
 
@@ -89,7 +90,8 @@ export const createPendingPayPalDonation = internalMutation({
     return await ctx.db.insert("donations", {
       fundraiserId: args.fundraiserId,
       donorUserId: args.donorUserId,
-      donorName: args.donorName,
+      // Tidied, as in createPendingDonation.
+      donorName: normalizeDonorName(args.donorName),
       donorEmail: args.donorEmail,
       donorPhone: args.donorPhone,
       isAnonymous: args.isAnonymous,
