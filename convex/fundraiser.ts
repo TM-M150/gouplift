@@ -1,5 +1,6 @@
 import { v, ConvexError } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import type { MutationCtx, QueryCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 import { authComponent } from "./auth";
 import {
@@ -8,9 +9,17 @@ import {
 } from "../lib/validations/fundraiser";
 import { endDateProblem, hasEnded } from "../lib/fundraiser-dates";
 import { canViewFundraiser } from "./lib/fundraiserAccess";
+import { isActiveAdmin } from "./lib/staff";
 
-function requireOwner(user: Doc<"users">, fundraiser: Doc<"fundraisers">) {
-  if (fundraiser.creatorId !== user._id && user.role !== "ADMIN") {
+async function requireOwner(
+  ctx: QueryCtx | MutationCtx,
+  user: Doc<"users">,
+  fundraiser: Doc<"fundraisers">,
+) {
+  if (
+    fundraiser.creatorId !== user._id &&
+    !(await isActiveAdmin(ctx, user))
+  ) {
     throw new ConvexError(
       "You don't have permission to modify this fundraiser.",
     );
@@ -404,7 +413,7 @@ export const updateFundraiser = mutation({
       throw new ConvexError("Fundraiser not found");
     }
 
-    requireOwner(user, fundraiser);
+    await requireOwner(ctx, user, fundraiser);
 
     if (LOCKED_STATUSES.has(fundraiser.status)) {
       throw new ConvexError(
@@ -473,7 +482,7 @@ export const extendEndDate = mutation({
     if (!fundraiser) {
       throw new ConvexError("Fundraiser not found");
     }
-    requireOwner(user, fundraiser);
+    await requireOwner(ctx, user, fundraiser);
 
     const now = Date.now();
     if (fundraiser.status !== "ACTIVE" || hasEnded(fundraiser.endDate, now)) {

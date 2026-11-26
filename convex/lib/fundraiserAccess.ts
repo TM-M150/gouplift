@@ -1,7 +1,7 @@
 import type { Doc } from "../_generated/dataModel";
 import { COMMENT_STATUSES } from "../../lib/comments";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
-import { getCurrentUserDoc } from "./staff";
+import { getCurrentUserDoc, isActiveStaff } from "./staff";
 
 // A draft, a fundraiser waiting for review and a rejected one are not public.
 const RESTRICTED_STATUSES = new Set(["DRAFT", "PENDING_REVIEW", "REJECTED"]);
@@ -64,9 +64,5 @@ export async function canViewFundraiser(
 
   const user = await getCurrentUserDoc(ctx);
   if (!user) return false;
-  return (
-    user._id === fundraiser.creatorId ||
-    user.role === "ADMIN" ||
-    user.role === "MODERATOR"
-  );
+  return user._id === fundraiser.creatorId || (await isActiveStaff(ctx, user));
 }

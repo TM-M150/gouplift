@@ -69,7 +69,12 @@ export default defineSchema({
     .index("by_authUserId", ["authUserId"])
     .index("by_username", ["username"])
     .index("by_email", ["email"])
-    .index("by_phoneNumber", ["phoneNumber"]),
+    .index("by_phoneNumber", ["phoneNumber"])
+    // Finding the staff (admin:listStaff). Every user has an entry, but a
+    // lookup for ADMIN or MODERATOR reads only the few who hold one. Adding it
+    // makes Convex index the existing users once, which is quick while the table
+    // is small; on a table of hundreds of thousands add it with `staged: true`.
+    .index("by_role", ["role"]),
 
   follows: defineTable({
     followerId: v.string(),
@@ -1227,6 +1232,28 @@ export default defineSchema({
   // provider retrying a failing notification doesn't bury the page. It holds
   // no payload and no personal details, only what staff need to find the
   // payment in the provider's dashboard.
+  // Every change to someone's staff role, kept for good (admin:setUserRole).
+  // Roles are only ever changed from the command line, so there is no signed-in
+  // person to record as the one who did it.
+  staffRoleChanges: defineTable({
+    userId: v.id("users"),
+    // The address at the time, so the record still reads right if it changes.
+    email: v.string(),
+    roleBefore: v.union(
+      v.literal("USER"),
+      v.literal("MODERATOR"),
+      v.literal("ADMIN"),
+    ),
+    roleAfter: v.union(
+      v.literal("USER"),
+      v.literal("MODERATOR"),
+      v.literal("ADMIN"),
+    ),
+    // Whether their email was confirmed when the role was changed.
+    emailConfirmed: v.boolean(),
+    changedAt: v.number(),
+  }).index("by_userId", ["userId"]),
+
   systemAlerts: defineTable({
     kind: literalUnion(SYSTEM_ALERT_KINDS),
     // What it is about when one kind covers many payments: the provider's id

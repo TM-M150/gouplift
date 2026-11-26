@@ -20,7 +20,7 @@ vi.mock("./auth", () => ({
       auth: { getUserIdentity: () => Promise<{ subject: string } | null> };
     }) => {
       const identity = await ctx.auth.getUserIdentity();
-      return identity ? { _id: identity.subject } : null;
+      return identity ? { _id: identity.subject, emailVerified: true } : null;
     },
   },
 }));
