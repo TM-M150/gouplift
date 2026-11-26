@@ -1,8 +1,20 @@
 import { ConvexError, v } from "convex/values";
-import { internalMutation, mutation, query } from "./_generated/server";
+import {
+  internalMutation,
+  internalQuery,
+  mutation,
+  query,
+} from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
-import { getStaffUser, requireAdmin, requireStaff } from "./lib/staff";
+import {
+  getStaffStatus,
+  getStaffUser,
+  requireAdmin,
+  requireStaff,
+} from "./lib/staff";
+import { authComponent } from "./auth";
+import { recordAlert } from "./lib/systemAlerts";
 import {
   cleanNote,
   logAction,
@@ -12,6 +24,13 @@ import { getActivePayoutHold } from "./lib/payoutEligibility";
 import { placePayoutHoldFor } from "./lib/payoutHold";
 import { availableBalance } from "../lib/payouts";
 import { SYSTEM_ALERTS } from "../lib/system-alerts";
+import {
+  STAFF_BLOCK_MESSAGES,
+  staffAccessBlock,
+  staffEmailRule,
+  type StaffAccessBlock,
+  type StaffEmailRule,
+} from "../lib/staff-access";
 import {
   getVerificationBlockers,
   ORGANIZATION_REVIEW_CHECK_LABELS,
@@ -58,13 +77,42 @@ async function listDocuments(
     .take(DOCUMENTS_LIMIT);
 }
 
-// Whether the signed-in user is staff. The /admin layout calls this to decide
-// between rendering the admin area and a 404.
+const roleValidator = v.union(
+  v.literal("USER"),
+  v.literal("MODERATOR"),
+  v.literal("ADMIN"),
+);
+const staffRoleValidator = v.union(v.literal("MODERATOR"), v.literal("ADMIN"));
+const staffBlockValidator = v.union(
+  v.literal("EMAIL_NOT_CONFIRMED"),
+  v.literal("EMAIL_DOMAIN_NOT_ALLOWED"),
+);
+
+// Where the signed-in person stands with the admin area. The /admin layout
+// calls this to choose between the admin area, a notice saying what is stopping
+// a staff member, and sending everyone else away.
 export const getStaffAccess = query({
   args: {},
+  returns: v.union(
+    v.object({ state: v.literal("NOT_STAFF") }),
+    v.object({
+      state: v.literal("BLOCKED"),
+      role: staffRoleValidator,
+      block: staffBlockValidator,
+      message: v.string(),
+    }),
+    v.object({
+      state: v.literal("ALLOWED"),
+      role: staffRoleValidator,
+      name: v.string(),
+    }),
+  ),
   handler: async (ctx) => {
-    const staff = await getStaffUser(ctx);
-    return staff ? { role: staff.role, name: staff.displayName } : null;
+    const status = await getStaffStatus(ctx);
+    if (status.state === "BLOCKED") {
+      return { ...status, message: STAFF_BLOCK_MESSAGES[status.block] };
+    }
+    return status;
   },
 });
 
@@ -605,18 +653,31 @@ export const releasePayoutHold = mutation({
   },
 });
 
+// Why a role can't be GIVEN to an account, in words for the person at the
+// command line.
+function grantRefusal(block: StaffAccessBlock, rule: StaffEmailRule): string {
+  if (block === "EMAIL_NOT_CONFIRMED") {
+    return "their email address isn't confirmed yet. Ask them to confirm it (they are asked to after signing in), then run this again.";
+  }
+  return rule.domains.length > 0
+    ? `STAFF_EMAIL_DOMAINS only allows addresses at ${rule.domains.join(", ")}. Use their company account.`
+    : "STAFF_EMAIL_DOMAINS is set but holds no usable domain, so nobody can be given a staff role. Correct it (for example to gouplift.co.ke) or remove it.";
+}
+
 // There is deliberately no public way to grant a role. Bootstrap the first
 // admin (and later staff) from the CLI:
 //   npx convex run admin:setUserRole '{"email":"you@example.com","role":"ADMIN"}'
+// A staff role can only be given to an account whose email is confirmed and, once
+// STAFF_EMAIL_DOMAINS is set, is a company address. Taking a role away
+// ("USER") always works. Every change is kept in staffRoleChanges and raises a
+// STAFF_ROLE_CHANGED alert.
 export const setUserRole = internalMutation({
-  args: {
+  args: { email: v.string(), role: roleValidator },
+  returns: v.object({
     email: v.string(),
-    role: v.union(
-      v.literal("USER"),
-      v.literal("MODERATOR"),
-      v.literal("ADMIN"),
-    ),
-  },
+    role: roleValidator,
+    changed: v.boolean(),
+  }),
   handler: async (ctx, args) => {
     const email = args.email.trim().toLowerCase();
     const user = await ctx.db
@@ -625,8 +686,126 @@ export const setUserRole = internalMutation({
       .unique();
     if (!user) throw new ConvexError(`No user found with email ${email}.`);
 
-    await ctx.db.patch(user._id, { role: args.role, updatedAt: Date.now() });
-    return { email, role: args.role };
+    // The sign-in service's record is the source of truth for whether the
+    // address was confirmed. No record counts as not confirmed.
+    const authUser = await authComponent.getAnyUserById(ctx, user.authUserId);
+    const emailConfirmed = authUser?.emailVerified === true;
+
+    if (args.role !== "USER") {
+      const rule = staffEmailRule(process.env.STAFF_EMAIL_DOMAINS);
+      const block = staffAccessBlock({
+        email: authUser?.email || user.email,
+        emailConfirmed,
+        rule,
+      });
+      if (block) {
+        throw new ConvexError(
+          `Can't make ${email} ${args.role}: ${grantRefusal(block, rule)}`,
+        );
+      }
+    }
+
+    if (user.role === args.role) {
+      return { email, role: args.role, changed: false };
+    }
+
+    const now = Date.now();
+    await ctx.db.patch(user._id, { role: args.role, updatedAt: now });
+    await ctx.db.insert("staffRoleChanges", {
+      userId: user._id,
+      email,
+      roleBefore: user.role,
+      roleAfter: args.role,
+      emailConfirmed,
+      changedAt: now,
+    });
+    await recordAlert(ctx, {
+      kind: "STAFF_ROLE_CHANGED",
+      reference: user._id,
+      detail: `${user.displayName}: ${user.role} to ${args.role}`,
+    });
+    return { email, role: args.role, changed: true };
+  },
+});
+
+const STAFF_LIST_CAP = 50;
+
+// Run this BEFORE turning the company-email rule on (or changing it), so nobody
+// finds out by being locked out:
+//   npx convex run admin:listStaff
+//       who is staff, and whether they can sign in to the admin area now
+//   npx convex run admin:listStaff '{"domains":"gouplift.co.ke"}'
+//       the same, as it WOULD be with that setting
+// `anAdminCanStillSignIn` must be true before the setting is changed.
+export const listStaff = internalQuery({
+  args: { domains: v.optional(v.string()) },
+  returns: v.object({
+    rule: v.object({ enforced: v.boolean(), domains: v.array(v.string()) }),
+    anAdminCanStillSignIn: v.boolean(),
+    truncated: v.boolean(),
+    staff: v.array(
+      v.object({
+        email: v.string(),
+        name: v.string(),
+        role: staffRoleValidator,
+        emailConfirmed: v.boolean(),
+        access: v.union(v.literal("OK"), staffBlockValidator),
+        lastChangedAt: v.union(v.number(), v.null()),
+      }),
+    ),
+  }),
+  handler: async (ctx, args) => {
+    const rule = staffEmailRule(
+      args.domains ?? process.env.STAFF_EMAIL_DOMAINS,
+    );
+    const staff: Array<{
+      email: string;
+      name: string;
+      role: "ADMIN" | "MODERATOR";
+      emailConfirmed: boolean;
+      access: "OK" | StaffAccessBlock;
+      lastChangedAt: number | null;
+    }> = [];
+    let truncated = false;
+
+    for (const role of ["ADMIN", "MODERATOR"] as const) {
+      const rows = await ctx.db
+        .query("users")
+        .withIndex("by_role", (q) => q.eq("role", role))
+        .take(STAFF_LIST_CAP + 1);
+      if (rows.length > STAFF_LIST_CAP) truncated = true;
+
+      for (const user of rows.slice(0, STAFF_LIST_CAP)) {
+        const authUser = await authComponent.getAnyUserById(
+          ctx,
+          user.authUserId,
+        );
+        const email = authUser?.email || user.email;
+        const emailConfirmed = authUser?.emailVerified === true;
+        const last = await ctx.db
+          .query("staffRoleChanges")
+          .withIndex("by_userId", (q) => q.eq("userId", user._id))
+          .order("desc")
+          .first();
+        staff.push({
+          email,
+          name: user.displayName,
+          role,
+          emailConfirmed,
+          access: staffAccessBlock({ email, emailConfirmed, rule }) ?? "OK",
+          lastChangedAt: last?.changedAt ?? null,
+        });
+      }
+    }
+
+    return {
+      rule,
+      anAdminCanStillSignIn: staff.some(
+        (member) => member.role === "ADMIN" && member.access === "OK",
+      ),
+      truncated,
+      staff,
+    };
   },
 });
 

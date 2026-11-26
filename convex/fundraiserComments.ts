@@ -27,7 +27,12 @@ import {
 } from "./lib/adminAudit";
 import { canCommentOn, canViewFundraiser } from "./lib/fundraiserAccess";
 import { consumeRateLimit } from "./lib/rateLimit";
-import { getCurrentUserDoc, getStaffUser, requireStaff } from "./lib/staff";
+import {
+  getCurrentUserDoc,
+  getStaffUser,
+  isActiveStaff,
+  requireStaff,
+} from "./lib/staff";
 
 // Comments: a person who has donated to a fundraiser can say something on its
 // page. (Someone who gave without an account does it through the private link
@@ -77,8 +82,11 @@ function present(row: Doc<"fundraiserComments">, viewerId: Id<"users"> | null) {
   };
 }
 
-function isStaffUser(user: Doc<"users">): boolean {
-  return user.role === "ADMIN" || user.role === "MODERATOR";
+async function isStaffUser(
+  ctx: QueryCtx | MutationCtx,
+  user: Doc<"users">,
+): Promise<boolean> {
+  return await isActiveStaff(ctx, user);
 }
 
 async function requireUser(ctx: QueryCtx | MutationCtx) {
@@ -377,7 +385,7 @@ export const hideComment = mutation({
     if (!comment) throw new ConvexError("Comment not found.");
 
     const fundraiser = await ctx.db.get(comment.fundraiserId);
-    const isStaff = isStaffUser(user);
+    const isStaff = await isStaffUser(ctx, user);
     const isCreator = fundraiser?.creatorId === user._id;
     // Anyone else is told what they'd be told about a comment that isn't there.
     if (!isStaff && !isCreator) throw new ConvexError("Comment not found.");
@@ -437,7 +445,7 @@ export const restoreComment = mutation({
     if (!comment) throw new ConvexError("Comment not found.");
 
     const fundraiser = await ctx.db.get(comment.fundraiserId);
-    const isStaff = isStaffUser(user);
+    const isStaff = await isStaffUser(ctx, user);
     const isCreator = fundraiser?.creatorId === user._id;
     if (!isStaff && !isCreator) throw new ConvexError("Comment not found.");
 

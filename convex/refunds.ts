@@ -12,7 +12,7 @@ import {
   type ParsedPayPalRefund,
 } from "./lib/paypalRefunds";
 import { refundCompletedDonation } from "./lib/refunds";
-import { getCurrentUserDoc, requireAdmin } from "./lib/staff";
+import { getAdminUser, requireAdmin } from "./lib/staff";
 import { getBalance } from "./lib/payoutBalance";
 import { balanceShortfall } from "../lib/payouts";
 
@@ -171,8 +171,7 @@ function fundraiserIdFrom(text: string): string {
 export const listDonationsForRefund = query({
   args: { fundraiser: v.string() },
   handler: async (ctx, args) => {
-    const user = await getCurrentUserDoc(ctx);
-    if (user?.role !== "ADMIN") return null;
+    if (!(await getAdminUser(ctx))) return null;
 
     const fundraiserId = ctx.db.normalizeId(
       "fundraisers",

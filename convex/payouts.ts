@@ -48,7 +48,7 @@ import {
   toOwnerPayoutView,
 } from "./lib/payouts";
 import { isMlro } from "./lib/mlro";
-import { getCurrentUserDoc, requireAdmin } from "./lib/staff";
+import { getAdminUser, getCurrentUserDoc, requireAdmin } from "./lib/staff";
 
 // Taking money out of a fundraiser. The owner asks for an amount; an admin
 // approves it, sends the money from the SasaPay or bank dashboard, and records
@@ -326,8 +326,8 @@ export const listPayoutsForStaff = query({
     ),
   },
   handler: async (ctx, args) => {
-    const user = await getCurrentUserDoc(ctx);
-    if (!user || user.role !== "ADMIN") return [];
+    const user = await getAdminUser(ctx);
+    if (!user) return [];
 
     const rows = await ctx.db
       .query("payouts")
@@ -358,8 +358,8 @@ export const getPayoutForStaff = query({
   // invalid one should read as "not found" rather than throw.
   args: { payoutId: v.string() },
   handler: async (ctx, args) => {
-    const user = await getCurrentUserDoc(ctx);
-    if (!user || user.role !== "ADMIN") return null;
+    const user = await getAdminUser(ctx);
+    if (!user) return null;
 
     const payoutId = ctx.db.normalizeId("payouts", args.payoutId);
     const payout = payoutId ? await ctx.db.get(payoutId) : null;

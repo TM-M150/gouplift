@@ -22,7 +22,12 @@ import { getBalance } from "./lib/payoutBalance";
 import { getActivePayoutHold } from "./lib/payoutEligibility";
 import { placePayoutHoldFor } from "./lib/payoutHold";
 import { consumeRateLimit } from "./lib/rateLimit";
-import { getCurrentUserDoc, getStaffUser, requireStaff } from "./lib/staff";
+import {
+  getCurrentUserDoc,
+  getStaffUser,
+  isActiveStaff,
+  requireStaff,
+} from "./lib/staff";
 import { literalUnion } from "./lib/organizationValidators";
 import { availableBalance } from "../lib/payouts";
 
@@ -738,7 +743,7 @@ export const mySuspension = query({
     const fundraiser = await ctx.db.get(args.fundraiserId);
     if (!fundraiser || !isSuspended(fundraiser)) return null;
 
-    const isStaff = user.role === "ADMIN" || user.role === "MODERATOR";
+    const isStaff = await isActiveStaff(ctx, user);
     if (!isStaff && fundraiser.creatorId !== user._id) return null;
 
     const suspension = await ctx.db

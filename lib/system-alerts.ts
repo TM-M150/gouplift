@@ -27,6 +27,7 @@ export const SYSTEM_ALERT_KINDS = [
   "JOB_UPLOAD_SWEEP_FAILED",
   "JOB_ALERT_PRUNE_FAILED",
   "JOB_SETTLE_DONATION_FAILED",
+  "STAFF_ROLE_CHANGED",
 ] as const;
 
 export type SystemAlertKind = (typeof SYSTEM_ALERT_KINDS)[number];
@@ -105,6 +106,11 @@ export const SYSTEM_ALERTS: Record<
     severity: "ERROR",
     title: "A PayPal donation didn't become withdrawable",
     help: 'A donation\'s waiting period ended, but moving it into the organizer\'s withdrawable balance failed, so their balance is missing it. Nothing tries it again. The reference is the donation\'s id: find its fundraiser, run `npx convex run payoutBalances:rebuildBalance \'{"fundraiserId":"<id>","dryRun":true}\'` to see what would change, then run it again without dryRun to fix it. Then resolve this alert.',
+  },
+  STAFF_ROLE_CHANGED: {
+    severity: "WARNING",
+    title: "A staff role was changed",
+    help: "A moderator or admin role was given or taken away from the command line (the details say whose and what). If that was you, resolve this. If it wasn't, someone else can run commands on your Convex deployment: rotate its deploy keys and check who can open the dashboard. Every change is also kept for good in the staffRoleChanges table.",
   },
 };
 
