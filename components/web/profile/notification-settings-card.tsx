@@ -4,16 +4,12 @@ import * as React from "react";
 import { useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Bell } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { errorMessage } from "@/components/web/admin/utils";
+import { CardHeading } from "./card-heading";
 
 export interface NotificationSettingsViewProps {
   /** Undefined while loading. */
@@ -34,12 +30,11 @@ export function NotificationSettingsView({
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Email notifications</CardTitle>
-        <CardDescription>
-          Choose which emails about your fundraisers you get.
-        </CardDescription>
-      </CardHeader>
+      <CardHeading
+        icon={Bell}
+        title="Email notifications"
+        description="Choose which emails about your fundraisers you get."
+      />
       <CardContent>
         {commentEmails === undefined ? (
           <Skeleton className="h-12 w-full" />
