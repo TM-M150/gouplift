@@ -19,12 +19,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { MAX_DONOR_NAME_LENGTH } from "@/lib/donation-activity";
+import { AMOUNT_PRESETS_KES, AMOUNT_PRESETS_USD } from "@/lib/donation-amounts";
 
 // The longest message the box takes.
 const MAX_MESSAGE_LENGTH = 300;
-
-const AMOUNT_PRESETS_KES = [500, 1000, 2500, 5000];
-const AMOUNT_PRESETS_USD = [5, 10, 25, 50];
 
 type Provider = "SASAPAY" | "PAYPAL";
 

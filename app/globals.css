@@ -31,6 +31,7 @@
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
   --color-muted: var(--muted);
+  --color-mint: var(--mint);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-secondary: var(--secondary);
   --color-primary-foreground: var(--primary-foreground);
@@ -46,6 +47,16 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+  /* The fundraiser progress bar fills once when the page loads. */
+  --animate-grow-x: grow-x 900ms cubic-bezier(0.2, 0.7, 0.2, 1) 300ms both;
+  @keyframes grow-x {
+    from {
+      transform: scaleX(0);
+    }
+    to {
+      transform: scaleX(1);
+    }
+  }
 }
 
 :root {
@@ -73,6 +84,11 @@
   --chart-4: oklch(0.555 0.163 48.998);
   --chart-5: oklch(0.473 0.137 46.201);
   --radius: 0.625rem;
+  /* A light tint of the brand green, for section backgrounds and icon chips.
+     Brand colours: --primary is the deep forest green of the logo, --secondary
+     the bright green of the logo. Bright green is too light for text on white
+     (2.1:1), so use it as a fill with --primary text on top (7.2:1). */
+  --mint: oklch(0.97 0.025 152);
   --sidebar: oklch(0.985 0.001 106.423);
   --sidebar-foreground: oklch(0.147 0.004 49.25);
   --sidebar-primary: oklch(0.2579 0.0531 157.32);
@@ -107,6 +123,7 @@
   --chart-3: oklch(0.666 0.179 58.318);
   --chart-4: oklch(0.555 0.163 48.998);
   --chart-5: oklch(0.473 0.137 46.201);
+  --mint: oklch(0.27 0.04 155);
   --sidebar: oklch(0.216 0.006 56.043);
   --sidebar-foreground: oklch(0.985 0.001 106.423);
   --sidebar-primary: oklch(0.769 0.188 70.08);

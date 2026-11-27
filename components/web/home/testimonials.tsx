@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { Quote } from "lucide-react";
+
+import { HomeSection, SectionHeading } from "@/components/web/home/section";
 import { StarRating } from "@/components/web/testimonials/star-rating";
 
 export interface TestimonialData {
@@ -26,55 +28,54 @@ export function Testimonials({
   if (testimonials.length === 0) return null;
 
   return (
-    <section className="py-16 md:py-20">
-      <div className="mx-auto max-w-7xl space-y-8 px-6 md:space-y-12">
-        <div className="max-w-2xl space-y-2">
-          <h2 className="text-balance text-4xl font-medium tracking-tight lg:text-5xl">
-            What people say about GoUplift
-          </h2>
-          <p className="text-muted-foreground">
-            Shared by people whose identity we have verified, and read by our
-            team before they appear here.
-          </p>
-        </div>
+    <HomeSection tone="mint" labelledBy="testimonials-title">
+      <SectionHeading
+        id="testimonials-title"
+        title="What people say about GoUplift"
+        lead="Shared by people whose identity we have verified, and read by our team before they appear here."
+      />
 
-        <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {testimonials.map((testimonial) => (
-            <li key={testimonial._id}>
-              <figure className="flex h-full flex-col justify-between gap-6 rounded-xl border bg-card p-6">
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <Quote
-                      aria-hidden
-                      className="h-5 w-5 text-muted-foreground"
+      <ul className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        {testimonials.map((testimonial) => (
+          <li key={testimonial._id}>
+            <figure className="flex h-full flex-col justify-between gap-6 rounded-3xl bg-white p-6 sm:p-7">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between gap-3">
+                  <span
+                    aria-hidden
+                    className="flex size-10 items-center justify-center rounded-xl bg-primary text-secondary"
+                  >
+                    <Quote className="size-5" />
+                  </span>
+                  {testimonial.rating !== null && (
+                    <StarRating
+                      rating={testimonial.rating}
+                      filledClassName="fill-secondary text-primary"
                     />
-                    {testimonial.rating !== null && (
-                      <StarRating rating={testimonial.rating} />
-                    )}
-                  </div>
-                  <blockquote className="text-pretty whitespace-pre-line break-words">
-                    {testimonial.message}
-                  </blockquote>
-                </div>
-                <figcaption className="text-sm">
-                  <span className="font-medium">{testimonial.authorName}</span>
-                  {testimonial.fundraiserId && testimonial.fundraiserTitle && (
-                    <span className="text-muted-foreground">
-                      {" on "}
-                      <Link
-                        href={`/fundraiser/${testimonial.fundraiserId}`}
-                        className="underline underline-offset-2 hover:text-foreground"
-                      >
-                        {testimonial.fundraiserTitle}
-                      </Link>
-                    </span>
                   )}
-                </figcaption>
-              </figure>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </section>
+                </div>
+                <blockquote className="text-pretty whitespace-pre-line break-words">
+                  {testimonial.message}
+                </blockquote>
+              </div>
+              <figcaption className="text-sm">
+                <span className="font-medium">{testimonial.authorName}</span>
+                {testimonial.fundraiserId && testimonial.fundraiserTitle && (
+                  <span className="text-primary/70">
+                    {" on "}
+                    <Link
+                      href={`/fundraiser/${testimonial.fundraiserId}`}
+                      className="underline underline-offset-2 hover:text-primary"
+                    >
+                      {testimonial.fundraiserTitle}
+                    </Link>
+                  </span>
+                )}
+              </figcaption>
+            </figure>
+          </li>
+        ))}
+      </ul>
+    </HomeSection>
   );
 }
