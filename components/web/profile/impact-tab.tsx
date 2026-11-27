@@ -12,6 +12,7 @@ import {
   MAX_IMPACT_FUNDRAISERS,
   type Impact,
 } from "@/lib/impact";
+import { IconChip } from "./card-heading";
 import { MyTestimonials } from "./my-testimonials";
 
 export type ImpactFigures = Impact & {
@@ -55,69 +56,80 @@ export function ImpactView({
 
   return (
     <div className="flex flex-col items-center">
-      {loading ? (
-        <Skeleton className="mt-6 h-[60px] w-64" />
-      ) : (
-        <h1 className={`mt-6 font-bold ${headlineSize(headline)}`}>
-          {headline}
-        </h1>
-      )}
+      <Card className="w-full items-center gap-0 px-6 py-10 text-center sm:py-12">
+        {loading ? (
+          <Skeleton className="h-[60px] w-64" />
+        ) : (
+          // Not a heading: the profile's name is the page's one h1.
+          <p
+            className={`font-semibold tabular-nums tracking-tight text-primary ${headlineSize(headline)}`}
+          >
+            {headline}
+          </p>
+        )}
 
-      <p className="mt-2 text-center text-muted-foreground text-lg">
-        Your total impact from donating and organising
-      </p>
-      {hasImpact && (
-        <p className="mt-1 text-center text-sm text-muted-foreground">
-          {formatKes(figures.givenKes)} given · {formatKes(figures.raisedKes)}{" "}
-          raised by your fundraisers
-        </p>
-      )}
-      {!figures.complete && (
-        <p className="mt-1 max-w-md text-center text-xs text-muted-foreground">
-          This counts your {MAX_IMPACT_DONATIONS} most recent donations and{" "}
-          {MAX_IMPACT_FUNDRAISERS} most recent fundraisers, so the real total is
-          higher.
-        </p>
-      )}
+        <span
+          aria-hidden
+          className="mt-5 h-1.5 w-16 rounded-full bg-secondary"
+        />
 
-      <Card className="w-full mt-10 grid grid-cols-2 divide-x rounded-2xl p-5 sm:p-8">
-        <div className="flex items-center gap-3 sm:gap-4">
-          <FileText className="h-6 w-6 shrink-0 text-muted-foreground" />
+        <p className="mt-5 text-pretty text-lg text-primary/70">
+          Your total impact from donating and organising
+        </p>
+        {hasImpact && (
+          <p className="mt-1 text-sm text-primary/70">
+            {formatKes(figures.givenKes)} given · {formatKes(figures.raisedKes)}{" "}
+            raised by your fundraisers
+          </p>
+        )}
+        {!figures.complete && (
+          <p className="mt-2 max-w-md text-xs text-primary/70">
+            This counts your {MAX_IMPACT_DONATIONS} most recent donations and{" "}
+            {MAX_IMPACT_FUNDRAISERS} most recent fundraisers, so the real total
+            is higher.
+          </p>
+        )}
+      </Card>
+
+      <div className="mt-5 grid w-full grid-cols-2 gap-4 sm:gap-5">
+        <Card className="gap-3 p-5 sm:flex-row sm:items-center sm:gap-4 sm:p-6">
+          <IconChip icon={FileText} />
           <div>
             {loading ? (
               <Skeleton className="h-9 w-12" />
             ) : (
-              <div className="text-3xl font-bold">
+              <div className="text-3xl font-semibold tabular-nums text-primary">
                 {count(figures.fundraisersSupported)}
               </div>
             )}
-            <p className="text-muted-foreground">Fundraisers supported</p>
+            <p className="text-primary/70">Fundraisers supported</p>
           </div>
-        </div>
+        </Card>
 
-        <div className="flex items-center gap-3 pl-4 sm:gap-4 sm:pl-8">
-          <Users className="h-6 w-6 shrink-0 text-muted-foreground" />
+        <Card className="gap-3 p-5 sm:flex-row sm:items-center sm:gap-4 sm:p-6">
+          <IconChip icon={Users} />
           <div>
             {loading ? (
               <Skeleton className="h-9 w-12" />
             ) : (
-              <div className="text-3xl font-bold">
+              <div className="text-3xl font-semibold tabular-nums text-primary">
                 {count(figures.donationsReceived)}
               </div>
             )}
-            <p className="text-muted-foreground">
-              Donations to your fundraisers
-            </p>
+            <p className="text-primary/70">Donations to your fundraisers</p>
           </div>
-        </div>
-      </Card>
+        </Card>
+      </div>
 
       {!loading && (
-        <Link href="/fundraisers" className="block w-full">
-          <Card className="mt-8 rounded-3xl border-0 bg-primary p-8 text-white shadow-none transition-opacity hover:opacity-95">
+        <Link
+          href="/fundraisers"
+          className="mt-5 block w-full rounded-3xl focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
+        >
+          <Card className="rounded-3xl border-0 bg-primary p-8 text-white shadow-none ring-0 transition-opacity hover:opacity-95">
             <div className="space-y-6">
               <div>
-                <h2 className="text-3xl font-bold tracking-tight">
+                <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
                   {hasImpact
                     ? "Keep making a difference"
                     : "Start seeing your impact"}
@@ -130,7 +142,7 @@ export function ImpactView({
                 </p>
               </div>
 
-              <div className="inline-flex items-center gap-2 text-lg font-semibold">
+              <div className="inline-flex h-11 items-center gap-2 rounded-full bg-secondary px-6 text-base font-semibold text-primary">
                 Find a fundraiser
                 <ChevronRight className="h-5 w-5" />
               </div>

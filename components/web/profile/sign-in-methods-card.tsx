@@ -7,13 +7,7 @@ import { FaGoogle } from "react-icons/fa6";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogClose,
@@ -26,6 +20,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { authClient } from "@/lib/auth-client";
+import { CardHeading } from "./card-heading";
 import { signInHref } from "@/lib/safe-redirect";
 import {
   GOOGLE_CONNECTED_PATH,
@@ -73,7 +68,7 @@ function MethodRow({
   return (
     <div className="flex flex-col gap-3 py-4 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex min-w-0 items-start gap-3">
-        <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full bg-muted">
+        <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full bg-mint">
           {icon}
         </div>
         <div className="min-w-0 space-y-0.5 text-sm">
@@ -127,7 +122,7 @@ export function SignInMethodsView({
   } else {
     const connecting = busy === "connect";
     body = (
-      <div className="divide-y">
+      <div className="divide-y divide-primary/10">
         <MethodRow
           icon={<FaGoogle className="size-4 text-[#EA4335]" aria-hidden />}
           title="Google"
@@ -185,19 +180,18 @@ export function SignInMethodsView({
   return (
     <>
       <Card>
-        <CardHeader>
-          <CardTitle>Sign-in methods</CardTitle>
-          <CardDescription>
-            The ways you can sign in to your GoUplift account.
-          </CardDescription>
-        </CardHeader>
+        <CardHeading
+          icon={KeyRound}
+          title="Sign-in methods"
+          description="The ways you can sign in to your GoUplift account."
+        />
         <CardContent className="space-y-4">
           {body}
 
           {staleSignIn && (
             <div
               role="alert"
-              className="flex flex-col gap-3 rounded-lg border bg-muted/50 p-4 text-sm sm:flex-row sm:items-center sm:justify-between"
+              className="flex flex-col gap-3 rounded-2xl border border-primary/15 bg-mint p-4 text-sm sm:flex-row sm:items-center sm:justify-between"
             >
               <p>
                 For your security, please sign in again before disconnecting

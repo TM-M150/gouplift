@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { MessageSquareQuote } from "lucide-react";
 import { useMutation, useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
 import { toast } from "sonner";
@@ -25,6 +26,11 @@ import {
   type TestimonialField,
 } from "@/lib/testimonials";
 import { cn } from "@/lib/utils";
+import { FIELD_CLASS, IconChip } from "./card-heading";
+
+// The section sits in a white card on the profile's light green page.
+const SECTION_CARD =
+  "mt-5 w-full rounded-3xl bg-card p-6 shadow-sm ring-1 ring-primary/10 sm:p-8";
 
 export type MyTestimonialRow = FunctionReturnType<
   typeof api.testimonials.listMine
@@ -209,7 +215,7 @@ function TestimonialForm({
             clear("message");
           }}
           placeholder="What has GoUplift been like for you?"
-          className="min-h-28"
+          className={cn(FIELD_CLASS, "min-h-28")}
           maxLength={MAX_TESTIMONIAL_LENGTH + 100}
           disabled={submitting}
           aria-invalid={errors.message ? true : undefined}
@@ -248,7 +254,7 @@ function TestimonialForm({
             clear("recommendation");
           }}
           placeholder="Something we should do better, or add."
-          className="min-h-24"
+          className={cn(FIELD_CLASS, "min-h-24")}
           maxLength={MAX_RECOMMENDATION_LENGTH + 100}
           disabled={submitting}
           aria-invalid={errors.recommendation ? true : undefined}
@@ -318,7 +324,7 @@ function OlderTestimonial({
   const canWithdraw = row.status === "PENDING" || row.status === "APPROVED";
 
   return (
-    <li className="space-y-2 rounded-xl border p-4">
+    <li className="space-y-2 rounded-2xl border border-primary/15 p-4">
       <p className="text-sm whitespace-pre-line break-words">“{row.message}”</p>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
@@ -362,7 +368,7 @@ export function MyTestimonialView({ rows, actions }: MyTestimonialViewProps) {
 
   if (rows === undefined) {
     return (
-      <section className="mt-10 w-full space-y-3">
+      <section className={cn(SECTION_CARD, "space-y-3")}>
         <Skeleton className="h-7 w-48" />
         <Skeleton className="h-40 w-full" />
       </section>
@@ -377,24 +383,30 @@ export function MyTestimonialView({ rows, actions }: MyTestimonialViewProps) {
   return (
     <section
       aria-labelledby="my-testimonial"
-      className="mt-10 w-full space-y-4"
+      className={cn(SECTION_CARD, "space-y-5")}
     >
-      <div className="space-y-1">
-        <h2 id="my-testimonial" className="text-xl font-semibold">
-          Your testimonial
-        </h2>
-        <p className="text-sm text-muted-foreground">
-          Tell us what GoUplift has been like for you. Our team reads every
-          testimonial before it can appear on our homepage, under your first
-          name and the initial of your last name. It is only shown for accounts
-          with approved identity verification, such as people approved to
-          receive payouts. Everyone&apos;s suggestions help us, whether it is
-          shown or not.
-        </p>
+      <div className="flex items-start gap-4">
+        <IconChip icon={MessageSquareQuote} />
+        <div className="min-w-0 space-y-1">
+          <h2
+            id="my-testimonial"
+            className="text-lg font-semibold tracking-tight text-primary"
+          >
+            Your testimonial
+          </h2>
+          <p className="text-sm text-primary/70">
+            Tell us what GoUplift has been like for you. Our team reads every
+            testimonial before it can appear on our homepage, under your first
+            name and the initial of your last name. It is only shown for
+            accounts with approved identity verification, such as people
+            approved to receive payouts. Everyone&apos;s suggestions help us,
+            whether it is shown or not.
+          </p>
+        </div>
       </div>
 
       {mine && status && (
-        <div className="space-y-2 rounded-xl border p-4">
+        <div className="space-y-2 rounded-2xl border border-primary/15 p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant={status.variant}>{status.label}</Badge>
@@ -429,13 +441,13 @@ export function MyTestimonialView({ rows, actions }: MyTestimonialViewProps) {
         </div>
       )}
 
-      <div className="rounded-xl border p-4">
+      <div className="rounded-2xl border border-primary/15 p-4 sm:p-5">
         <TestimonialForm row={mine} onSave={actions.save} />
       </div>
 
       {older.length > 0 && (
         <div className="space-y-3 pt-2">
-          <h3 className="text-base font-semibold">
+          <h3 className="text-base font-semibold text-primary">
             Messages you offered when you donated
           </h3>
           <ul className="space-y-3">

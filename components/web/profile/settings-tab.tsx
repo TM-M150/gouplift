@@ -9,13 +9,8 @@ import { ConvexError } from "convex/values";
 import { z } from "zod";
 
 import { api } from "@/convex/_generated/api";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { LockKeyhole, Mail, UserRound } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -29,6 +24,10 @@ import {
 import { authClient } from "@/lib/auth-client";
 import { NotificationSettingsCard } from "@/components/web/profile/notification-settings-card";
 import { SignInMethodsCard } from "@/components/web/profile/sign-in-methods-card";
+import {
+  CardHeading,
+  FIELD_CLASS,
+} from "@/components/web/profile/card-heading";
 
 const accountDetailsSchema = profileSchema.pick({
   username: true,
@@ -39,7 +38,7 @@ type AccountDetailsValues = z.infer<typeof accountDetailsSchema>;
 
 export function SettingsTab() {
   return (
-    <div className="space-y-6 p-1">
+    <div className="space-y-5">
       <AccountDetailsCard />
       <ContactInfoCard />
       <NotificationSettingsCard />
@@ -95,10 +94,11 @@ function AccountDetailsCard() {
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Account details</CardTitle>
-        <CardDescription>Your username, location, and website.</CardDescription>
-      </CardHeader>
+      <CardHeading
+        icon={UserRound}
+        title="Account details"
+        description="Your username, location, and website."
+      />
       <CardContent>
         {profile === undefined ? (
           <Skeleton className="h-40 w-full" />
@@ -108,6 +108,7 @@ function AccountDetailsCard() {
               <Field>
                 <FieldLabel htmlFor="username">Username</FieldLabel>
                 <Input
+                  className={FIELD_CLASS}
                   id="username"
                   placeholder="e.g. wanjiru_k"
                   aria-invalid={!!errors.username}
@@ -123,6 +124,7 @@ function AccountDetailsCard() {
               <Field>
                 <FieldLabel htmlFor="location">Location</FieldLabel>
                 <Input
+                  className={FIELD_CLASS}
                   id="location"
                   placeholder="Nairobi, Kenya"
                   aria-invalid={!!errors.location}
@@ -138,6 +140,7 @@ function AccountDetailsCard() {
               <Field>
                 <FieldLabel htmlFor="website">Website</FieldLabel>
                 <Input
+                  className={FIELD_CLASS}
                   id="website"
                   type="url"
                   placeholder="https://example.com"
@@ -176,18 +179,17 @@ function ContactInfoCard() {
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Contact info</CardTitle>
-        <CardDescription>
-          Used for sign-in and receipts. Contact support to change these.
-        </CardDescription>
-      </CardHeader>
+      <CardHeading
+        icon={Mail}
+        title="Contact info"
+        description="Used for sign-in and receipts. Contact support to change these."
+      />
       <CardContent className="space-y-3 text-sm">
         {profile === undefined ? (
           <Skeleton className="h-16 w-full" />
         ) : (
           <>
-            <div className="flex justify-between border-b pb-3">
+            <div className="flex justify-between border-b border-primary/10 pb-3">
               <span className="text-muted-foreground">Email</span>
               <span>{profile?.email ?? "—"}</span>
             </div>
@@ -235,10 +237,11 @@ function ChangePasswordCard() {
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Password</CardTitle>
-        <CardDescription>Change your account password.</CardDescription>
-      </CardHeader>
+      <CardHeading
+        icon={LockKeyhole}
+        title="Password"
+        description="Change your account password."
+      />
       <CardContent>
         <form onSubmit={handleSubmit(onSubmit)}>
           <FieldGroup>
@@ -247,6 +250,7 @@ function ChangePasswordCard() {
                 Current password
               </FieldLabel>
               <Input
+                className={FIELD_CLASS}
                 id="currentPassword"
                 type="password"
                 autoComplete="current-password"
@@ -263,6 +267,7 @@ function ChangePasswordCard() {
             <Field>
               <FieldLabel htmlFor="newPassword">New password</FieldLabel>
               <Input
+                className={FIELD_CLASS}
                 id="newPassword"
                 type="password"
                 autoComplete="new-password"
@@ -281,6 +286,7 @@ function ChangePasswordCard() {
                 Confirm new password
               </FieldLabel>
               <Input
+                className={FIELD_CLASS}
                 id="confirmNewPassword"
                 type="password"
                 autoComplete="new-password"

@@ -3,21 +3,16 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { GraduationCap, X } from "lucide-react";
+import { GraduationCap, Heart, UserRound, X } from "lucide-react";
 import { toast } from "sonner";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { clampToWordLimit, countWords, MAX_BIO_WORDS } from "@/lib/utils";
+import { CardHeading, FIELD_CLASS } from "./card-heading";
 import { EmptyStateBox } from "./empty-state-box";
 
 export function AdditionalInfoTab() {
@@ -85,20 +80,17 @@ export function AdditionalInfoTab() {
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="text-center mt-6 text-6xl font-bold">
-          Additional Information
-        </CardTitle>
-        <CardDescription className="mt-2 text-center text-muted-foreground text-lg">
-          Write a little about yourself and courses you care about
-        </CardDescription>
-      </CardHeader>
+      <CardHeading
+        icon={UserRound}
+        title="Additional Information"
+        description="Write a little about yourself and courses you care about"
+      />
 
-      <CardContent className="space-y-10">
+      <CardContent className="space-y-8">
         <section>
-          <h3 className="mb-3 text-sm font-semibold text-foreground">
+          <h2 className="mb-3 text-base font-semibold text-primary">
             What I care about
-          </h3>
+          </h2>
 
           {isEditingBio ? (
             <div className="space-y-2">
@@ -114,7 +106,7 @@ export function AdditionalInfoTab() {
                   setBio(clampToWordLimit(e.target.value, MAX_BIO_WORDS))
                 }
                 autoFocus
-                className="min-h-[192px]"
+                className={`${FIELD_CLASS} min-h-[192px]`}
                 onBlur={() => saveBio(bio)}
               />
               <p
@@ -128,14 +120,18 @@ export function AdditionalInfoTab() {
               </p>
             </div>
           ) : bio ? (
-            <div
+            <button
+              type="button"
               onClick={() => setIsEditingBio(true)}
-              className="min-h-[192px] cursor-pointer whitespace-pre-wrap rounded-xl border px-4 py-3 text-sm hover:bg-muted/40"
+              className="flex min-h-[192px] w-full cursor-pointer items-start rounded-2xl border border-primary/15 px-4 py-3 text-left text-sm text-primary transition-colors hover:bg-mint focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             >
-              {bio}
-            </div>
+              <span className="min-w-0 whitespace-pre-wrap break-words">
+                {bio}
+              </span>
+            </button>
           ) : (
             <EmptyStateBox
+              icon={Heart}
               description="Share what you care about and connect with people who support similar causes."
               actionLabel="Add intro"
               onAction={() => setIsEditingBio(true)}
@@ -144,23 +140,24 @@ export function AdditionalInfoTab() {
         </section>
 
         <section>
-          <h3 className="mb-3 text-sm font-semibold text-foreground">
+          <h2 className="mb-3 text-base font-semibold text-primary">
             My featured courses
-          </h3>
+          </h2>
 
           {courses.length > 0 || isAddingCourse ? (
-            <div className="min-h-[192px] flex flex-wrap items-center gap-2 rounded-xl border px-4 py-3">
+            <div className="flex min-h-28 flex-wrap content-start items-center gap-2 rounded-2xl border border-primary/15 px-4 py-3">
               {courses.map((course) => (
                 <Badge
                   key={course}
                   variant="secondary"
-                  className="gap-1 py-1.5 pl-3 pr-1.5 text-sm"
+                  className="h-auto gap-1 py-1.5 pl-3 pr-1.5 text-sm"
                 >
                   {course}
                   <button
                     type="button"
                     onClick={() => removeCourse(course)}
-                    className="rounded-full p-0.5 hover:bg-muted-foreground/20"
+                    aria-label={`Remove ${course}`}
+                    className="rounded-full p-0.5 hover:bg-primary/15 focus-visible:outline-2 focus-visible:outline-primary"
                   >
                     <X className="h-3 w-3" />
                   </button>
@@ -178,17 +175,12 @@ export function AdditionalInfoTab() {
                 onBlur={addCourse}
                 placeholder="Type a course and press Enter"
                 autoFocus={isAddingCourse}
-                className="h-8 min-w-40 flex-1 border-none px-1 shadow-none focus-visible:ring-0"
+                className="h-8 min-w-40 flex-1 border-none bg-mint px-3 shadow-none focus-visible:ring-0"
               />
             </div>
           ) : (
             <EmptyStateBox
-              icon={
-                <GraduationCap
-                  className="h-9 w-9 text-muted-foreground/40"
-                  strokeWidth={1.5}
-                />
-              }
+              icon={GraduationCap}
               description="Start adding the courses and topics you care about."
               actionLabel="Add courses"
               onAction={() => setIsAddingCourse(true)}
