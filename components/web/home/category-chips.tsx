@@ -26,10 +26,13 @@ export function CategoryChips({ categories }: { categories: CategoryCount[] }) {
           <li key={category.type}>
             <Link
               href={`/fundraisers#${fundraiserTypeAnchor(category.type)}`}
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+              className={cn(
+                buttonVariants({ variant: "outline", size: "sm" }),
+                "h-9 rounded-full border-primary/20 bg-white px-4 text-primary hover:bg-mint hover:text-primary",
+              )}
             >
               {formatFundraiserType(category.type)}
-              <span className="text-muted-foreground">{category.count}</span>
+              <span className="text-primary/70">{category.count}</span>
             </Link>
           </li>
         ))}

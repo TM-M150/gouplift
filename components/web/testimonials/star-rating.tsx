@@ -18,9 +18,12 @@ function starLabel(rating: number): string {
 export function StarRating({
   rating,
   className,
+  filledClassName = "fill-amber-400 text-amber-500",
 }: {
   rating: number;
   className?: string;
+  /** The colours of a filled star. Amber unless a page wants its own. */
+  filledClassName?: string;
 }) {
   return (
     <span
@@ -34,9 +37,7 @@ export function StarRating({
           aria-hidden
           className={cn(
             "size-4",
-            star <= rating
-              ? "fill-amber-400 text-amber-500"
-              : "text-muted-foreground/40",
+            star <= rating ? filledClassName : "text-muted-foreground/40",
           )}
         />
       ))}
