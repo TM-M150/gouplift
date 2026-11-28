@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { absoluteUrl } from "./seo";
+import { SHARE_CARD_SIZE } from "./share-card";
 import { SHARE_IMAGE, SITE_NAME } from "./site";
 
 // What shows when a link to a fundraiser or an organization is pasted into
@@ -120,13 +121,25 @@ export function shareMetadata(input: {
   shareTitle?: string;
   description: string;
   /** The page's own pictures, best first. None: the GoUplift logo card. */
-  images: ReadonlyArray<string | null | undefined>;
+  images?: ReadonlyArray<string | null | undefined>;
+  /**
+   * A picture drawn for this page (a fundraiser's share card), by its address
+   * from the root. It is used instead of `images`, at the size it is drawn.
+   */
+  card?: string;
   /** What the picture shows, for people who can't see it. */
   imageAlt: string;
 }): Metadata {
   const url = absoluteUrl(input.path);
   const title = input.shareTitle ?? input.title;
-  const image = shareImage(input.images, input.imageAlt);
+  const image: ShareImage = input.card
+    ? {
+        url: input.card,
+        alt: input.imageAlt,
+        width: SHARE_CARD_SIZE.width,
+        height: SHARE_CARD_SIZE.height,
+      }
+    : shareImage(input.images ?? [], input.imageAlt);
 
   return {
     title: input.title,

@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import {
   SITE_DESCRIPTION,
   SITE_NAME,
+  SITE_PEOPLE,
   SITE_TITLE,
   SITE_URL,
 } from "@/lib/site";
@@ -32,6 +33,9 @@ export const metadata: Metadata = {
   title: SITE_TITLE,
   description: SITE_DESCRIPTION,
   applicationName: SITE_NAME,
+  // Pages inherit these: only openGraph and twitter are replaced by a page's own.
+  authors: [{ name: SITE_PEOPLE.idea }, { name: SITE_PEOPLE.builder }],
+  creator: SITE_PEOPLE.builder,
   // Pages that define their own openGraph/twitter replace these wholesale,
   // so the defaults carry no per-page url.
   openGraph: {

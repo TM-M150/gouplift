@@ -40,6 +40,12 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  // The fonts the fundraiser share card is drawn with are read from disk when
+  // it is made, so they are named here to be shipped with that route. (`*`
+  // stands for the [id] part: in a key, square brackets mean something else.)
+  outputFileTracingIncludes: {
+    "/fundraiser/*/share-image": ["./assets/fonts/**/*"],
+  },
   // gouplift.co.ke is only a way in: it sends people to the real site.
   async redirects() {
     return canonicalHostRedirects();

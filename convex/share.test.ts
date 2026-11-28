@@ -8,6 +8,7 @@ import {
   shareMetadata,
   SHARE_DESCRIPTION_LENGTH,
 } from "../lib/share";
+import { SHARE_CARD_SIZE } from "../lib/share-card";
 import { SHARE_IMAGE, SITE_NAME, SITE_URL } from "../lib/site";
 
 const STORED = "https://happy-animal-123.convex.cloud/api/storage/abc-def";
@@ -222,6 +223,38 @@ describe("a page's share metadata", () => {
     expect(org.title).toBe("Tumaini Trust | GoUplift");
     expect(org.openGraph?.title).toBe("Tumaini Trust");
     expect(org.twitter?.title).toBe("Tumaini Trust");
+  });
+
+  it("can use a card drawn for the page, at the size it is drawn, instead of the page's own pictures", () => {
+    const fundraiser = shareMetadata({
+      path: "/fundraiser/k17abc",
+      title: "Water for Kajiado",
+      description: "d",
+      images: [STORED],
+      card: "/fundraiser/k17abc/share-image?v=1-100-2",
+      imageAlt: "Water for Kajiado: Ksh 100 raised of Ksh 400,000",
+    });
+    const expected = [
+      {
+        url: "/fundraiser/k17abc/share-image?v=1-100-2",
+        alt: "Water for Kajiado: Ksh 100 raised of Ksh 400,000",
+        width: SHARE_CARD_SIZE.width,
+        height: SHARE_CARD_SIZE.height,
+      },
+    ];
+    expect(fundraiser.openGraph?.images).toEqual(expected);
+    expect(fundraiser.twitter?.images).toEqual(expected);
+  });
+
+  it("needs no list of pictures when it has a card", () => {
+    const withCard = shareMetadata({
+      path: "/fundraiser/k17abc",
+      title: "t",
+      description: "d",
+      card: "/fundraiser/k17abc/share-image",
+      imageAlt: "t",
+    });
+    expect(withCard.openGraph?.images).toHaveLength(1);
   });
 
   it("falls back to the logo card, with its own words for it, when there is no picture", () => {

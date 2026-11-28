@@ -14,6 +14,16 @@ export const SHARE_IMAGE = {
   alt: "GoUplift: crowdfunding for Kenya",
 };
 
+/**
+ * The people behind GoUplift, named in every page's metadata (the author tags
+ * in the page's head, which search engines and link previews can read). The
+ * idea for GoUplift is Darius Densel's; the website was built by Tommy Maro.
+ */
+export const SITE_PEOPLE = {
+  idea: "Darius Densel",
+  builder: "Tommy Maro",
+} as const;
+
 export const SITE_DESCRIPTION =
   "GoUplift is a Kenyan crowdfunding platform. Start a fundraiser, tell your story and accept donations in Kenyan shillings through SasaPay or in US dollars through PayPal.";
 

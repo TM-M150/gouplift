@@ -27,6 +27,7 @@ import {
   hasEnded,
 } from "@/lib/fundraiser-dates";
 import { shareDescription, shareMetadata } from "@/lib/share";
+import { shareCardFigures, shareCardPath } from "@/lib/share-card";
 import { canShareFundraiser } from "@/lib/share-links";
 import { absoluteUrl } from "@/lib/seo";
 import { UPDATE_POSTING_STATUSES } from "@/lib/updates";
@@ -130,6 +131,9 @@ export async function generateMetadata({
 
   // The canonical address has no query string, so a link carrying
   // ?donation=... or ?source=... is still the same page to a search engine.
+  // The picture is a card drawn for this fundraiser (its photo, title, total
+  // and progress bar), not just its photo, which is whatever shape it was taken.
+  const figures = shareCardFigures(fundraiser);
   return shareMetadata({
     path: `/fundraiser/${encodeURIComponent(fundraiser._id)}`,
     title: fundraiser.title,
@@ -137,8 +141,8 @@ export async function generateMetadata({
       [fundraiser.tagline, fundraiser.story],
       "Support this fundraiser on GoUplift.",
     ),
-    images: [fundraiser.coverImageUrl],
-    imageAlt: fundraiser.title,
+    card: shareCardPath(fundraiser),
+    imageAlt: `${fundraiser.title}: ${figures.headline} ${figures.caption}`,
   });
 }
 
